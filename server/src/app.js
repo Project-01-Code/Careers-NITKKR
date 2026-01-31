@@ -1,0 +1,97 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
+
+import { errorHandler } from './middlewares/error.middleware.js';
+import {
+    CORS_OPTIONS,
+    RATE_LIMIT,
+    REQUEST_LIMITS,
+    NODE_ENV,
+    HTTP_STATUS
+} from './constants.js';
+
+const app = express();
+
+/* ------------------- SECURITY MIDDLEWARE ------------------- */
+
+// Helmet - Security headers
+app.use(helmet({
+    contentSecurityPolicy: process.env.NODE_ENV === NODE_ENV.PRODUCTION,
+    crossOriginEmbedderPolicy: false
+}));
+
+// CORS - Cross-origin resource sharing
+app.use(cors({
+    origin: CORS_OPTIONS.ORIGIN,
+    credentials: CORS_OPTIONS.CREDENTIALS,
+    methods: CORS_OPTIONS.METHODS,
+    allowedHeaders: CORS_OPTIONS.ALLOWED_HEADERS
+}));
+
+// Rate limiting - Prevent abuse
+const limiter = rateLimit({
+    windowMs: RATE_LIMIT.WINDOW_MS,
+    max: RATE_LIMIT.MAX_REQUESTS,
+    message: RATE_LIMIT.MESSAGE,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use('/api', limiter);
+
+/* ------------------- GENERAL MIDDLEWARE ------------------- */
+
+// Compression - Compress response bodies
+app.use(compression());
+
+// Logging - Request logging (only in development)
+if (process.env.NODE_ENV !== NODE_ENV.PRODUCTION) {
+    app.use(morgan('dev'));
+} else {
+    app.use(morgan('combined'));
+}
+
+// Body parsing
+app.use(express.json({ limit: REQUEST_LIMITS.JSON_LIMIT }));
+app.use(express.urlencoded({
+    extended: true,
+    limit: REQUEST_LIMITS.URL_ENCODED_LIMIT,
+    parameterLimit: REQUEST_LIMITS.PARAMETER_LIMIT
+}));
+
+// Cookie parsing
+app.use(cookieParser());
+
+/* ------------------- HEALTH CHECK ------------------- */
+
+app.get('/health', (req, res) => {
+    res.status(HTTP_STATUS.OK).json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
+
+/* ------------------- API ROUTES ------------------- */
+
+// TODO: Add application routes here
+// Example: app.use('/api/notices', noticeRoutes);
+
+/* ------------------- ERROR HANDLING ------------------- */
+
+// 404 handler
+app.use((req, res) => {
+    res.status(HTTP_STATUS.NOT_FOUND).json({
+        success: false,
+        message: 'Route not found'
+    });
+});
+
+// Global error handler
+app.use(errorHandler);
+
+export default app;
