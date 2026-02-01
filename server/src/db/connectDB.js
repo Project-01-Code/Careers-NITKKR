@@ -1,7 +1,16 @@
-import mongoose from "mongoose";
-import { DB_NAME, DB_CONFIG } from "../constants.js";
+import mongoose from 'mongoose';
+import { DB_NAME, DB_CONFIG } from '../constants.js';
 
 export const connectDB = async () => {
+  mongoose.connection.on('error', (err) =>
+    console.error('❌ MongoDB error:', err)
+  );
+  mongoose.connection.on('disconnected', () =>
+    console.warn('⚠️  MongoDB disconnected')
+  );
+  mongoose.connection.on('reconnected', () =>
+    console.log('♻️  MongoDB reconnected')
+  );
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI, {
       dbName: DB_NAME,
@@ -10,13 +19,13 @@ export const connectDB = async () => {
       serverSelectionTimeoutMS: DB_CONFIG.SERVER_SELECTION_TIMEOUT,
       socketTimeoutMS: DB_CONFIG.SOCKET_TIMEOUT,
       autoIndex: DB_CONFIG.AUTO_INDEX,
-      maxIdleTimeMS: DB_CONFIG.MAX_IDLE_TIME
+      maxIdleTimeMS: DB_CONFIG.MAX_IDLE_TIME,
     });
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     console.log(`📁 Database: ${conn.connection.name}`);
   } catch (error) {
-    console.error("❌ MongoDB connection failed:", error.message);
+    console.error('❌ MongoDB connection failed:', error.message);
     throw error;
   }
 };

@@ -8,7 +8,7 @@
 export const NODE_ENV = {
   DEVELOPMENT: 'development',
   PRODUCTION: 'production',
-  TEST: 'test'
+  TEST: 'test',
 };
 
 /* ---------------- HTTP ---------------- */
@@ -25,7 +25,7 @@ export const HTTP_STATUS = {
   UNPROCESSABLE_ENTITY: 422,
   TOO_MANY_REQUESTS: 429,
   INTERNAL_SERVER_ERROR: 500,
-  SERVICE_UNAVAILABLE: 503
+  SERVICE_UNAVAILABLE: 503,
 };
 
 /* ---------------- MESSAGES ---------------- */
@@ -36,7 +36,7 @@ export const ERROR_MESSAGES = {
   VALIDATION_ERROR: 'Validation failed',
   FILE_UPLOAD_ERROR: 'File upload failed',
   INVALID_FILE_TYPE: 'Invalid file type. Only PDF files are allowed.',
-  RATE_LIMIT_EXCEEDED: 'Too many requests, please try again later'
+  RATE_LIMIT_EXCEEDED: 'Too many requests, please try again later',
 };
 
 /* ---------------- DATABASE ---------------- */
@@ -49,17 +49,8 @@ export const DB_CONFIG = {
   SERVER_SELECTION_TIMEOUT: 5000,
   SOCKET_TIMEOUT: 45000,
   AUTO_INDEX: false,
-  MAX_IDLE_TIME: 10000
+  MAX_IDLE_TIME: 10000,
 };
-
-export const NOTICE_CATEGORIES = [
-  'Faculty Recruitment',
-  'Non-Teaching Positions',
-  'Project & Research Staff',
-  'Guest & Adjunct Faculty',
-  'Results & Shortlisting',
-  'Important Notifications',
-];
 
 /* ---------------- PAGINATION ---------------- */
 
@@ -74,7 +65,7 @@ export const PAGINATION = {
 export const RATE_LIMIT = {
   WINDOW_MS: 15 * 60 * 1000, // 15 minutes
   MAX_REQUESTS: 100, // limit each IP to 100 requests per windowMs
-  MESSAGE: ERROR_MESSAGES.RATE_LIMIT_EXCEEDED
+  MESSAGE: ERROR_MESSAGES.RATE_LIMIT_EXCEEDED,
 };
 
 /* ---------------- CORS ---------------- */
@@ -83,7 +74,7 @@ export const CORS_OPTIONS = {
   ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3000',
   CREDENTIALS: true,
   METHODS: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  ALLOWED_HEADERS: ['Content-Type', 'Authorization']
+  ALLOWED_HEADERS: ['Content-Type', 'Authorization'],
 };
 
 /* ---------------- REQUEST ---------------- */
@@ -91,5 +82,5 @@ export const CORS_OPTIONS = {
 export const REQUEST_LIMITS = {
   JSON_LIMIT: '10mb',
   URL_ENCODED_LIMIT: '10mb',
-  PARAMETER_LIMIT: 1000
+  PARAMETER_LIMIT: 1000,
 };

@@ -1,87 +1,91 @@
-import dotenv from "dotenv";
-import http from "http";
-import app from "./app.js";
-import { initDB } from "./db/index.js";
+import dotenv from 'dotenv';
+import http from 'http';
+import mongoose from 'mongoose';
+import app from './app.js';
+import { connectDB } from './db/connectDB.js';
 
 // Load environment variables
 dotenv.config();
 
-/* ------------------- GLOBAL ERROR SAFETY ------------------- */
-
-// Handle uncaught exceptions
-process.on("uncaughtException", (err) => {
-  console.error("❌ UNCAUGHT EXCEPTION! Shutting down...");
-  console.error("Error:", err.name, err.message);
-  console.error("Stack:", err.stack);
-  process.exit(1);
-});
-
 let server;
-
-// Handle unhandled promise rejections
-process.on("unhandledRejection", (err) => {
-  console.error("❌ UNHANDLED REJECTION! Shutting down...");
-  console.error("Error:", err);
-
-  if (server) {
-    server.close(() => {
-      console.log("Server closed");
-      process.exit(1);
-    });
-  } else {
-    process.exit(1);
-  }
-});
 
 /* ------------------- GRACEFUL SHUTDOWN ------------------- */
 
-const gracefulShutdown = (signal) => {
+const gracefulShutdown = async (signal) => {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
 
-  if (server) {
-    server.close(async () => {
-      console.log("✅ HTTP server closed");
+  // Force close after 10 seconds (in case of hang)
+  const forceExit = setTimeout(() => {
+    console.error('❌ Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+  forceExit.unref();
 
-      try {
-        // Close database connection
-        const mongoose = await import("mongoose");
-        await mongoose.default.connection.close();
-        console.log("✅ Database connection closed");
+  try {
+    // 1. Close HTTP Server
+    if (server) {
+      console.log('⏳ Closing HTTP server...');
 
-        console.log("👋 Graceful shutdown completed");
-        process.exit(0);
-      } catch (err) {
-        console.error("❌ Error during shutdown:", err);
-        process.exit(1);
-      }
-    });
+      // Close all existing connections to avoid hanging
+      if (server.closeAllConnections) server.closeAllConnections();
 
-    // Force close after 10 seconds
-    setTimeout(() => {
-      console.error("❌ Forced shutdown after timeout");
-      process.exit(1);
-    }, 10000);
-  } else {
+      await new Promise((resolve, reject) => {
+        server.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      console.log('✅ HTTP server closed');
+    }
+
+    // 2. Close Database Connection
+    console.log('⏳ Closing database connection...');
+    // mongoose.connection.close() handles the active connection
+    await mongoose.connection.close(false);
+    console.log('✅ Database connection closed');
+    console.log('👋 Graceful shutdown completed');
     process.exit(0);
+  } catch (err) {
+    console.error('❌ Error during shutdown:', err);
+    process.exit(1);
   }
 };
 
+/* ------------------- GLOBAL ERROR SAFETY ------------------- */
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('❌ UNCAUGHT EXCEPTION! Shutting down...');
+  console.error('Error:', err.name, err.message);
+  console.error('Stack:', err.stack);
+  // For uncaught exceptions, we should exit immediately or restart
+  // But attempting a graceful shutdown is often safer for data
+  gracefulShutdown('UNCAUGHT_EXCEPTION');
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('❌ UNHANDLED REJECTION! Shutting down...');
+  console.error('Error:', err);
+  gracefulShutdown('UNHANDLED_REJECTION');
+});
+
 // Listen for termination signals
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 /* ------------------- SERVER BOOTSTRAP ------------------- */
 
 const PORT = process.env.PORT || 8000;
-const NODE_ENV = process.env.NODE_ENV || "development";
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 const startServer = async () => {
   try {
-    console.log("🚀 Starting server...");
+    console.log('🚀 Starting server...');
     console.log(`🌱 Environment: ${NODE_ENV}`);
 
     // Initialize database connection
-    await initDB();
+    await connectDB();
 
     // Create HTTP server
     server = http.createServer(app);
@@ -91,10 +95,10 @@ const startServer = async () => {
       console.log(`✅ Server running on port ${PORT}`);
       console.log(`🔗 Health check: http://localhost:${PORT}/health`);
       console.log(`🔒 API endpoint: http://localhost:${PORT}/api`);
-      console.log("━".repeat(50));
+      console.log('━'.repeat(50));
     });
   } catch (err) {
-    console.error("❌ Server startup failed:", err);
+    console.error('❌ Server startup failed:', err);
     process.exit(1);
   }
 };
