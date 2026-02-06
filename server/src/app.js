@@ -7,14 +7,14 @@ import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import { errorHandler } from './middlewares/error.middleware.js';
 import {
-    CORS_OPTIONS,
-    RATE_LIMIT,
-    REQUEST_LIMITS,
-    NODE_ENV,
-
-    HTTP_STATUS,
+  CORS_OPTIONS,
+  RATE_LIMIT,
+  REQUEST_LIMITS,
+  NODE_ENV,
+  HTTP_STATUS,
 } from './constants.js';
 import authRouter from './routes/auth.routes.js';
+import noticeRouter from './routes/notice.routes.js';
 
 const app = express();
 
@@ -22,29 +22,29 @@ const app = express();
 
 // Helmet - Security headers
 app.use(
-    helmet({
-        contentSecurityPolicy: process.env.NODE_ENV === NODE_ENV.PRODUCTION,
-        crossOriginEmbedderPolicy: false,
-    })
+  helmet({
+    contentSecurityPolicy: process.env.NODE_ENV === NODE_ENV.PRODUCTION,
+    crossOriginEmbedderPolicy: false,
+  })
 );
 
 // CORS - Cross-origin resource sharing
 app.use(
-    cors({
-        origin: CORS_OPTIONS.ORIGIN,
-        credentials: CORS_OPTIONS.CREDENTIALS,
-        methods: CORS_OPTIONS.METHODS,
-        allowedHeaders: CORS_OPTIONS.ALLOWED_HEADERS,
-    })
+  cors({
+    origin: CORS_OPTIONS.ORIGIN,
+    credentials: CORS_OPTIONS.CREDENTIALS,
+    methods: CORS_OPTIONS.METHODS,
+    allowedHeaders: CORS_OPTIONS.ALLOWED_HEADERS,
+  })
 );
 
 // Rate limiting - Prevent abuse
 const limiter = rateLimit({
-    windowMs: RATE_LIMIT.WINDOW_MS,
-    max: RATE_LIMIT.MAX_REQUESTS,
-    message: RATE_LIMIT.MESSAGE,
-    standardHeaders: true,
-    legacyHeaders: false,
+  windowMs: RATE_LIMIT.WINDOW_MS,
+  max: RATE_LIMIT.MAX_REQUESTS,
+  message: RATE_LIMIT.MESSAGE,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api', limiter);
 
@@ -55,19 +55,19 @@ app.use(compression());
 
 // Logging - Request logging (only in development)
 if (process.env.NODE_ENV !== NODE_ENV.PRODUCTION) {
-    app.use(morgan('dev'));
+  app.use(morgan('dev'));
 } else {
-    app.use(morgan('combined'));
+  app.use(morgan('combined'));
 }
 
 // Body parsing
 app.use(express.json({ limit: REQUEST_LIMITS.JSON_LIMIT }));
 app.use(
-    express.urlencoded({
-        extended: true,
-        limit: REQUEST_LIMITS.URL_ENCODED_LIMIT,
-        parameterLimit: REQUEST_LIMITS.PARAMETER_LIMIT,
-    })
+  express.urlencoded({
+    extended: true,
+    limit: REQUEST_LIMITS.URL_ENCODED_LIMIT,
+    parameterLimit: REQUEST_LIMITS.PARAMETER_LIMIT,
+  })
 );
 
 // Cookie parsing
@@ -76,25 +76,26 @@ app.use(cookieParser());
 /* ------------------- HEALTH CHECK ------------------- */
 
 app.get('/health', (req, res) => {
-    res.status(HTTP_STATUS.OK).json({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-    });
+  res.status(HTTP_STATUS.OK).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
 });
 
 /* ------------------- API ROUTES ------------------- */
 
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/notices', noticeRouter);
 
 /* ------------------- ERROR HANDLING ------------------- */
 
 // 404 handler
 app.use((req, res) => {
-    res.status(HTTP_STATUS.NOT_FOUND).json({
-        success: false,
-        message: 'Route not found',
-    });
+  res.status(HTTP_STATUS.NOT_FOUND).json({
+    success: false,
+    message: 'Route not found',
+  });
 });
 
 // Global error handler
