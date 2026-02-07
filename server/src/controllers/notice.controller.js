@@ -38,13 +38,17 @@ export const createNotice = asyncHandler(async (req, res) => {
  * @access  Public
  */
 export const getPublicNotices = asyncHandler(async (req, res) => {
-  // Parse pagination parameters
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 4;
   const skip = (page - 1) * limit;
 
-  // Query only active notices
+  // Build filter query
   const filter = { isActive: true };
+
+  // Add category filter if provided
+  if (req.query.category) {
+    filter.category = req.query.category;
+  }
 
   // Get total count for pagination metadata
   const totalResults = await Notice.countDocuments(filter);
@@ -98,6 +102,57 @@ export const archiveNotice = asyncHandler(async (req, res) => {
   res.status(HTTP_STATUS.OK).json({
     success: true,
     message: 'Notice archived successfully',
+    data: notice,
+  });
+});
+
+/**
+ * @desc    Update a notice (Admin only)
+ * @route   PATCH /api/v1/notices/:id
+ * @access  Admin
+ */
+export const updateNotice = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { heading, advtNo, category, externalLink, isActive } = req.body;
+
+  // Find notice
+  const notice = await Notice.findById(id);
+
+  if (!notice) {
+    throw new ApiError(404, 'Notice not found');
+  }
+
+  // If new PDF uploaded, delete old one from Cloudinary
+  if (req.file && notice.cloudinaryId) {
+    try {
+      // Import cloudinary config
+      const { v2: cloudinary } = await import('cloudinary');
+      await cloudinary.uploader.destroy(notice.cloudinaryId);
+    } catch (error) {
+      console.error('Error deleting old PDF from Cloudinary:', error);
+      // Continue with update even if deletion fails
+    }
+  }
+
+  // Update fields (only update provided fields)
+  if (heading !== undefined) notice.heading = heading;
+  if (advtNo !== undefined) notice.advtNo = advtNo;
+  if (category !== undefined) notice.category = category;
+  if (externalLink !== undefined) notice.externalLink = externalLink;
+  if (isActive !== undefined) notice.isActive = isActive;
+
+  // Update PDF fields if new file uploaded
+  if (req.file) {
+    notice.pdfUrl = req.file.path;
+    notice.cloudinaryId = req.file.filename;
+  }
+
+  // Save updated notice
+  await notice.save();
+
+  res.status(HTTP_STATUS.OK).json({
+    success: true,
+    message: 'Notice updated successfully',
     data: notice,
   });
 });
