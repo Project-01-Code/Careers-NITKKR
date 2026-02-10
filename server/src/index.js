@@ -84,6 +84,30 @@ const startServer = async () => {
     console.log('🚀 Starting server...');
     console.log(`🌱 Environment: ${NODE_ENV}`);
 
+    // Validate required environment variables
+    const requiredEnvVars = [
+      'MONGO_URI',
+      'ACCESS_TOKEN_SECRET',
+      'REFRESH_TOKEN_SECRET',
+      'ACCESS_TOKEN_EXPIRY',
+      'REFRESH_TOKEN_EXPIRY',
+      'CLOUDINARY_CLOUD_NAME',
+      'CLOUDINARY_API_KEY',
+      'CLOUDINARY_API_SECRET',
+    ];
+
+    const missingVars = requiredEnvVars.filter(
+      (varName) => !process.env[varName]
+    );
+
+    if (missingVars.length > 0) {
+      throw new Error(
+        `Missing required environment variables: ${missingVars.join(', ')}`
+      );
+    }
+
+    console.log('✅ Environment variables validated');
+
     // Initialize database connection
     await connectDB();
 

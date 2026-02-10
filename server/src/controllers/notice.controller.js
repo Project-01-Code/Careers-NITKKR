@@ -87,12 +87,12 @@ export const archiveNotice = asyncHandler(async (req, res) => {
   const notice = await Notice.findById(id);
 
   if (!notice) {
-    throw new ApiError(404, 'Notice not found');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Notice not found');
   }
 
   // Check if already archived
   if (!notice.isActive) {
-    throw new ApiError(400, 'Notice is already archived');
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Notice is already archived');
   }
 
   // Soft delete by setting isActive to false
@@ -119,19 +119,13 @@ export const updateNotice = asyncHandler(async (req, res) => {
   const notice = await Notice.findById(id);
 
   if (!notice) {
-    throw new ApiError(404, 'Notice not found');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Notice not found');
   }
 
   // If new PDF uploaded, delete old one from Cloudinary
   if (req.file && notice.cloudinaryId) {
-    try {
-      // Import cloudinary config
-      const { v2: cloudinary } = await import('cloudinary');
-      await cloudinary.uploader.destroy(notice.cloudinaryId);
-    } catch (error) {
-      console.error('Error deleting old PDF from Cloudinary:', error);
-      // Continue with update even if deletion fails
-    }
+    const { deleteFile } = await import('../services/upload.service.js');
+    await deleteFile(notice.cloudinaryId);
   }
 
   // Update fields (only update provided fields)

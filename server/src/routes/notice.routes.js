@@ -6,7 +6,7 @@ import {
   updateNotice,
 } from '../controllers/notice.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
-import { adminAuth } from '../middlewares/adminAuth.middleware.js';
+import { requireRole } from '../middlewares/rbac.middleware.js';
 import { upload } from '../middlewares/upload.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import {
@@ -25,7 +25,7 @@ router.get('/', validate(getNoticesQuerySchema), getPublicNotices);
 router.post(
   '/',
   verifyJWT,
-  adminAuth,
+  requireRole('admin'),
   upload.single('file'),
   validate(createNoticeSchema),
   createNotice
@@ -34,7 +34,7 @@ router.post(
 router.patch(
   '/:id',
   verifyJWT,
-  adminAuth,
+  requireRole('admin'),
   upload.single('file'),
   validate(updateNoticeSchema),
   validate(noticeIdParamSchema),
@@ -44,7 +44,7 @@ router.patch(
 router.patch(
   '/:id/archive',
   verifyJWT,
-  adminAuth,
+  requireRole('admin'),
   validate(noticeIdParamSchema),
   archiveNotice
 );
