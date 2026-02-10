@@ -28,17 +28,6 @@ export const HTTP_STATUS = {
   SERVICE_UNAVAILABLE: 503,
 };
 
-/* ---------------- MESSAGES ---------------- */
-
-export const ERROR_MESSAGES = {
-  SERVER_ERROR: 'Internal server error',
-  NOT_FOUND: 'Resource not found',
-  VALIDATION_ERROR: 'Validation failed',
-  FILE_UPLOAD_ERROR: 'File upload failed',
-  INVALID_FILE_TYPE: 'Invalid file type. Only PDF files are allowed.',
-  RATE_LIMIT_EXCEEDED: 'Too many requests, please try again later',
-};
-
 /* ---------------- DATABASE ---------------- */
 
 export const DB_NAME = 'careers-nitkkr';
@@ -52,20 +41,12 @@ export const DB_CONFIG = {
   MAX_IDLE_TIME: 10000,
 };
 
-/* ---------------- PAGINATION ---------------- */
-
-export const PAGINATION = {
-  DEFAULT_PAGE: 1,
-  DEFAULT_LIMIT: 4,
-  MAX_LIMIT: 100,
-};
-
 /* ---------------- RATE LIMITING ---------------- */
 
 export const RATE_LIMIT = {
   WINDOW_MS: 15 * 60 * 1000, // 15 minutes
   MAX_REQUESTS: 100, // limit each IP to 100 requests per windowMs
-  MESSAGE: ERROR_MESSAGES.RATE_LIMIT_EXCEEDED,
+  MESSAGE: 'Too many requests, please try again later',
 };
 
 /* ---------------- CORS ---------------- */
@@ -83,4 +64,28 @@ export const REQUEST_LIMITS = {
   JSON_LIMIT: '10mb',
   URL_ENCODED_LIMIT: '10mb',
   PARAMETER_LIMIT: 1000,
+};
+
+/* ---------------- USER ROLES ---------------- */
+
+export const USER_ROLES = {
+  APPLICANT: 'applicant',
+  REVIEWER: 'reviewer',
+  ADMIN: 'admin',
+};
+
+/* ---------------- AUDIT ACTIONS ---------------- */
+
+export const AUDIT_ACTIONS = {
+  USER_REGISTERED: 'USER_REGISTERED',
+  LOGIN_SUCCESS: 'LOGIN_SUCCESS',
+  LOGIN_FAILED: 'LOGIN_FAILED',
+  LOGOUT: 'LOGOUT',
+  PROFILE_UPDATED: 'PROFILE_UPDATED',
+};
+
+/* ---------------- RESOURCE TYPES ---------------- */
+
+export const RESOURCE_TYPES = {
+  USER: 'User',
 };

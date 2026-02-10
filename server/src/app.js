@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import mongoose from 'mongoose';
 import { errorHandler } from './middlewares/error.middleware.js';
 import {
   CORS_OPTIONS,
@@ -75,11 +76,15 @@ app.use(cookieParser());
 
 /* ------------------- HEALTH CHECK ------------------- */
 
-app.get('/health', (req, res) => {
-  res.status(HTTP_STATUS.OK).json({
+app.get('/health', async (req, res) => {
+  const dbStatus =
+    mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
+    database: dbStatus,
     uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
   });
 });
 

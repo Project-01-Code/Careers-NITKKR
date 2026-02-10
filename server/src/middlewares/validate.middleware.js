@@ -1,4 +1,5 @@
 import { ApiError } from '../utils/apiError.js';
+import { HTTP_STATUS } from '../constants.js';
 
 /**
  * Validation Middleware
@@ -32,7 +33,11 @@ export const validate = (schema) => {
           message: err.message,
         }));
 
-        throw new ApiError(400, 'Validation failed', errors);
+        throw new ApiError(
+          HTTP_STATUS.BAD_REQUEST,
+          'Validation failed',
+          errors
+        );
       }
 
       // Pass other errors to error handler

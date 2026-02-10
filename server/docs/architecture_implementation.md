@@ -7,6 +7,7 @@ A production-ready backend architecture for a university recruitment portal insp
 ## Project Philosophy
 
 ### Application System Design
+
 - **Section-based applications**: Personal, Education, Experience, Research, Publications, References, Documents
 - **Independent section saving**: Each section can be saved as draft independently
 - **PDF-per-section uploads**: Each section may require a combined PDF upload
@@ -16,6 +17,7 @@ A production-ready backend architecture for a university recruitment portal insp
 - **Snapshot architecture**: Application captures job requirements at creation time
 
 ### Technical Constraints
+
 - ✅ Single flexible Application model (no per-job-type schemas)
 - ✅ Production-oriented (realistic for academic institute)
 - ✅ Backend-first approach
@@ -31,6 +33,7 @@ A production-ready backend architecture for a university recruitment portal insp
 ### Backend Components
 
 #### Models
+
 - **User Model** (✅ Already exists - enhance)
   - Add `role` field: `['applicant', 'admin', 'reviewer']`
   - Add `profile` subdocument: `{ phone, dateOfBirth, nationality }`
@@ -38,12 +41,12 @@ A production-ready backend architecture for a university recruitment portal insp
   - Add soft delete support: `isDeleted`, `deletedAt`
 
 #### Utilities & Services
+
 - **File Upload Service** (`services/upload.service.js`)
   - Cloudinary integration for PDFs
   - File validation (size, type, naming)
   - Secure URL generation
   - Delete/replace handlers
-  
 - **Audit Logger** (`utils/auditLogger.js`)
   - Track all admin actions
   - Log application state changes
@@ -54,11 +57,13 @@ A production-ready backend architecture for a university recruitment portal insp
   - Error handling middleware
 
 #### Middleware
+
 - **Role-based Access Control** (`middlewares/rbac.middleware.js`)
   - `requireRole(['admin', 'reviewer'])`
   - `requireOwnership` (user can only access their own applications)
 
 ### Key Endpoints
+
 ```
 POST   /api/auth/register          # Applicant registration
 POST   /api/auth/login             # Login with role-based tokens
@@ -68,6 +73,7 @@ PATCH  /api/auth/profile           # Update profile
 ```
 
 ### Testable Outcomes
+
 - ✅ User registration with role assignment
 - ✅ JWT-based authentication with role claims
 - ✅ File upload to Cloudinary (test with sample PDF)
@@ -83,22 +89,43 @@ PATCH  /api/auth/profile           # Update profile
 ### Backend Components
 
 #### Models
+
 - **Job Model** (`models/job.model.js`)
+
   ```javascript
   {
-    title: String,                    // "Assistant Professor - CSE"
-    jobCode: String,                  // "NITK/FAC/CSE/2026/01" (unique, indexed)
-    category: String,                 // enum: Faculty, Non-Teaching, Research, Contract
+    // Basic Information
+    title: String,                    // "Assistant Professor Grade-II - Computer Science"
+    advertisementNo: String,          // "NITK/FAC/2026/01" (unique, indexed)
     department: String,               // "Computer Science & Engineering"
+
+    // Position Details (NIT/IIT specific)
+    designation: String,              // enum: Assistant Professor Grade-II, Assistant Professor Grade-I,
+                                      //       Associate Professor, Professor
+    grade: String,                    // Grade-I, Grade-II (optional, often implicit in designation)
+    payLevel: String,                 // enum: 10, 11, 12, 13A2, 14A (7th Pay Commission levels)
     positions: Number,                // Number of vacancies
-    
-    // Job details
-    description: String,
-    qualifications: [String],
-    responsibilities: [String],
-    salaryRange: { min: Number, max: Number, currency: String },
-    employmentType: String,           // Permanent, Contract, Temporary
-    
+
+    // Recruitment Classification
+    recruitmentType: String,          // enum: external, internal (internal = faculty upgradation)
+    categories: [String],             // Array: ['GEN', 'SC', 'ST', 'OBC', 'EWS', 'PwD']
+                                      // Indicates which reservation categories this job applies to
+
+    // Job Details
+    description: String,              // Detailed job description
+    qualifications: [String],         // Required qualifications
+    responsibilities: [String],       // Key responsibilities
+
+    // Documents (Advertisement, Application Forms, Annexures)
+    documents: [{
+      type: String,                   // enum: ADVERTISEMENT, APPLICATION_FORM, ANNEXURE
+      category: String,               // optional: SC, ST, OBC, EWS (for category-specific forms/annexures)
+      label: String,                  // "Annexure-II for SC/ST", "Application Form - General"
+      url: String,                    // Cloudinary URL
+      publicId: String,               // Cloudinary public ID
+      uploadedAt: Date
+    }],
+
     // Application configuration (CRITICAL)
     requiredSections: [{
       sectionType: String,            // 'personal', 'education', 'experience', etc.
@@ -108,7 +135,7 @@ PATCH  /api/auth/profile           # Update profile
       maxPDFSize: Number,             // in MB
       instructions: String
     }],
-    
+
     customFields: [{                  // Job-specific extra fields
       fieldName: String,
       fieldType: String,              // text, number, date, dropdown
@@ -116,19 +143,23 @@ PATCH  /api/auth/profile           # Update profile
       isMandatory: Boolean,
       section: String                 // which section this belongs to
     }],
-    
+
     // Timeline
-    applicationDeadline: Date,
-    startDate: Date,
-    
-    // Status
-    status: String,                   // draft, published, closed, cancelled
-    isActive: Boolean,
-    
+    publishDate: Date,                // When job was published
+    applicationStartDate: Date,       // When applications open
+    applicationEndDate: Date,         // Application deadline
+
+    // Status Management
+    status: String,                   // enum: draft, published, closed, archived
+    closedAt: Date,                   // When job was closed (manual or auto after deadline)
+
+    // Soft Delete
+    deletedAt: Date,                  // For soft delete
+
     // Metadata
     createdBy: ObjectId (ref: User),
-    publishedAt: Date,
-    closedAt: Date
+    createdAt: Date,
+    updatedAt: Date
   }
   ```
 
@@ -142,6 +173,7 @@ PATCH  /api/auth/profile           # Update profile
   ```
 
 #### Controllers
+
 - **Job Controller** (`controllers/job.controller.js`)
   - CRUD operations for jobs
   - Publish/unpublish logic
@@ -154,6 +186,7 @@ PATCH  /api/auth/profile           # Update profile
   - No authentication required
 
 #### Validators
+
 - **Job Validators** (`validators/job.validator.js`)
   - Job creation schema (Zod/Joi)
   - Section configuration validation
@@ -163,32 +196,61 @@ PATCH  /api/auth/profile           # Update profile
 ### Key Endpoints
 
 **Admin Routes** (Protected)
+
 ```
 POST   /api/admin/jobs                    # Create job
-GET    /api/admin/jobs                    # List all jobs (with filters)
+GET    /api/admin/jobs                    # List all jobs with filters
+       Query params:
+       - status: draft | published | closed | archived
+       - designation: Assistant Professor Grade-II | Assistant Professor Grade-I | Associate Professor | Professor
+       - payLevel: 10 | 11 | 12 | 13A2 | 14A
+       - recruitmentType: external | internal
+       - category: GEN | SC | ST | OBC | EWS | PwD (filters jobs applicable to this category)
+       - isActive: true | false (published && now < applicationEndDate)
+       - search: keyword (searches title, advertisementNo, description)
+       - sortBy: createdAt | publishDate | applicationEndDate | payLevel
+       - sortOrder: asc | desc
+       - page, limit (pagination)
+
 GET    /api/admin/jobs/:id                # Get job details
 PATCH  /api/admin/jobs/:id                # Update job
-DELETE /api/admin/jobs/:id                # Soft delete job
-POST   /api/admin/jobs/:id/publish        # Publish job
-POST   /api/admin/jobs/:id/close          # Close job early
+DELETE /api/admin/jobs/:id                # Soft delete job (sets deletedAt)
+POST   /api/admin/jobs/:id/publish        # Publish job (sets status=published, publishDate)
+POST   /api/admin/jobs/:id/close          # Close job early (sets status=closed, closedAt)
 ```
 
 **Public Routes**
+
 ```
-GET    /api/jobs                          # List active jobs (category, dept filters)
-GET    /api/jobs/:jobCode                 # Get job details by code
-GET    /api/jobs/categories               # Get job categories
+GET    /api/jobs                          # List active jobs
+       Query params (subset of admin filters):
+       - designation
+       - payLevel
+       - recruitmentType
+       - category
+       - department
+       - search
+       - sortBy: publishDate | applicationEndDate
+       - sortOrder: asc | desc
+
+GET    /api/jobs/:id                      # Get job details by ID
+GET    /api/jobs/by-advertisement/:advertisementNo  # Get job by advertisement number
 GET    /api/departments                   # List departments
 ```
 
 ### Testable Outcomes
+
 - ✅ Admin can create job with section requirements
-- ✅ Job code uniqueness enforced
+- ✅ Advertisement number uniqueness enforced
 - ✅ Cannot publish job without required fields
 - ✅ Public can view only published, active jobs
-- ✅ Jobs auto-close after deadline
-- ✅ Filter jobs by category, department, status
-- ✅ Retrieve job with full section configuration
+- ✅ Jobs auto-close after applicationEndDate
+- ✅ Filter jobs by designation, payLevel, recruitmentType, category, status
+- ✅ `isActive` filter correctly identifies jobs accepting applications
+- ✅ Search functionality works across title, advertisementNo, description
+- ✅ Retrieve job with full section configuration and documents
+- ✅ Category-specific documents (annexures) properly associated
+- ✅ Soft delete sets deletedAt without removing record
 
 ---
 
@@ -199,15 +261,17 @@ GET    /api/departments                   # List departments
 ### Backend Components
 
 #### Models
+
 - **Application Model** (`models/application.model.js`)
+
   ```javascript
   {
     applicationNumber: String,        // Auto-generated: "APP-2026-00001"
-    
+
     // References
     userId: ObjectId (ref: User),
     jobId: ObjectId (ref: Job),
-    
+
     // Job snapshot (captured at application creation)
     jobSnapshot: {
       title: String,
@@ -216,12 +280,12 @@ GET    /api/departments                   # List departments
       requiredSections: [...],        // Copy from Job.requiredSections
       customFields: [...]             // Copy from Job.customFields
     },
-    
+
     // Application state
     status: String,                   // draft, submitted, under_review, shortlisted, rejected, selected
     submittedAt: Date,
     lastModifiedAt: Date,
-    
+
     // Section data (flexible schema)
     sections: {
       personal: {
@@ -239,23 +303,23 @@ GET    /api/departments                   # List departments
       documents: { /* same structure */ },
       custom: { /* for job-specific sections */ }
     },
-    
+
     // Validation
     validationErrors: [{
       section: String,
       field: String,
       message: String
     }],
-    
+
     // Locking
     isLocked: Boolean,                // True after final submission
     lockedAt: Date,
-    
+
     // Review (for admin)
     reviewNotes: String,
     reviewedBy: ObjectId (ref: User),
     reviewedAt: Date,
-    
+
     // Audit
     statusHistory: [{
       status: String,
@@ -267,6 +331,7 @@ GET    /api/departments                   # List departments
   ```
 
 #### Services
+
 - **Application Service** (`services/application.service.js`)
   - Generate unique application number
   - Snapshot job configuration
@@ -275,6 +340,7 @@ GET    /api/departments                   # List departments
   - Lock/unlock application
 
 #### Utilities
+
 - **Application Number Generator** (`utils/applicationNumberGenerator.js`)
   - Format: `APP-{YEAR}-{5-digit-sequence}`
   - Atomic counter with MongoDB
@@ -282,6 +348,7 @@ GET    /api/departments                   # List departments
 ### Key Endpoints
 
 **Applicant Routes** (Protected - Applicant role)
+
 ```
 POST   /api/applications                  # Create new application (snapshots job)
 GET    /api/applications                  # List user's applications
@@ -290,6 +357,7 @@ DELETE /api/applications/:id              # Delete draft application
 ```
 
 ### Testable Outcomes
+
 - ✅ User can create application for a job
 - ✅ Job configuration is snapshotted at creation
 - ✅ Application number is unique and sequential
@@ -306,6 +374,7 @@ DELETE /api/applications/:id              # Delete draft application
 ### Backend Components
 
 #### Controllers
+
 - **Application Section Controller** (`controllers/applicationSection.controller.js`)
   - Save individual section
   - Upload section PDF
@@ -313,12 +382,14 @@ DELETE /api/applications/:id              # Delete draft application
   - Mark section as complete
 
 #### Validators
+
 - **Section Validators** (`validators/section.validator.js`)
   - Dynamic validation based on `jobSnapshot.requiredSections`
   - Validate custom fields
   - File upload validation
 
 #### Services
+
 - **Section Validation Service** (`services/sectionValidation.service.js`)
   - Check mandatory fields
   - Validate data types
@@ -328,6 +399,7 @@ DELETE /api/applications/:id              # Delete draft application
 ### Key Endpoints
 
 **Applicant Routes** (Protected)
+
 ```
 PATCH  /api/applications/:id/sections/:sectionType        # Save section data
 POST   /api/applications/:id/sections/:sectionType/pdf    # Upload section PDF
@@ -336,6 +408,7 @@ POST   /api/applications/:id/sections/:sectionType/validate  # Validate section
 ```
 
 ### Testable Outcomes
+
 - ✅ Save personal section independently
 - ✅ Upload PDF for education section
 - ✅ Validation errors returned for incomplete sections
@@ -353,6 +426,7 @@ POST   /api/applications/:id/sections/:sectionType/validate  # Validate section
 ### Backend Components
 
 #### Controllers
+
 - **Application Submission Controller** (`controllers/applicationSubmission.controller.js`)
   - Pre-submission validation (all mandatory sections)
   - Final submission
@@ -360,19 +434,21 @@ POST   /api/applications/:id/sections/:sectionType/validate  # Validate section
   - Generate submission receipt
 
 #### Services
+
 - **Submission Validation Service** (`services/submissionValidation.service.js`)
   - Validate all sections
   - Check all mandatory PDFs uploaded
   - Verify job is still accepting applications
   - Check deadline
 
-- **Email Service** (`services/email.service.js`) *(Optional for MVP)*
+- **Email Service** (`services/email.service.js`) _(Optional for MVP)_
   - Send submission confirmation email
   - Include application number and job details
 
 ### Key Endpoints
 
 **Applicant Routes** (Protected)
+
 ```
 POST   /api/applications/:id/validate-all    # Pre-submission validation check
 POST   /api/applications/:id/submit          # Final submission (locks application)
@@ -380,6 +456,7 @@ GET    /api/applications/:id/receipt         # Get submission receipt (PDF)
 ```
 
 ### Testable Outcomes
+
 - ✅ Cannot submit with incomplete mandatory sections
 - ✅ Cannot submit without required PDFs
 - ✅ Cannot submit after job deadline
@@ -398,6 +475,7 @@ GET    /api/applications/:id/receipt         # Get submission receipt (PDF)
 ### Backend Components
 
 #### Controllers
+
 - **Admin Application Controller** (`controllers/admin.application.controller.js`)
   - List all applications (with filters)
   - View application details
@@ -407,12 +485,14 @@ GET    /api/applications/:id/receipt         # Get submission receipt (PDF)
   - Export applications (CSV/Excel)
 
 #### Services
+
 - **Application Export Service** (`services/applicationExport.service.js`)
   - Generate CSV/Excel with application data
   - Include section data
   - Filter by job, status, date range
 
 #### Middleware
+
 - **Application Access Control** (`middlewares/applicationAccess.middleware.js`)
   - Admins can view all applications
   - Applicants can only view their own
@@ -420,6 +500,7 @@ GET    /api/applications/:id/receipt         # Get submission receipt (PDF)
 ### Key Endpoints
 
 **Admin Routes** (Protected - Admin/Reviewer role)
+
 ```
 GET    /api/admin/applications                      # List all applications (filters)
 GET    /api/admin/applications/:id                  # View application details
@@ -431,6 +512,7 @@ GET    /api/admin/jobs/:jobId/applications          # Applications for specific 
 ```
 
 ### Testable Outcomes
+
 - ✅ Admin can view all applications
 - ✅ Filter applications by job, status, date
 - ✅ Update application status with audit trail
@@ -482,12 +564,14 @@ GET    /api/admin/jobs/:jobId/applications          # Applications for specific 
 ### Key Endpoints
 
 **Dashboard Routes** (Admin)
+
 ```
 GET    /api/admin/dashboard/stats                   # Overall statistics
 GET    /api/admin/dashboard/jobs/:jobId/stats       # Job-specific stats
 ```
 
 **Applicant Routes**
+
 ```
 POST   /api/applications/:id/withdraw               # Withdraw application
 GET    /api/notifications                           # Get user notifications
@@ -495,11 +579,13 @@ PATCH  /api/notifications/:id/read                  # Mark notification as read
 ```
 
 **Admin Routes**
+
 ```
 PATCH  /api/admin/applications/:id/verify-section   # Verify section documents
 ```
 
 ### Testable Outcomes
+
 - ✅ Dashboard shows accurate statistics
 - ✅ Search returns relevant applications
 - ✅ Applicant can withdraw submitted application
@@ -512,6 +598,7 @@ PATCH  /api/admin/applications/:id/verify-section   # Verify section documents
 ## Database Indexes Strategy
 
 ### Critical Indexes
+
 ```javascript
 // User Model
 { username: 1 }                          // Unique
@@ -539,6 +626,7 @@ PATCH  /api/admin/applications/:id/verify-section   # Verify section documents
 ## API Design Principles
 
 ### Consistent Response Format
+
 ```javascript
 // Success
 {
@@ -559,6 +647,7 @@ PATCH  /api/admin/applications/:id/verify-section   # Verify section documents
 ```
 
 ### Pagination Standard
+
 ```javascript
 GET /api/applications?page=1&limit=20&sortBy=createdAt&order=desc
 
@@ -582,17 +671,20 @@ Response:
 ## Security Considerations
 
 ### Authentication & Authorization
+
 - ✅ JWT-based authentication (already implemented)
 - ✅ Role-based access control (Phase 1)
 - ✅ Ownership validation (user can only access own applications)
 
 ### Data Protection
+
 - ✅ Validate all inputs (Zod/Joi validators)
 - ✅ Sanitize file uploads
 - ✅ Rate limiting on API endpoints (already have express-rate-limit)
 - ✅ Helmet for security headers (already implemented)
 
 ### File Upload Security
+
 - ✅ Restrict file types (PDF only)
 - ✅ Limit file size (configurable per section)
 - ✅ Virus scanning (optional - ClamAV integration)
@@ -603,19 +695,21 @@ Response:
 ## Testing Strategy
 
 ### Unit Tests
+
 - Model validations
 - Utility functions (application number generator)
 - Service layer logic
 
 ### Integration Tests
+
 - API endpoint testing
 - Authentication flows
 - File upload workflows
 
 ### End-to-End Scenarios
+
 1. **Complete Application Flow**
    - Register → Login → Create Application → Save Sections → Upload PDFs → Submit
-   
 2. **Admin Review Flow**
    - Login as Admin → View Applications → Update Status → Add Notes
 
@@ -654,6 +748,7 @@ Response:
 ## Deployment Checklist
 
 ### Environment Variables
+
 ```
 NODE_ENV=production
 PORT=5000
@@ -666,6 +761,7 @@ CORS_ORIGIN=https://careers.nitkkr.ac.in
 ```
 
 ### Production Optimizations
+
 - ✅ Enable MongoDB connection pooling
 - ✅ Use compression middleware (already have)
 - ✅ Set up proper logging (Morgan already configured)
@@ -677,17 +773,85 @@ CORS_ORIGIN=https://careers.nitkkr.ac.in
 
 ## Summary: Build Order
 
-| Phase | Focus | Duration (Est.) | Complexity |
-|-------|-------|-----------------|------------|
-| 1 | Foundation & Auth | 3-4 days | Medium |
-| 2 | Job Management | 4-5 days | Medium |
-| 3 | Application Core | 5-6 days | High |
-| 4 | Section Saving | 4-5 days | High |
-| 5 | Submission & Locking | 3-4 days | Medium |
-| 6 | Admin Review | 4-5 days | Medium |
-| 7 | Enhancements | 5-7 days | Low-Medium |
+| Phase | Focus                | Duration (Est.) | Complexity |
+| ----- | -------------------- | --------------- | ---------- |
+| 1     | Foundation & Auth    | 3-4 days        | Medium     |
+| 2     | Job Management       | 4-5 days        | Medium     |
+| 3     | Application Core     | 5-6 days        | High       |
+| 4     | Section Saving       | 4-5 days        | High       |
+| 5     | Submission & Locking | 3-4 days        | Medium     |
+| 6     | Admin Review         | 4-5 days        | Medium     |
+| 7     | Enhancements         | 5-7 days        | Low-Medium |
 
 **Total Estimated Time**: 28-36 days (1-1.5 months for solo developer)
+
+---
+
+---
+
+## Future Enhancements (Out of Scope for Phase 1)
+
+### Payment Gateway Integration
+
+**Goal**: Implement application fee payment system for job applications
+
+#### Features
+
+- **Provider-agnostic design** (Razorpay / Stripe / other payment gateways)
+- **Webhook-based confirmation** for reliable payment verification
+- **Audit logging** for all payment events (initiated, success, failure, refund)
+- **Application submission gating** - Applications can only be submitted after successful payment
+- **Payment receipt generation** - Auto-generated receipts for successful payments
+
+#### Models
+
+- **Payment Model** (`models/payment.model.js`)
+  ```javascript
+  {
+    paymentId: String,              // Unique payment ID
+    applicationId: ObjectId,        // Reference to Application
+    userId: ObjectId,               // Reference to User
+    jobId: ObjectId,                // Reference to Job
+
+    amount: Number,                 // Payment amount
+    currency: String,               // INR, USD, etc.
+
+    provider: String,               // razorpay, stripe, etc.
+    providerOrderId: String,        // Gateway's order ID
+    providerPaymentId: String,      // Gateway's payment ID
+
+    status: String,                 // pending, success, failed, refunded
+
+    paymentMethod: String,          // card, upi, netbanking, wallet
+
+    receiptUrl: String,             // Cloudinary URL for receipt
+
+    webhookData: Object,            // Raw webhook payload
+
+    initiatedAt: Date,
+    completedAt: Date,
+    failedAt: Date,
+    refundedAt: Date
+  }
+  ```
+
+#### Endpoints
+
+```
+POST   /api/applications/:id/payment/initiate    # Create payment order
+POST   /api/webhooks/payment/:provider           # Payment gateway webhook
+GET    /api/applications/:id/payment/status      # Check payment status
+POST   /api/applications/:id/payment/verify      # Manual verification (admin)
+```
+
+#### Implementation Considerations
+
+- Payment must be completed before final application submission
+- Failed payments should allow retry
+- Webhook verification for security (signature validation)
+- Idempotent webhook handling (prevent duplicate processing)
+- Payment status tracked in Application model
+- Refund workflow for cancelled applications (admin-initiated)
 
 ---
 

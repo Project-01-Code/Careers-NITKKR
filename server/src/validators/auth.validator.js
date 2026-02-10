@@ -2,29 +2,14 @@ import { z } from 'zod';
 
 /**
  * User Registration Schema
+ * Email-only authentication with strong password requirements
+ * Password policy: Minimum 8 characters, uppercase, lowercase, and number required
  */
 export const registerSchema = z.object({
   body: z.object({
-    fullName: z
-      .string({ required_error: 'Full name is required' })
-      .min(2, 'Full name must be at least 2 characters')
-      .max(100, 'Full name must not exceed 100 characters')
-      .trim(),
-
     email: z
       .string({ required_error: 'Email is required' })
       .email('Invalid email format')
-      .toLowerCase()
-      .trim(),
-
-    username: z
-      .string({ required_error: 'Username is required' })
-      .min(3, 'Username must be at least 3 characters')
-      .max(30, 'Username must not exceed 30 characters')
-      .regex(
-        /^[a-zA-Z0-9_]+$/,
-        'Username can only contain letters, numbers, and underscores'
-      )
       .toLowerCase()
       .trim(),
 
@@ -41,36 +26,25 @@ export const registerSchema = z.object({
 
 /**
  * User Login Schema
+ * Password validation (only presence check)
  */
 export const loginSchema = z.object({
-  body: z
-    .object({
-      email: z
-        .string()
-        .email('Invalid email format')
-        .toLowerCase()
-        .trim()
-        .optional(),
+  body: z.object({
+    email: z
+      .string({ required_error: 'Email is required' })
+      .email('Invalid email format')
+      .toLowerCase()
+      .trim(),
 
-      username: z
-        .string()
-        .min(3, 'Username must be at least 3 characters')
-        .toLowerCase()
-        .trim()
-        .optional(),
-
-      password: z
-        .string({ required_error: 'Password is required' })
-        .min(1, 'Password is required'),
-    })
-    .refine((data) => data.email || data.username, {
-      message: 'Either email or username is required',
-      path: ['email'],
-    }),
+    password: z
+      .string({ required_error: 'Password is required' })
+      .min(1, 'Password is required'),
+  }),
 });
 
 /**
  * Refresh Token Schema
+ * Accepts token from request body or cookies
  */
 export const refreshTokenSchema = z
   .object({
@@ -85,5 +59,55 @@ export const refreshTokenSchema = z
   })
   .refine((data) => data.body.refreshToken || data.cookies?.refreshToken, {
     message: 'Refresh token is required',
-    path: ['body', 'refreshToken'],
+    path: ['refreshToken'],
   });
+
+/**
+ * Update Profile Schema
+ * Allows updating profile fields only. No auth or RBAC fields.
+ * Phone format: E.164 international format (e.g., +919876543210)
+ */
+export const updateProfileSchema = z.object({
+  body: z.object({
+    profile: z
+      .object({
+        firstName: z
+          .string()
+          .min(2, 'First name must be at least 2 characters')
+          .max(50, 'First name must not exceed 50 characters')
+          .optional(),
+        lastName: z
+          .string()
+          .min(2, 'Last name must be at least 2 characters')
+          .max(50, 'Last name must not exceed 50 characters')
+          .optional(),
+
+        phone: z
+          .string()
+          .regex(
+            /^\+?[1-9]\d{1,14}$/,
+            'Invalid phone number format (E.164 format expected, e.g., +919876543210)'
+          )
+          .optional(),
+
+        dateOfBirth: z
+          .string()
+          .refine((date) => !isNaN(Date.parse(date)), 'Invalid date format')
+          .transform((date) => new Date(date))
+          .optional(),
+        nationality: z
+          .string()
+          .min(2, 'Nationality must be at least 2 characters')
+          .max(50, 'Nationality must not exceed 50 characters')
+          .trim()
+          .optional(),
+      })
+      .refine(
+        (profile) => {
+          const keys = Object.keys(profile);
+          return keys.length > 0;
+        },
+        { message: 'At least one profile field must be provided' }
+      ),
+  }),
+});
