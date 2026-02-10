@@ -52,9 +52,16 @@ A production-ready backend architecture for a university recruitment portal insp
   - Log application state changes
   - Store IP, timestamp, user, action type
 
-- **API Response Standardizer** (✅ Likely exists - verify)
-  - Consistent response format
-  - Error handling middleware
+- **API Response Standardizer** (✅ Implemented)
+  - `utils/apiResponse.js`: Standardized JSON response class
+  - Consistent success/error format
+
+- **Error Handling Infrastructure** (✅ Implemented)
+  - `utils/apiError.js`: Standardized error class
+  - `middlewares/error.middleware.js`: Centralized error handling (Zod, Mongoose, JWT)
+
+- **Constants Management** (✅ Implemented)
+  - `constants.js`: Single source of truth for all enums and config constants
 
 #### Middleware
 
@@ -92,75 +99,77 @@ PATCH  /api/auth/profile           # Update profile
 
 - **Job Model** (`models/job.model.js`)
 
+  ````javascript
   ```javascript
   {
     // Basic Information
-    title: String,                    // "Assistant Professor Grade-II - Computer Science"
-    advertisementNo: String,          // "NITK/FAC/2026/01" (unique, indexed)
-    department: String,               // "Computer Science & Engineering"
+    title: { type: String, required: true },
+    advertisementNo: { type: String, unique: true, required: true }, // "NITK/FAC/2026/01"
+    department: { type: ObjectId, ref: 'Department', required: true },
 
-    // Position Details (NIT/IIT specific)
-    designation: String,              // enum: Assistant Professor Grade-II, Assistant Professor Grade-I,
-                                      //       Associate Professor, Professor
-    grade: String,                    // Grade-I, Grade-II (optional, often implicit in designation)
-    payLevel: String,                 // enum: 10, 11, 12, 13A2, 14A (7th Pay Commission levels)
-    positions: Number,                // Number of vacancies
+    // Position Details
+    designation: {
+      type: String,
+      enum: JOB_DESIGNATIONS, // Imported from constants.js
+      required: true
+    },
+    grade: { type: String, enum: JOB_GRADES }, // Optional
+    payLevel: { type: String, enum: JOB_PAY_LEVELS, required: true }, // "10", "11", "12", "13A2", "14A"
+    recruitmentType: {
+      type: String,
+      enum: JOB_RECRUITMENT_TYPES,
+      default: 'external'
+    },
+    categories: [{
+      type: String,
+      enum: JOB_CATEGORIES
+    }], // ['GEN', 'SC', 'ST', 'OBC', 'EWS', 'PwD']
 
-    // Recruitment Classification
-    recruitmentType: String,          // enum: external, internal (internal = faculty upgradation)
-    categories: [String],             // Array: ['GEN', 'SC', 'ST', 'OBC', 'EWS', 'PwD']
-                                      // Indicates which reservation categories this job applies to
-
-    // Job Details
-    description: String,              // Detailed job description
-    qualifications: [String],         // Required qualifications
-    responsibilities: [String],       // Key responsibilities
+    // Job Description
+    description: { type: String, required: true },
+    qualifications: [{ type: String }],
+    responsibilities: [{ type: String }],
 
     // Documents (Advertisement, Application Forms, Annexures)
     documents: [{
-      type: String,                   // enum: ADVERTISEMENT, APPLICATION_FORM, ANNEXURE
-      category: String,               // optional: SC, ST, OBC, EWS (for category-specific forms/annexures)
-      label: String,                  // "Annexure-II for SC/ST", "Application Form - General"
-      url: String,                    // Cloudinary URL
-      publicId: String,               // Cloudinary public ID
-      uploadedAt: Date
+      type: { type: String, enum: JOB_DOCUMENT_TYPES }, // 'ADVERTISEMENT', 'APPLICATION_FORM', 'ANNEXURE'
+      category: { type: String, enum: JOB_CATEGORIES }, // Optional, for category-specific forms
+      label: { type: String, required: true },
+      url: { type: String, required: true },
+      publicId: { type: String, required: true },
+      uploadedAt: { type: Date, default: Date.now }
     }],
 
-    // Application configuration (CRITICAL)
+    // Application Configuration
     requiredSections: [{
-      sectionType: String,            // 'personal', 'education', 'experience', etc.
-      isMandatory: Boolean,
-      requiresPDF: Boolean,
-      pdfLabel: String,               // "Combined Education Certificates"
-      maxPDFSize: Number,             // in MB
-      instructions: String
-    }],
-
-    customFields: [{                  // Job-specific extra fields
-      fieldName: String,
-      fieldType: String,              // text, number, date, dropdown
-      options: [String],              // for dropdown
-      isMandatory: Boolean,
-      section: String                 // which section this belongs to
+      section: { type: String, required: true },
+      isMandatory: { type: Boolean, default: true },
+      // ... configuration for sections
     }],
 
     // Timeline
-    publishDate: Date,                // When job was published
-    applicationStartDate: Date,       // When applications open
-    applicationEndDate: Date,         // Application deadline
+    publishDate: { type: Date },
+    applicationStartDate: { type: Date },
+    applicationEndDate: { type: Date, required: true },
 
-    // Status Management
-    status: String,                   // enum: draft, published, closed, archived
-    closedAt: Date,                   // When job was closed (manual or auto after deadline)
+    // Status
+    status: {
+      type: String,
+      enum: JOB_STATUSES,
+      default: 'draft'
+    },
+
+    // Virtual: isActive (computed from status, deletedAt, and applicationEndDate)
 
     // Soft Delete
-    deletedAt: Date,                  // For soft delete
+    deletedAt: { type: Date, default: null },
 
-    // Metadata
-    createdBy: ObjectId (ref: User),
-    createdAt: Date,
-    updatedAt: Date
+    createdBy: { type: ObjectId, ref: 'User' }
   }
+  ````
+
+  ```
+
   ```
 
 - **Department Model** (`models/department.model.js`)
@@ -628,21 +637,22 @@ PATCH  /api/admin/applications/:id/verify-section   # Verify section documents
 ### Consistent Response Format
 
 ```javascript
-// Success
+// Success (ApiResponse)
 {
   success: true,
+  statusCode: 200,
   data: { ... },
   message: "Operation successful"
 }
 
-// Error
+// Error (ApiError)
 {
   success: false,
-  error: {
-    code: "VALIDATION_ERROR",
-    message: "Validation failed",
-    details: [...]
-  }
+  statusCode: 400,
+  message: "Validation failed",
+  errors: [
+    { field: "email", message: "Invalid email format" }
+  ]
 }
 ```
 
@@ -806,6 +816,7 @@ CORS_ORIGIN=https://careers.nitkkr.ac.in
 #### Models
 
 - **Payment Model** (`models/payment.model.js`)
+
   ```javascript
   {
     paymentId: String,              // Unique payment ID

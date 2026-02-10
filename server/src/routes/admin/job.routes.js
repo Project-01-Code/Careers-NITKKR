@@ -1,38 +1,48 @@
 import { Router } from 'express';
 import {
-    createJob,
-    getAllJobs,
-    getJobById,
-    updateJob,
-    deleteJob,
-    publishJob,
-    closeJob,
+  createJob,
+  getAllJobs,
+  getJobById,
+  updateJob,
+  deleteJob,
+  publishJob,
+  closeJob,
 } from '../../controllers/admin/job.controller.js';
 import { verifyJWT } from '../../middlewares/auth.middleware.js';
 import { requireRole } from '../../middlewares/rbac.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
-import { createJobSchema, updateJobSchema } from '../../validators/job.validator.js';
+import {
+  createJobSchema,
+  updateJobSchema,
+  jobFilterSchema,
+} from '../../validators/job.validator.js';
 
 const router = Router();
 
 router.post(
-    '/',
-    verifyJWT,
-    requireRole(['admin']),
-    validate(createJobSchema),
-    createJob
+  '/',
+  verifyJWT,
+  requireRole(['admin']),
+  validate(createJobSchema),
+  createJob
 );
 
-router.get('/', verifyJWT, requireRole(['admin']), getAllJobs);
+router.get(
+  '/',
+  verifyJWT,
+  requireRole(['admin']),
+  validate(jobFilterSchema),
+  getAllJobs
+);
 
 router.get('/:id', verifyJWT, requireRole(['admin']), getJobById);
 
 router.patch(
-    '/:id',
-    verifyJWT,
-    requireRole(['admin']),
-    validate(updateJobSchema),
-    updateJob
+  '/:id',
+  verifyJWT,
+  requireRole(['admin']),
+  validate(updateJobSchema),
+  updateJob
 );
 
 router.delete('/:id', verifyJWT, requireRole(['admin']), deleteJob);

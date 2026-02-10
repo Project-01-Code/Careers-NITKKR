@@ -1,4 +1,153 @@
 import mongoose, { Schema } from 'mongoose';
+import {
+  JOB_DESIGNATIONS,
+  JOB_GRADES,
+  JOB_PAY_LEVELS,
+  JOB_RECRUITMENT_TYPES,
+  JOB_CATEGORIES,
+  JOB_DOCUMENT_TYPES,
+  JOB_SECTION_TYPES,
+  JOB_FIELD_TYPES,
+  JOB_STATUSES,
+  DEGREE_LEVELS,
+  JOB_RECRUITMENT_TYPE,
+  JOB_STATUS,
+} from '../constants.js';
+
+/* ---------------------------------------------
+   Application Fee Sub Schema
+--------------------------------------------- */
+const applicationFeeSchema = new Schema(
+  {
+    general: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    sc_st: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    obc: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    ews: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    pwd: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    isRequired: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  { _id: false }
+);
+
+/* ---------------------------------------------
+   Eligibility Criteria Sub Schema
+--------------------------------------------- */
+const eligibilityCriteriaSchema = new Schema(
+  {
+    minAge: {
+      type: Number,
+      required: true,
+      min: 18,
+      max: 100,
+    },
+    maxAge: {
+      type: Number,
+      required: true,
+      min: 18,
+      max: 100,
+    },
+    ageRelaxation: {
+      SC: { type: Number, default: 5 },
+      ST: { type: Number, default: 5 },
+      OBC: { type: Number, default: 3 },
+      PwD: { type: Number, default: 10 },
+    },
+    nationality: {
+      type: [String],
+      required: true,
+      default: ['Indian'],
+    },
+    minExperience: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    requiredDegrees: [
+      {
+        level: {
+          type: String,
+          enum: DEGREE_LEVELS,
+          required: true,
+        },
+        field: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        isMandatory: {
+          type: Boolean,
+          default: true,
+        },
+      },
+    ],
+  },
+  { _id: false }
+);
+
+/* ---------------------------------------------
+   Document Sub Schema (Advertisements, Forms, Annexures)
+--------------------------------------------- */
+const documentSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: JOB_DOCUMENT_TYPES,
+      required: true,
+    },
+    category: {
+      type: String,
+      enum: JOB_CATEGORIES,
+      default: null,
+    },
+    label: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    url: {
+      type: String,
+      required: true,
+    },
+    publicId: {
+      type: String,
+      required: true,
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
 
 /* ---------------------------------------------
    Required Sections Sub Schema
@@ -7,16 +156,7 @@ const requiredSectionSchema = new Schema(
   {
     sectionType: {
       type: String,
-      enum: [
-        'personal',
-        'education',
-        'experience',
-        'research',
-        'publications',
-        'references',
-        'documents',
-        'custom',
-      ],
+      enum: JOB_SECTION_TYPES,
       required: true,
     },
     isMandatory: {
@@ -55,7 +195,7 @@ const customFieldSchema = new Schema(
     },
     fieldType: {
       type: String,
-      enum: ['text', 'number', 'date', 'dropdown'],
+      enum: JOB_FIELD_TYPES,
       required: true,
     },
     options: [String], // only used for dropdown
@@ -72,59 +212,48 @@ const customFieldSchema = new Schema(
 );
 
 /* ---------------------------------------------
-   Pay Scale Sub Schema (Indian Govt Standard)
---------------------------------------------- */
-const payScaleSchema = new Schema(
-  {
-    payLevel: {
-      type: String, // e.g., "Level-10", "Level-14"
-      required: true,
-      trim: true,
-    },
-    entryPay: {
-      type: Number, // e.g., 57700
-      required: true,
-    },
-    payBand: {
-      type: String, // e.g., "PB-3 (15600-39100)"
-      default: null,
-    },
-    gradePay: {
-      type: Number, // Legacy 6th CPC
-      default: null,
-    },
-  },
-  { _id: false }
-);
-
-/* ---------------------------------------------
    Main Job Schema
 --------------------------------------------- */
 const jobSchema = new Schema(
   {
+    // Basic Information
     title: {
       type: String,
       required: [true, 'Job title is required'],
       trim: true,
     },
 
-    jobCode: {
+    advertisementNo: {
       type: String,
-      required: [true, 'Job code is required'],
+      required: [true, 'Advertisement number is required'],
       trim: true,
       uppercase: true,
     },
 
-    category: {
-      type: String,
-      required: true,
-      enum: ['Faculty', 'Non-Teaching', 'Research'],
+    department: {
+      type: Schema.Types.ObjectId,
+      ref: 'Department',
+      required: [true, 'Department is required'],
+      index: true,
     },
 
-    department: {
+    // Position Details (specific)
+    designation: {
       type: String,
       required: true,
-      trim: true,
+      enum: JOB_DESIGNATIONS,
+    },
+
+    grade: {
+      type: String,
+      enum: JOB_GRADES,
+      default: null,
+    },
+
+    payLevel: {
+      type: String,
+      required: true,
+      enum: JOB_PAY_LEVELS,
     },
 
     positions: {
@@ -133,6 +262,34 @@ const jobSchema = new Schema(
       min: 1,
     },
 
+    // Recruitment Classification
+    recruitmentType: {
+      type: String,
+      required: true,
+      enum: JOB_RECRUITMENT_TYPES,
+      default: JOB_RECRUITMENT_TYPE.EXTERNAL,
+    },
+
+    categories: [
+      {
+        type: String,
+        enum: JOB_CATEGORIES,
+      },
+    ],
+
+    // Application Fee Structure
+    applicationFee: {
+      type: applicationFeeSchema,
+      required: true,
+    },
+
+    // Eligibility Criteria
+    eligibilityCriteria: {
+      type: eligibilityCriteriaSchema,
+      required: true,
+    },
+
+    // Job Details
     description: {
       type: String,
       required: true,
@@ -141,53 +298,55 @@ const jobSchema = new Schema(
     qualifications: [String],
     responsibilities: [String],
 
-    payScale: {
-      type: payScaleSchema,
-      required: true,
-    },
+    // Documents (Advertisement, Application Forms, Annexures)
+    documents: [documentSchema],
 
-    employmentType: {
-      type: String,
-      enum: ['Permanent', 'Contract', 'Temporary'],
-      default: 'Permanent',
-    },
-
+    // Application configuration
     requiredSections: [requiredSectionSchema],
 
     customFields: [customFieldSchema],
 
-    noticeId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Notice',
+    // Timeline
+    publishDate: {
+      type: Date,
       default: null,
     },
 
-    applicationDeadline: {
+    applicationStartDate: {
       type: Date,
       required: true,
     },
 
-    startDate: Date,
+    applicationEndDate: {
+      type: Date,
+      required: true,
+    },
 
+    // Status Management
     status: {
       type: String,
-      enum: ['draft', 'published', 'closed', 'cancelled'],
-      default: 'draft',
+      enum: JOB_STATUSES,
+      default: JOB_STATUS.DRAFT,
     },
 
-    isActive: {
-      type: Boolean,
-      default: true,
+    closedAt: {
+      type: Date,
+      default: null,
     },
 
+    // Soft Delete
+    deletedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+
+    // Metadata
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
     },
-
-    publishedAt: Date,
-    closedAt: Date,
   },
   {
     timestamps: true,
@@ -195,34 +354,61 @@ const jobSchema = new Schema(
 );
 
 /* ---------------------------------------------
-   Indexes
+   Indexes for Performance
 --------------------------------------------- */
 
-jobSchema.index({ jobCode: 1 }, { unique: true });
+// Unique advertisement number
+jobSchema.index({ advertisementNo: 1 }, { unique: true });
 
-jobSchema.index({
-  status: 1,
-  isActive: 1,
-  applicationDeadline: 1,
-});
+// Compound index for filtering active jobs
+jobSchema.index({ status: 1, deletedAt: 1, applicationEndDate: 1 });
 
-jobSchema.index({ category: 1, department: 1 });
+// Filtering indexes
+jobSchema.index({ designation: 1, payLevel: 1 });
+jobSchema.index({ recruitmentType: 1 });
+jobSchema.index({ department: 1 });
+jobSchema.index({ categories: 1 });
 
-jobSchema.index({ noticeId: 1 });
+// Timestamp index for sorting
+jobSchema.index({ createdAt: -1 });
+jobSchema.index({ publishDate: -1 });
 
 /* ---------------------------------------------
-   Deadline Validation Hook
+   Virtual Fields
 --------------------------------------------- */
 
-jobSchema.pre('save', async function () {
-  if (this.isNew && this.applicationDeadline <= new Date()) {
-    throw new Error('Application deadline must be in the future');
+// isActive: derived from status, deletedAt, and applicationEndDate
+jobSchema.virtual('isActive').get(function () {
+  return (
+    this.status === 'published' &&
+    !this.deletedAt &&
+    this.applicationEndDate > new Date()
+  );
+});
+
+/* ---------------------------------------------
+   Pre-save Validation
+--------------------------------------------- */
+
+jobSchema.pre('save', function (next) {
+  // Validate application dates
+  if (this.applicationEndDate <= this.applicationStartDate) {
+    return next(new Error('Application end date must be after start date'));
   }
+
+  // Validate age limits
+  if (
+    this.eligibilityCriteria &&
+    this.eligibilityCriteria.maxAge <= this.eligibilityCriteria.minAge
+  ) {
+    return next(new Error('Maximum age must be greater than minimum age'));
+  }
+
+  next();
 });
 
-
 /* ---------------------------------------------
-   Model Export
+   Export Model
 --------------------------------------------- */
 
 export const Job = mongoose.model('Job', jobSchema);
