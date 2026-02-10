@@ -12,7 +12,7 @@ export const connectDB = async () => {
     console.log('♻️  MongoDB reconnected')
   );
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
       dbName: DB_NAME,
       maxPoolSize: DB_CONFIG.MAX_POOL_SIZE,
       minPoolSize: DB_CONFIG.MIN_POOL_SIZE,
