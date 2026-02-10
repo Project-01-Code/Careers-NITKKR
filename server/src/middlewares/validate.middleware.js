@@ -1,6 +1,3 @@
-import { ApiError } from '../utils/apiError.js';
-import { HTTP_STATUS } from '../constants.js';
-
 /**
  * Validation Middleware
  * Validates request data against a Zod schema
@@ -26,21 +23,7 @@ export const validate = (schema) => {
 
       next();
     } catch (error) {
-      // Handle Zod validation errors
-      if (error.name === 'ZodError') {
-        const errors = error.errors.map((err) => ({
-          field: err.path.join('.'),
-          message: err.message,
-        }));
-
-        throw new ApiError(
-          HTTP_STATUS.BAD_REQUEST,
-          'Validation failed',
-          errors
-        );
-      }
-
-      // Pass other errors to error handler
+      // Pass error to central error handler
       next(error);
     }
   };

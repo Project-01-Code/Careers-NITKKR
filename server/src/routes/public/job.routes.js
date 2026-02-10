@@ -1,16 +1,17 @@
 import { Router } from 'express';
 import {
-    getActiveJobs,
-    getJobByCode,
-    getJobCategories,
-    getJobsByNotice,
+  getActiveJobs,
+  getJobById,
+  getJobByAdvertisementNo,
 } from '../../controllers/public/job.controller.js';
+import { validate } from '../../middlewares/validate.middleware.js';
+import { jobFilterSchema } from '../../validators/job.validator.js';
 
 const router = Router();
 
-router.get('/', getActiveJobs);
-router.get('/categories', getJobCategories);
-router.get('/notice/:noticeId', getJobsByNotice);
-router.get('/:jobCode', getJobByCode);
+// Public routes (no authentication required)
+router.get('/', validate(jobFilterSchema), getActiveJobs);
+router.get('/by-advertisement/:advertisementNo', getJobByAdvertisementNo);
+router.get('/:id', getJobById);
 
 export default router;

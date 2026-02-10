@@ -1,6 +1,7 @@
 import { Notice } from '../models/notice.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
+import { ApiResponse } from '../utils/apiResponse.js';
 import { HTTP_STATUS } from '../constants.js';
 
 /**
@@ -25,11 +26,15 @@ export const createNotice = asyncHandler(async (req, res) => {
     externalLink,
   });
 
-  res.status(HTTP_STATUS.CREATED).json({
-    success: true,
-    message: 'Notice created successfully',
-    data: notice,
-  });
+  res
+    .status(HTTP_STATUS.CREATED)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.CREATED,
+        notice,
+        'Notice created successfully'
+      )
+    );
 });
 
 /**
@@ -61,18 +66,21 @@ export const getPublicNotices = asyncHandler(async (req, res) => {
     .limit(limit)
     .select('-__v');
 
-  res.status(HTTP_STATUS.OK).json({
-    success: true,
-    data: {
-      notices,
-      pagination: {
-        currentPage: page,
-        totalPages,
-        totalResults,
-        limit,
+  res.status(HTTP_STATUS.OK).json(
+    new ApiResponse(
+      HTTP_STATUS.OK,
+      {
+        notices,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalResults,
+          limit,
+        },
       },
-    },
-  });
+      'Notices fetched successfully'
+    )
+  );
 });
 
 /**
@@ -99,11 +107,11 @@ export const archiveNotice = asyncHandler(async (req, res) => {
   notice.isActive = false;
   await notice.save();
 
-  res.status(HTTP_STATUS.OK).json({
-    success: true,
-    message: 'Notice archived successfully',
-    data: notice,
-  });
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(HTTP_STATUS.OK, notice, 'Notice archived successfully')
+    );
 });
 
 /**
@@ -144,9 +152,9 @@ export const updateNotice = asyncHandler(async (req, res) => {
   // Save updated notice
   await notice.save();
 
-  res.status(HTTP_STATUS.OK).json({
-    success: true,
-    message: 'Notice updated successfully',
-    data: notice,
-  });
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(HTTP_STATUS.OK, notice, 'Notice updated successfully')
+    );
 });

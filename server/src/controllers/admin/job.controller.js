@@ -1,220 +1,328 @@
 import { Job } from '../../models/job.model.js';
+import { Department } from '../../models/department.model.js';
 import { ApiError } from '../../utils/apiError.js';
 import { ApiResponse } from '../../utils/apiResponse.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { logAction } from '../../utils/auditLogger.js';
+import { JOB_STATUS } from '../../constants.js';
 
+/**
+ * @route   POST /api/admin/jobs
+ * @desc    Create a new job posting
+ * @access  Admin
+ */
 export const createJob = asyncHandler(async (req, res) => {
-    // 1. Input is already validated by middleware (zod) before reaching here
-    const { jobCode } = req.body;
+  const { advertisementNo, department } = req.body;
 
-    // 2. Check jobCode uniqueness
-    const existingJob = await Job.findOne({ jobCode });
-    if (existingJob) {
-        throw new ApiError(409, 'Job with this Job Code already exists');
-    }
-
-    // 3. Set createdBy and create job
-    const jobPayload = {
-        ...req.body,
-        createdBy: req.user._id,
-    };
-
-    const job = await Job.create(jobPayload);
-
-    // 4. Log action
-    await logAction({
-        userId: req.user._id,
-        action: 'JOB_CREATED',
-        resourceType: 'Job',
-        resourceId: job._id,
-        changes: { after: job.toObject() },
-        req,
-    });
-
-    res.status(201).json(new ApiResponse(201, job, 'Job created successfully'));
-});
-
-export const getAllJobs = asyncHandler(async (req, res) => {
-    const { category, department, status, page = 1, limit = 10 } = req.query;
-
-    const query = {};
-    if (category) query.category = category;
-    if (department) query.department = department;
-    if (status) query.status = status;
-
-    // Filter by deadline status
-    if (req.query.expired === 'true') {
-        query.applicationDeadline = { $lt: new Date() };
-    } else if (req.query.expired === 'false') {
-        query.applicationDeadline = { $gte: new Date() };
-    }
-
-    // Add search functionality if needed, e.g., by title or jobCode
-    if (req.query.search) {
-        query.$or = [
-            { title: { $regex: req.query.search, $options: 'i' } },
-            { jobCode: { $regex: req.query.search, $options: 'i' } },
-        ];
-    }
-
-    const options = {
-        page: parseInt(page, 10),
-        limit: parseInt(limit, 10),
-        sort: { createdAt: -1 },
-        populate: { path: 'createdBy', select: 'fullName email' }, // Assuming User model has these
-    };
-
-    // Using mongoose-paginate-v2 if available, or manual pagination
-    // Since model doesn't show plugin, doing manual pagination
-    const skip = (options.page - 1) * options.limit;
-
-    const [jobs, total] = await Promise.all([
-        Job.find(query)
-            .sort(options.sort)
-            .skip(skip)
-            .limit(options.limit)
-            .populate(options.populate.path, options.populate.select),
-        Job.countDocuments(query),
-    ]);
-
-    const responseData = {
-        jobs,
-        pagination: {
-            total,
-            page: options.page,
-            limit: options.limit,
-            totalPages: Math.ceil(total / options.limit),
-        },
-    };
-
-    res.status(200).json(new ApiResponse(200, responseData, 'Jobs fetched successfully'));
-});
-
-export const getJobById = asyncHandler(async (req, res) => {
-    const job = await Job.findById(req.params.id).populate('createdBy', 'fullName email');
-
-    if (!job) {
-        throw new ApiError(404, 'Job not found');
-    }
-
-    res.status(200).json(new ApiResponse(200, job, 'Job fetched successfully'));
-});
-
-export const updateJob = asyncHandler(async (req, res) => {
-    const job = await Job.findById(req.params.id);
-
-    if (!job) {
-        throw new ApiError(404, 'Job not found');
-    }
-
-    if (job.status === 'closed') {
-        throw new ApiError(400, 'Cannot update a closed job. Re-open it first if needed.');
-    }
-
-    const previousState = job.toObject();
-
-    const updatedJob = await Job.findByIdAndUpdate(
-        req.params.id,
-        { $set: req.body },
-        { new: true, runValidators: true }
+  // Check advertisementNo uniqueness
+  const existingJob = await Job.findOne({ advertisementNo });
+  if (existingJob) {
+    throw new ApiError(
+      409,
+      'Job with this advertisement number already exists'
     );
+  }
 
-    await logAction({
-        userId: req.user._id,
-        action: 'JOB_UPDATED',
-        resourceType: 'Job',
-        resourceId: job._id,
-        changes: {
-            before: previousState,
-            after: updatedJob.toObject(),
-        },
-        req,
-    });
+  // Validate department exists
+  const departmentExists = await Department.findById(department);
+  if (!departmentExists) {
+    throw new ApiError(404, 'Department not found');
+  }
 
-    res.status(200).json(new ApiResponse(200, updatedJob, 'Job updated successfully'));
+  if (!departmentExists.isActive) {
+    throw new ApiError(400, 'Cannot create job for inactive department');
+  }
+
+  // Create job
+  const jobPayload = {
+    ...req.body,
+    createdBy: req.user._id,
+  };
+
+  const job = await Job.create(jobPayload);
+
+  // Populate department before returning
+  await job.populate('department', 'name code');
+
+  // Log action
+  await logAction({
+    userId: req.user._id,
+    action: 'JOB_CREATED',
+    resourceType: 'Job',
+    resourceId: job._id,
+    changes: { after: job.toObject() },
+    req,
+  });
+
+  res.status(201).json(new ApiResponse(201, job, 'Job created successfully'));
 });
 
+/**
+ * @route   GET /api/admin/jobs
+ * @desc    Get all jobs with comprehensive filtering
+ * @access  Admin
+ */
+export const getAllJobs = asyncHandler(async (req, res) => {
+  const {
+    status,
+    designation,
+    payLevel,
+    recruitmentType,
+    category,
+    department,
+    isActive,
+    search,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    page = 1,
+    limit = 10,
+  } = req.query;
+
+  // Build query
+  const query = { deletedAt: null };
+
+  if (status) query.status = status;
+  if (designation) query.designation = designation;
+  if (payLevel) query.payLevel = payLevel;
+  if (recruitmentType) query.recruitmentType = recruitmentType;
+  if (department) query.department = department; // Now ObjectId
+
+  // Category filter
+  if (category) {
+    query.categories = { $in: [category] };
+  }
+
+  // isActive filter (derived: published && now < applicationEndDate)
+  if (isActive === 'true' || isActive === true) {
+    query.status = JOB_STATUS.PUBLISHED;
+    query.applicationEndDate = { $gt: new Date() };
+  }
+
+  // Search functionality
+  if (search) {
+    query.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { advertisementNo: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  // Pagination
+  const pageNum = parseInt(page, 10);
+  const limitNum = parseInt(limit, 10);
+  const skip = (pageNum - 1) * limitNum;
+
+  // Sorting
+  const sortOptions = {};
+  sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+  // Execute query
+  const [jobs, total] = await Promise.all([
+    Job.find(query)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNum)
+      .populate('department', 'name code')
+      .populate('createdBy', 'email profile.firstName profile.lastName'),
+    Job.countDocuments(query),
+  ]);
+
+  const responseData = {
+    jobs,
+    pagination: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+      hasNext: pageNum < Math.ceil(total / limitNum),
+      hasPrev: pageNum > 1,
+    },
+  };
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, responseData, 'Jobs fetched successfully'));
+});
+
+/**
+ * @route   GET /api/admin/jobs/:id
+ * @desc    Get job by ID
+ * @access  Admin
+ */
+export const getJobById = asyncHandler(async (req, res) => {
+  const job = await Job.findOne({
+    _id: req.params.id,
+    deletedAt: null,
+  })
+    .populate('department', 'name code')
+    .populate('createdBy', 'email profile.firstName profile.lastName');
+
+  if (!job) {
+    throw new ApiError(404, 'Job not found');
+  }
+
+  res.status(200).json(new ApiResponse(200, job, 'Job fetched successfully'));
+});
+
+/**
+ * @route   PATCH /api/admin/jobs/:id
+ * @desc    Update job
+ * @access  Admin
+ */
+export const updateJob = asyncHandler(async (req, res) => {
+  const job = await Job.findOne({
+    _id: req.params.id,
+    deletedAt: null,
+  });
+
+  if (!job) {
+    throw new ApiError(404, 'Job not found');
+  }
+
+  if (job.status === JOB_STATUS.CLOSED) {
+    throw new ApiError(
+      400,
+      'Cannot update a closed job. Re-open it first if needed.'
+    );
+  }
+
+  // If department is being updated, validate it exists
+  if (req.body.department) {
+    const departmentExists = await Department.findById(req.body.department);
+    if (!departmentExists) {
+      throw new ApiError(404, 'Department not found');
+    }
+    if (!departmentExists.isActive) {
+      throw new ApiError(400, 'Cannot assign inactive department');
+    }
+  }
+
+  const previousState = job.toObject();
+
+  // Update job
+  Object.assign(job, req.body);
+  await job.save();
+
+  // Populate before returning
+  await job.populate('department', 'name code');
+
+  await logAction({
+    userId: req.user._id,
+    action: 'JOB_UPDATED',
+    resourceType: 'Job',
+    resourceId: job._id,
+    changes: {
+      before: previousState,
+      after: job.toObject(),
+    },
+    req,
+  });
+
+  res.status(200).json(new ApiResponse(200, job, 'Job updated successfully'));
+});
+
+/**
+ * @route   DELETE /api/admin/jobs/:id
+ * @desc    Soft delete job
+ * @access  Admin
+ */
 export const deleteJob = asyncHandler(async (req, res) => {
-    // Soft delete check first
-    const job = await Job.findById(req.params.id);
+  const job = await Job.findOne({
+    _id: req.params.id,
+    deletedAt: null,
+  });
 
-    if (!job) {
-        throw new ApiError(404, 'Job not found');
-    }
+  if (!job) {
+    throw new ApiError(404, 'Job not found');
+  }
 
-    // We are doing soft delete by setting isActive: false
-    // Or actually, user requirement says: "Soft delete (set isActive = false)"
-    // But wait, user requirement also says "Log action".
+  // Soft delete
+  job.deletedAt = new Date();
+  await job.save();
 
-    job.isActive = false;
-    // Potentially also set status to cancelled? Requirement didn't specify but good practice.
-    // Keeping it strictly to requirement: set isActive = false.
-    await job.save();
+  await logAction({
+    userId: req.user._id,
+    action: 'JOB_DELETED',
+    resourceType: 'Job',
+    resourceId: job._id,
+    req,
+  });
 
-    await logAction({
-        userId: req.user._id,
-        action: 'JOB_DELETED',
-        resourceType: 'Job',
-        resourceId: job._id,
-        req,
-    });
-
-    res.status(200).json(new ApiResponse(200, null, 'Job deleted successfully'));
+  res.status(200).json(new ApiResponse(200, null, 'Job deleted successfully'));
 });
 
+/**
+ * @route   POST /api/admin/jobs/:id/publish
+ * @desc    Publish a job
+ * @access  Admin
+ */
 export const publishJob = asyncHandler(async (req, res) => {
-    const job = await Job.findById(req.params.id);
+  const job = await Job.findOne({
+    _id: req.params.id,
+    deletedAt: null,
+  });
 
-    if (!job) {
-        throw new ApiError(404, 'Job not found');
-    }
+  if (!job) {
+    throw new ApiError(404, 'Job not found');
+  }
 
-    if (job.status === 'published') {
-        throw new ApiError(400, 'Job is already published');
-    }
+  if (job.status === JOB_STATUS.PUBLISHED) {
+    throw new ApiError(400, 'Job is already published');
+  }
 
-    // Validate required fields for publishing if strictly needed beyond schema
-    // Schema already enforces most things.
-    // We could check if requiredSections is populated etc.
+  // Validate required fields for publishing
+  if (!job.requiredSections || job.requiredSections.length === 0) {
+    throw new ApiError(
+      400,
+      'Cannot publish job without required sections configured'
+    );
+  }
 
-    job.status = 'published';
-    job.publishedAt = new Date();
-    await job.save();
+  job.status = JOB_STATUS.PUBLISHED;
+  job.publishDate = new Date();
+  await job.save();
 
-    await logAction({
-        userId: req.user._id,
-        action: 'JOB_PUBLISHED',
-        resourceType: 'Job',
-        resourceId: job._id,
-        req,
-    });
+  await logAction({
+    userId: req.user._id,
+    action: 'JOB_PUBLISHED',
+    resourceType: 'Job',
+    resourceId: job._id,
+    req,
+  });
 
-    res.status(200).json(new ApiResponse(200, job, 'Job published successfully'));
+  res.status(200).json(new ApiResponse(200, job, 'Job published successfully'));
 });
 
+/**
+ * @route   POST /api/admin/jobs/:id/close
+ * @desc    Close a job early
+ * @access  Admin
+ */
 export const closeJob = asyncHandler(async (req, res) => {
-    const job = await Job.findById(req.params.id);
+  const job = await Job.findOne({
+    _id: req.params.id,
+    deletedAt: null,
+  });
 
-    if (!job) {
-        throw new ApiError(404, 'Job not found');
-    }
+  if (!job) {
+    throw new ApiError(404, 'Job not found');
+  }
 
-    if (job.status === 'closed') {
-        throw new ApiError(400, 'Job is already closed');
-    }
+  if (job.status === JOB_STATUS.CLOSED) {
+    throw new ApiError(400, 'Job is already closed');
+  }
 
-    job.status = 'closed';
-    job.closedAt = new Date();
-    await job.save();
+  job.status = JOB_STATUS.CLOSED;
+  job.closedAt = new Date();
+  await job.save();
 
-    await logAction({
-        userId: req.user._id,
-        action: 'JOB_CLOSED',
-        resourceType: 'Job',
-        resourceId: job._id,
-        req,
-    });
+  await logAction({
+    userId: req.user._id,
+    action: 'JOB_CLOSED',
+    resourceType: 'Job',
+    resourceId: job._id,
+    req,
+  });
 
-    res.status(200).json(new ApiResponse(200, job, 'Job closed successfully'));
+  res.status(200).json(new ApiResponse(200, job, 'Job closed successfully'));
 });
