@@ -15,6 +15,9 @@ import {
 } from './constants.js';
 import authRouter from './routes/auth.routes.js';
 import noticeRouter from './routes/notice.routes.js';
+import adminJobRouter from './routes/admin/job.routes.js';
+import publicJobRouter from './routes/public/job.routes.js';
+import departmentRouter from './routes/department.routes.js';
 
 const app = express();
 
@@ -87,6 +90,9 @@ app.get('/health', (req, res) => {
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/notices', noticeRouter);
+app.use('/api/v1/admin/jobs', adminJobRouter);
+app.use('/api/v1/jobs', publicJobRouter);
+app.use('/api/v1/departments', departmentRouter);
 
 /* ------------------- ERROR HANDLING ------------------- */
 
