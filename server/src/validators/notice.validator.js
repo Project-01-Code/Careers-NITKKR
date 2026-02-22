@@ -65,7 +65,13 @@ export const updateNoticeSchema = z.object({
       .optional()
       .nullable(),
 
-    isActive: z.boolean().optional(),
+    isActive: z
+      .union([z.boolean(), z.string()])
+      .transform((val) => {
+        if (typeof val === 'string') return val === 'true';
+        return val;
+      })
+      .optional(),
   }),
 });
 
@@ -73,29 +79,34 @@ export const updateNoticeSchema = z.object({
  * Get Notices Query Schema (for pagination)
  */
 export const getNoticesQuerySchema = z.object({
-  query: z.object({
-    page: z
-      .string()
-      .regex(/^\d+$/, 'Page must be a positive number')
-      .transform(Number)
-      .refine((val) => val > 0, 'Page must be greater than 0')
-      .optional()
-      .default('1'),
+  query: z
+    .object({
+      page: z
+        .string()
+        .regex(/^\d+$/, 'Page must be a positive number')
+        .transform(Number)
+        .refine((val) => val > 0, 'Page must be greater than 0')
+        .optional()
+        .default('1'),
 
-    limit: z
-      .string()
-      .regex(/^\d+$/, 'Limit must be a positive number')
-      .transform(Number)
-      .refine((val) => val > 0 && val <= 100, 'Limit must be between 1 and 100')
-      .optional()
-      .default('4'),
+      limit: z
+        .string()
+        .regex(/^\d+$/, 'Limit must be a positive number')
+        .transform(Number)
+        .refine(
+          (val) => val > 0 && val <= 100,
+          'Limit must be between 1 and 100'
+        )
+        .optional()
+        .default('4'),
 
-    category: z
-      .enum(noticeCategories, {
-        errorMap: () => ({ message: 'Invalid category selected' }),
-      })
-      .optional(),
-  }),
+      category: z
+        .enum(noticeCategories, {
+          errorMap: () => ({ message: 'Invalid category selected' }),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 /**

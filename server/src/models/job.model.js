@@ -234,7 +234,6 @@ const jobSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'Department',
       required: [true, 'Department is required'],
-      index: true,
     },
 
     // Position Details (specific)
@@ -390,10 +389,10 @@ jobSchema.virtual('isActive').get(function () {
    Pre-save Validation
 --------------------------------------------- */
 
-jobSchema.pre('save', function (next) {
+jobSchema.pre('save', function () {
   // Validate application dates
   if (this.applicationEndDate <= this.applicationStartDate) {
-    return next(new Error('Application end date must be after start date'));
+    throw new Error('Application end date must be after start date');
   }
 
   // Validate age limits
@@ -401,10 +400,8 @@ jobSchema.pre('save', function (next) {
     this.eligibilityCriteria &&
     this.eligibilityCriteria.maxAge <= this.eligibilityCriteria.minAge
   ) {
-    return next(new Error('Maximum age must be greater than minimum age'));
+    throw new Error('Maximum age must be greater than minimum age');
   }
-
-  next();
 });
 
 /* ---------------------------------------------

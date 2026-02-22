@@ -1,11 +1,10 @@
-import dotenv from 'dotenv';
+import './config/env.config.js';
 import http from 'http';
 import mongoose from 'mongoose';
 import app from './app.js';
 import { connectDB } from './db/connectDB.js';
 
-// Load environment variables
-dotenv.config();
+// Environment variables are loaded first via env.config.js (before any other module reads process.env)
 
 let server;
 
@@ -86,7 +85,7 @@ const startServer = async () => {
 
     // Validate required environment variables
     const requiredEnvVars = [
-      'MONGO_URI',
+      'MONGODB_URI',
       'ACCESS_TOKEN_SECRET',
       'REFRESH_TOKEN_SECRET',
       'ACCESS_TOKEN_EXPIRY',

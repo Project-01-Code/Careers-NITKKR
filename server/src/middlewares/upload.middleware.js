@@ -12,10 +12,11 @@ const storage = new CloudinaryStorage({
     resource_type: 'raw', // For PDFs
     allowed_formats: ['pdf'],
     public_id: (req, file) => {
-      // Generate unique public_id using timestamp
+      // Generate unique public_id — MUST include .pdf extension so Cloudinary
+      // treats it as a PDF (enables browser preview instead of forcing a download)
       const timestamp = Date.now();
-      const originalName = file.originalname.split('.')[0];
-      return `notice_${timestamp}_${originalName}`;
+      const originalName = file.originalname.replace(/\.pdf$/i, ''); // strip ext cleanly
+      return `notice_${timestamp}_${originalName}.pdf`;
     },
   },
 });

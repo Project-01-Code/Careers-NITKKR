@@ -13,7 +13,15 @@ export const errorHandler = (err, req, res, next) => {
 
   // 1. Handle Zod Validation Errors
   if (err instanceof ZodError) {
-    const errorMessages = err.errors.map((issue) => ({
+    if (process.env.NODE_ENV === NODE_ENV.DEVELOPMENT) {
+      console.error('[ZodError Debug]:', {
+        name: err.name,
+        issues: err.issues,
+        errors: err.errors,
+      });
+    }
+    const zodIssues = err.errors || err.issues || [];
+    const errorMessages = zodIssues.map((issue) => ({
       field: issue.path.join('.'),
       message: issue.message,
       code: issue.code,
@@ -28,7 +36,7 @@ export const errorHandler = (err, req, res, next) => {
 
   // 2. Handle Mongoose Validation Errors
   else if (err instanceof mongoose.Error.ValidationError) {
-    const errorMessages = Object.values(err.errors).map((val) => ({
+    const errorMessages = Object.values(err.errors || {}).map((val) => ({
       field: val.path,
       message: val.message,
     }));
@@ -48,7 +56,9 @@ export const errorHandler = (err, req, res, next) => {
 
   // 4. Handle Mongoose Duplicate Key Errors
   else if (err.code === 11000) {
-    const field = Object.keys(err.keyValue)[0];
+    const field = err.keyValue
+      ? Object.keys(err.keyValue)[0]
+      : 'duplicate field';
     const message = `Duplicate field value entered: ${field}. Please use another value.`;
     error = new ApiError(HTTP_STATUS.CONFLICT, message);
   }
@@ -64,6 +74,14 @@ export const errorHandler = (err, req, res, next) => {
       HTTP_STATUS.UNAUTHORIZED,
       'Token expired. Please log in again.'
     );
+  }
+
+  // 6. Handle Multer Errors
+  else if (err.name === 'MulterError' || err.hasOwnProperty('storageErrors')) {
+    const message = `File upload error: ${err.message}`;
+    error = new ApiError(HTTP_STATUS.BAD_REQUEST, message, [
+      { code: err.code, field: err.field },
+    ]);
   }
 
   // 6. Ensure error is an instance of ApiError
