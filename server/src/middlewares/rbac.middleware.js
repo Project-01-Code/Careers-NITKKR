@@ -59,8 +59,11 @@ export const requireOwnership = (resourceGetter) => {
       throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
     }
 
-    // Admin override - admins can access any resource
-    if (req.user.role === USER_ROLES.ADMIN) {
+    // Admin/Super-Admin override - they can access any resource
+    if (
+      req.user.role === USER_ROLES.ADMIN ||
+      req.user.role === USER_ROLES.SUPER_ADMIN
+    ) {
       return next();
     }
 

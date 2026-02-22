@@ -22,7 +22,7 @@ const router = Router();
 router.post(
   '/',
   verifyJWT,
-  requireRole(['admin']),
+  requireRole('admin'),
   validate(createJobSchema),
   createJob
 );
@@ -30,25 +30,25 @@ router.post(
 router.get(
   '/',
   verifyJWT,
-  requireRole(['admin']),
+  requireRole('admin'),
   validate(jobFilterSchema),
   getAllJobs
 );
 
-router.get('/:id', verifyJWT, requireRole(['admin']), getJobById);
+router.get('/:id', verifyJWT, requireRole('admin'), getJobById);
 
 router.patch(
   '/:id',
   verifyJWT,
-  requireRole(['admin']),
+  requireRole('admin'),
   validate(updateJobSchema),
   updateJob
 );
 
-router.delete('/:id', verifyJWT, requireRole(['admin']), deleteJob);
+router.delete('/:id', verifyJWT, requireRole('admin'), deleteJob);
 
-router.post('/:id/publish', verifyJWT, requireRole(['admin']), publishJob);
+router.post('/:id/publish', verifyJWT, requireRole('admin'), publishJob);
 
-router.post('/:id/close', verifyJWT, requireRole(['admin']), closeJob);
+router.post('/:id/close', verifyJWT, requireRole('admin'), closeJob);
 
 export default router;

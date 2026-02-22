@@ -47,6 +47,7 @@ export const logAction = async ({
     // Log errors internally
     console.error('[AUDIT LOG ERROR]', {
       error: error.message,
+      stack: error.stack,
       userId,
       action,
       resourceType,

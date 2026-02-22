@@ -201,6 +201,7 @@
    ```
 
 2. Create `requireOwnership` middleware:
+
    ```javascript
    export const requireOwnership = (resourceModel, resourceIdParam = 'id') => {
      return async (req, res, next) => {
@@ -323,6 +324,41 @@
 
 **Duration**: 4-5 days  
 **Goal**: Create job posting infrastructure with dynamic section requirements
+
+### Step 2.0: Create Notice Management System
+
+**Files to Create/Modify**:
+
+- `src/models/notice.model.js`
+- `src/controllers/notice.controller.js`
+- `src/routes/notice.routes.js`
+- `src/validators/notice.validator.js`
+
+**Tasks**:
+
+1.  Create Notice Model:
+    - `heading`, `advtNo`, `category`, `pdfUrl`, `externalLink`, `isActive`
+    - Soft delete support
+
+2.  Create Controllers:
+    - `createNotice`: Admin only, supports file upload
+    - `getPublicNotices`: Public, active only, supports pagination and filtering
+    - `updateNotice`: Admin only, supports file replacement
+    - `archiveNotice`: Admin only, soft delete
+
+3.  Create Routes:
+    - `POST /api/v1/notices` (Admin)
+    - `GET /api/v1/notices` (Public)
+    - `PATCH /api/v1/notices/:id` (Admin)
+    - `PATCH /api/v1/notices/:id/archive` (Admin)
+
+**Definition of Done**:
+
+- ✅ Can create, read, update, and archive notices
+- ✅ Public API filters active notices
+- ✅ File upload works for notices
+
+---
 
 ### Step 2.1: Create Department Model
 
@@ -792,6 +828,7 @@
 6. Try to create job as applicant (should fail)
 7. Verify deadline validation
 8. Close job and verify it's not returned in public API
+9. Verify `updateNotice` functionality (including file upload and `isActive` toggle)
 
 **Definition of Done**:
 
@@ -826,6 +863,7 @@
    ```
 
 2. Create `generateApplicationNumber` function:
+
    ```javascript
    export async function generateApplicationNumber() {
      const year = new Date().getFullYear();
@@ -1249,6 +1287,7 @@
    ```
 
 2. Create `validatePDFUpload` function:
+
    ```javascript
    export function validatePDFUpload(file, sectionConfig) {
      const errors = [];
@@ -1493,6 +1532,7 @@
    ```
 
 2. Create `checkJobDeadline` function:
+
    ```javascript
    export async function checkJobDeadline(jobId) {
      const job = await Job.findById(jobId);
@@ -1795,6 +1835,7 @@
 **Tasks**:
 
 1. Create `checkApplicationAccess` middleware:
+
    ```javascript
    export const checkApplicationAccess = async (req, res, next) => {
      const application = await Application.findById(req.params.id);
