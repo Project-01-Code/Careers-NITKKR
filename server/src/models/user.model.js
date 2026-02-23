@@ -72,11 +72,10 @@ userSchema.index({ role: 1, deletedAt: 1 });
 userSchema.index({ email: 1, deletedAt: 1 });
 
 // Hash password before saving
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
 
   this.password = await bcrypt.hash(this.password, 10);
-  next();
 });
 
 // Compare password method
@@ -110,6 +109,15 @@ userSchema.methods.generateRefreshToken = function () {
       expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
     }
   );
+};
+
+// Transform JSON output
+userSchema.methods.toJSON = function () {
+  const userObject = this.toObject();
+  delete userObject.password;
+  delete userObject.refreshToken;
+  delete userObject.__v;
+  return userObject;
 };
 
 export const User = mongoose.model('User', userSchema);

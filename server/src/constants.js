@@ -69,9 +69,10 @@ export const REQUEST_LIMITS = {
 /* ---------------- USER ROLES ---------------- */
 
 export const USER_ROLES = {
-  APPLICANT: 'applicant',
-  REVIEWER: 'reviewer',
+  SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
+  REVIEWER: 'reviewer',
+  APPLICANT: 'applicant',
 };
 
 /* ---------------- AUDIT ACTIONS ---------------- */
