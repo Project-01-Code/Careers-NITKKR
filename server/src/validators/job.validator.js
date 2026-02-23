@@ -144,113 +144,140 @@ const customFieldSchema = z
   });
 
 /* =========================================================
+   BASE SCHEMA OBJECT (Reusable)
+========================================================= */
+
+const jobBaseSchema = {
+  title: z
+    .string()
+    .min(5, 'Title must be at least 5 characters')
+    .max(200, 'Title cannot exceed 200 characters'),
+
+  advertisementNo: z
+    .string()
+    .regex(
+      /^[A-Z0-9/-]+$/,
+      'Advertisement number must be uppercase alphanumeric'
+    ),
+
+  department: z
+    .string()
+    .regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID format'),
+
+  designation: z.enum(JOB_DESIGNATIONS),
+
+  grade: z.enum(JOB_GRADES).optional(),
+
+  payLevel: z.enum(JOB_PAY_LEVELS),
+
+  positions: z.number().int().min(1, 'At least one position is required'),
+
+  recruitmentType: z.enum(JOB_RECRUITMENT_TYPES).default('external'),
+
+  categories: z.array(z.enum(JOB_CATEGORIES)).optional().default([]),
+
+  applicationFee: applicationFeeSchema,
+
+  eligibilityCriteria: eligibilityCriteriaSchema,
+
+  description: z.string().min(50, 'Description must be at least 50 characters'),
+
+  qualifications: z.array(z.string()).optional(),
+
+  responsibilities: z.array(z.string()).optional(),
+
+  documents: z.array(documentSchema).optional().default([]),
+
+  requiredSections: z
+    .array(requiredSectionSchema)
+    .min(1, 'At least one required section is mandatory'),
+
+  customFields: z.array(customFieldSchema).optional(),
+
+  applicationStartDate: z
+    .string()
+    .datetime()
+    .refine(
+      (date) => new Date(date) > new Date(),
+      'Application start date must be in the future'
+    ),
+
+  applicationEndDate: z.string().datetime(),
+};
+
+/* =========================================================
    CREATE JOB SCHEMA
 ========================================================= */
 
-export const createJobSchema = z
-  .object({
-    title: z
-      .string()
-      .min(5, 'Title must be at least 5 characters')
-      .max(200, 'Title cannot exceed 200 characters'),
+export const createJobSchema = z.object({
+  body: z
+    .object(jobBaseSchema)
+    .strict()
+    .superRefine((data, ctx) => {
+      const startDate = new Date(data.applicationStartDate);
+      const endDate = new Date(data.applicationEndDate);
 
-    advertisementNo: z
-      .string()
-      .regex(
-        /^[A-Z0-9/-]+$/,
-        'Advertisement number must be uppercase alphanumeric'
-      ),
-
-    department: z
-      .string()
-      .regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID format'),
-
-    designation: z.enum(JOB_DESIGNATIONS),
-
-    grade: z.enum(JOB_GRADES).optional(),
-
-    payLevel: z.enum(JOB_PAY_LEVELS),
-
-    positions: z.number().int().min(1, 'At least one position is required'),
-
-    recruitmentType: z.enum(JOB_RECRUITMENT_TYPES).default('external'),
-
-    categories: z.array(z.enum(JOB_CATEGORIES)).optional().default([]),
-
-    applicationFee: applicationFeeSchema,
-
-    eligibilityCriteria: eligibilityCriteriaSchema,
-
-    description: z
-      .string()
-      .min(50, 'Description must be at least 50 characters'),
-
-    qualifications: z.array(z.string()).optional(),
-
-    responsibilities: z.array(z.string()).optional(),
-
-    documents: z.array(documentSchema).optional().default([]),
-
-    requiredSections: z
-      .array(requiredSectionSchema)
-      .min(1, 'At least one required section is mandatory'),
-
-    customFields: z.array(customFieldSchema).optional(),
-
-    applicationStartDate: z
-      .string()
-      .datetime()
-      .refine(
-        (date) => new Date(date) > new Date(),
-        'Application start date must be in the future'
-      ),
-
-    applicationEndDate: z.string().datetime(),
-  })
-  .strict()
-  .superRefine((data, ctx) => {
-    const startDate = new Date(data.applicationStartDate);
-    const endDate = new Date(data.applicationEndDate);
-
-    if (endDate <= startDate) {
-      ctx.addIssue({
-        path: ['applicationEndDate'],
-        message: 'Application end date must be after start date',
-        code: z.ZodIssueCode.custom,
-      });
-    }
-  });
+      if (endDate <= startDate) {
+        ctx.addIssue({
+          path: ['applicationEndDate'],
+          message: 'Application end date must be after start date',
+          code: z.ZodIssueCode.custom,
+        });
+      }
+    }),
+});
 
 /* =========================================================
    UPDATE JOB SCHEMA
 ========================================================= */
 
-export const updateJobSchema = createJobSchema.partial().strict();
+export const updateJobSchema = z.object({
+  body: z
+    .object(jobBaseSchema)
+    .partial()
+    .strict()
+    .superRefine((data, ctx) => {
+      if (data.applicationStartDate && data.applicationEndDate) {
+        const startDate = new Date(data.applicationStartDate);
+        const endDate = new Date(data.applicationEndDate);
+
+        if (endDate <= startDate) {
+          ctx.addIssue({
+            path: ['applicationEndDate'],
+            message: 'Application end date must be after start date',
+            code: z.ZodIssueCode.custom,
+          });
+        }
+      }
+    }),
+});
 
 /* =========================================================
    JOB FILTER SCHEMA (for query params)
 ========================================================= */
 
 export const jobFilterSchema = z.object({
-  status: z.enum(JOB_STATUSES).optional(),
-  designation: z.enum(JOB_DESIGNATIONS).optional(),
-  payLevel: z.enum(JOB_PAY_LEVELS).optional(),
-  recruitmentType: z.enum(JOB_RECRUITMENT_TYPES).optional(),
-  category: z.enum(JOB_CATEGORIES).optional(),
-  department: z
-    .string()
-    .regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID format')
-    .optional(),
-  isActive: z
-    .string()
-    .transform((val) => val === 'true')
-    .optional(),
-  search: z.string().optional(),
-  sortBy: z
-    .enum(['createdAt', 'publishDate', 'applicationEndDate', 'payLevel'])
-    .optional()
-    .default('createdAt'),
-  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
-  page: z.string().transform(Number).optional().default('1'),
-  limit: z.string().transform(Number).optional().default('10'),
+  query: z.object({
+    status: z.enum(JOB_STATUSES).optional(),
+    designation: z.enum(JOB_DESIGNATIONS).optional(),
+    payLevel: z.enum(JOB_PAY_LEVELS).optional(),
+    recruitmentType: z.enum(JOB_RECRUITMENT_TYPES).optional(),
+    category: z.enum(JOB_CATEGORIES).optional(),
+    department: z
+      .string()
+      .regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID format')
+      .optional(),
+    isActive: z
+      .string()
+      .transform((val) => val === 'true')
+      .optional(),
+    search: z.string().optional(),
+    sortBy: z
+      .enum(['createdAt', 'publishDate', 'applicationEndDate', 'payLevel'])
+      .optional()
+      .default('createdAt'),
+    sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+    page: z.string().transform(Number).optional().default('1'),
+    limit: z.string().transform(Number).optional().default('10'),
+  }),
 });
