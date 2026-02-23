@@ -1,10 +1,12 @@
 import { ApiError } from '../utils/apiError.js';
 import { Application } from '../models/application.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { USER_ROLES } from '../constants.js';
 
 /**
  * Middleware to check if user owns the application
  * Attaches application to req.application if ownership is verified
+ * Admin, Super Admin, and Reviewer roles can access any application
  */
 export const checkApplicationOwnership = asyncHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -15,10 +17,12 @@ export const checkApplicationOwnership = asyncHandler(async (req, res, next) => 
         throw new ApiError(404, 'Application not found');
     }
 
-    // Check ownership (allow admin to access any application)
+    // Privileged roles can access any application
+    const privilegedRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.REVIEWER];
+
     if (
         application.userId.toString() !== req.user._id.toString() &&
-        req.user.role !== 'admin'
+        !privilegedRoles.includes(req.user.role)
     ) {
         throw new ApiError(403, 'You can only access your own applications');
     }
