@@ -1175,6 +1175,32 @@
 
 ---
 
+### Step 3.7: Production Hardening (Phase 3)
+
+**Tasks**:
+
+1.  **Implement Optimistic Concurrency Control**:
+    -   Ensure `__v` version key is checked during updates
+    -   Handle `VersionError` in global error handler (retry or notify user)
+
+2.  **Implement Transactions for Critical Flows**:
+    -   Wrap `createApplication` in a transaction (User update + Application create)
+    -   Wrap `deleteApplication` in a transaction
+
+3.  **Implement Idempotency**:
+    -   Add `idempotency-key` header check middleware
+    -   Store keys in Redis/DB with TTL
+    -   Prevent duplicate application submissions from same client
+
+**Definition of Done**:
+
+-   ✅ Optimistic locking enabled and tested
+-   ✅ Transactions used for multi-document writes
+-   ✅ Idempotency middleware active on submission endpoints
+
+---
+
+
 ## Phase 4: Section-wise Saving & Validation
 
 **Duration**: 4-5 days  
@@ -1445,6 +1471,32 @@
 - ✅ Locking prevents edits
 
 ---
+
+### Step 4.6: Production Hardening (Phase 4)
+
+**Tasks**:
+
+1.  **Implement Strict File Validation**:
+    -   Use `mmmagic` or `file-type` to detect "Magic Numbers"
+    -   Reject files where extension matches valid type but magic number does not (e.g., EXE renamed to PDF)
+
+2.  **Malware Scanning Integration**:
+    -   Integrate ClamAV (or cloud specific scanner)
+    -   Scan buffer before upload to Cloudinary
+
+3.  **Orphaned File Cleanup Scheduler**:
+    -   Create cron job to find Cloudinary assets not linked to any active Application/User
+    -   Queue them for deletion
+    -   Run weekly (low traffic hours)
+
+**Definition of Done**:
+
+-   ✅ Magic number validation active (spoofed files rejected)
+-   ✅ Malware scanning mock/implementation in place
+-   ✅ Orphaned file cleanup job configured
+
+---
+
 
 ## Phase 5: Final Submission & Locking
 
