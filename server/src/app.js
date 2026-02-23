@@ -19,6 +19,7 @@ import noticeRouter from './routes/notice.routes.js';
 import adminJobRouter from './routes/admin/job.routes.js';
 import publicJobRouter from './routes/public/job.routes.js';
 import departmentRouter from './routes/department.routes.js';
+import applicationRouter from './routes/application.routes.js';
 
 const app = express();
 
@@ -98,6 +99,7 @@ app.use('/api/v1/notices', noticeRouter);
 app.use('/api/v1/admin/jobs', adminJobRouter);
 app.use('/api/v1/jobs', publicJobRouter);
 app.use('/api/v1/departments', departmentRouter);
+app.use('/api/v1/applications', applicationRouter);
 
 /* ------------------- ERROR HANDLING ------------------- */
 

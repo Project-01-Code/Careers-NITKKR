@@ -82,6 +82,9 @@ export const AUDIT_ACTIONS = {
   LOGIN_FAILED: 'LOGIN_FAILED',
   LOGOUT: 'LOGOUT',
   PROFILE_UPDATED: 'PROFILE_UPDATED',
+  APPLICATION_SUBMITTED: 'APPLICATION_SUBMITTED',
+  APPLICATION_WITHDRAWN: 'APPLICATION_WITHDRAWN',
+  APPLICATION_STATUS_CHANGED: 'APPLICATION_STATUS_CHANGED',
 };
 
 /* ---------------- RESOURCE TYPES ---------------- */
@@ -92,6 +95,28 @@ export const RESOURCE_TYPES = {
   APPLICATION: 'Application',
   NOTICE: 'Notice',
 };
+
+/* ---------------- APPLICATION ENUMS ---------------- */
+
+export const APPLICATION_STATUS = {
+  DRAFT: 'draft',
+  SUBMITTED: 'submitted',
+  UNDER_REVIEW: 'under_review',
+  SHORTLISTED: 'shortlisted',
+  REJECTED: 'rejected',
+  SELECTED: 'selected',
+  WITHDRAWN: 'withdrawn',
+};
+
+/* ---------------- PAGINATION ---------------- */
+
+export const PAGINATION = {
+  DEFAULT_PAGE: 1,
+  DEFAULT_LIMIT: 10,
+  MAX_LIMIT: 100,
+};
+
+export const APPLICATION_STATUSES = Object.values(APPLICATION_STATUS);
 
 /* ---------------- JOB ENUMS ---------------- */
 
