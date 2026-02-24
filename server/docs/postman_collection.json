@@ -1,0 +1,1003 @@
+{
+  "info": {
+    "name": "Careers NIT Kurukshetra — API",
+    "_postman_id": "nit-kkr-careers-api-v1",
+    "description": "Complete API collection for the NIT Kurukshetra Recruitment Portal.\n\nSetup:\n1. Set `baseUrl` = http://localhost:8000/api/v1\n2. After login, copy the `accessToken` from response and set it as collection variable\n3. Set `appId` to a valid draft application ID",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api/v1"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "email",
+      "value": "applicant@example.com"
+    },
+    {
+      "key": "password",
+      "value": "Password@123"
+    },
+    {
+      "key": "appId",
+      "value": ""
+    },
+    {
+      "key": "jobId",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"Applicant\",\n  \"role\": \"applicant\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "var jsonData = pm.response.json();",
+                    "if (jsonData.data && jsonData.data.accessToken) {",
+                    "    pm.collectionVariables.set(\"accessToken\", jsonData.data.accessToken);",
+                    "}"
+                  ],
+                  "type": "text/javascript"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/refresh-token"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public — Jobs",
+      "item": [
+        {
+          "name": "List Active Jobs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/jobs?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "designation",
+                  "value": "Assistant Professor Grade-I",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.jobs && jsonData.data.jobs.length > 0) {",
+                  "    pm.collectionVariables.set(\"jobId\", jsonData.data.jobs[0]._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Job by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobs/{{jobId}}"
+          }
+        },
+        {
+          "name": "Get Job by Advertisement No",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobs/by-advertisement/ADV-2026-001"
+          }
+        },
+        {
+          "name": "List Departments",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/departments"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Applications",
+      "item": [
+        {
+          "name": "Create Application",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jobId\": \"{{jobId}}\"\n}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "var jsonData = pm.response.json();",
+                    "if (jsonData.data && jsonData.data._id) {",
+                    "    pm.collectionVariables.set(\"appId\", jsonData.data._id);",
+                    "}"
+                  ],
+                  "type": "text/javascript"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "List My Applications",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/applications?page=1&limit=10"
+          }
+        },
+        {
+          "name": "Get Application by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/applications/{{appId}}"
+          }
+        },
+        {
+          "name": "Delete Draft Application",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/applications/{{appId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 1 — Personal",
+      "item": [
+        {
+          "name": "Save Personal Section",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/personal",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"postAppliedFor\": \"Assistant Professor Grade-I (Level-12)\",\n    \"departmentDiscipline\": \"Computer Science & Engineering\",\n    \"category\": \"GEN\",\n    \"disability\": false,\n    \"name\": \"Dr. Ravi Kumar\",\n    \"dob\": \"1985-06-15\",\n    \"fatherName\": \"Mr. Rajesh Kumar\",\n    \"nationality\": \"Indian\",\n    \"gender\": \"Male\",\n    \"maritalStatus\": \"Married\",\n    \"aadhar\": \"123456789012\",\n    \"corrAddress\": \"H.No. 42, Sector 7\",\n    \"corrCity\": \"Kurukshetra\",\n    \"corrDistrict\": \"Kurukshetra\",\n    \"corrState\": \"Haryana\",\n    \"corrPincode\": \"136118\",\n    \"mobile\": \"9876543210\",\n    \"sameAsCorrespondence\": true,\n    \"permAddress\": \"H.No. 42, Sector 7\",\n    \"permCity\": \"Kurukshetra\",\n    \"permDistrict\": \"Kurukshetra\",\n    \"permState\": \"Haryana\",\n    \"permPincode\": \"136118\",\n    \"specialization\": [\"Machine Learning\", \"Computer Vision\"],\n    \"phdTitle\": \"Deep Learning for Medical Image Segmentation\",\n    \"phdUniversity\": \"IIT Delhi\",\n    \"phdDate\": \"2015-05-20\",\n    \"degreeFromTopInstitute\": [\"PhD Degree\", \"PG Degree\"],\n    \"scopusId\": \"57200000000\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Validate Personal Section",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/personal/validate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 2 — Photo & Signature",
+      "item": [
+        {
+          "name": "Upload Photo (JPEG ≤ 200KB)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/photo/image",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "",
+                  "description": "JPEG photo, ≤ 200KB, 240×320 to 480×640 px"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Photo",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/photo/image"
+          }
+        },
+        {
+          "name": "Upload Signature (JPEG ≤ 50KB)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/signature/image",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "",
+                  "description": "JPEG signature, ≤ 50KB, 280×80 to 560×160 px"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Signature",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/signature/image"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 3 — Education",
+      "item": [
+        {
+          "name": "Save Education Section",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/education",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"examPassed\": \"PhD\",\n        \"discipline\": \"Computer Science\",\n        \"boardUniversity\": \"IIT Delhi\",\n        \"marks\": \"Excellent\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2015\",\n        \"nirfRanking\": { \"rank\": \"1-10\", \"rankingYear\": \"2015\" }\n      },\n      {\n        \"examPassed\": \"M.Tech/ME/M.Sc\",\n        \"discipline\": \"Computer Science & Engineering\",\n        \"boardUniversity\": \"NIT Kurukshetra\",\n        \"marks\": \"8.9 CGPA\",\n        \"classDivision\": \"First with Distinction\",\n        \"yearOfPassing\": \"2010\"\n      },\n      {\n        \"examPassed\": \"B.Tech/BE/B.Sc\",\n        \"discipline\": \"Computer Science & Engineering\",\n        \"boardUniversity\": \"MDU Rohtak\",\n        \"marks\": \"78%\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2008\"\n      },\n      {\n        \"examPassed\": \"Intermediate/12th\",\n        \"discipline\": \"PCM\",\n        \"boardUniversity\": \"CBSE\",\n        \"marks\": \"85%\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2004\"\n      },\n      {\n        \"examPassed\": \"Matriculation/10th\",\n        \"discipline\": \"General\",\n        \"boardUniversity\": \"CBSE\",\n        \"marks\": \"88%\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2002\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Validate Education Section",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/education/validate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 4 — Experience",
+      "item": [
+        {
+          "name": "Save Experience Section",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/experience",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"experienceType\": [\"Teaching\", \"Research/Post-Doctoral\"],\n        \"employerNameAddress\": \"IIT Bombay, Powai, Mumbai - 400076\",\n        \"isPresentEmployer\": true,\n        \"designation\": \"Assistant Professor\",\n        \"appointmentType\": \"Regular\",\n        \"payScale\": \"Level 10 (₹57,700 - ₹1,82,400)\",\n        \"fromDate\": \"2016-07-01\",\n        \"organizationType\": \"Fully Funded Central Educational Institutions\"\n      },\n      {\n        \"experienceType\": [\"Research/Post-Doctoral\"],\n        \"employerNameAddress\": \"IIT Delhi, Hauz Khas, New Delhi - 110016\",\n        \"isPresentEmployer\": false,\n        \"designation\": \"Post-Doctoral Fellow\",\n        \"appointmentType\": \"Contract\",\n        \"payScale\": \"₹45,000 per month\",\n        \"fromDate\": \"2015-06-01\",\n        \"toDate\": \"2016-06-30\",\n        \"organizationType\": \"Fully Funded Central Educational Institutions\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Validate Experience Section",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/experience/validate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 5 — Journal Publications",
+      "item": [
+        {
+          "name": "Save Journal Publications",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/publications_journal",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"journalType\": \"SCI / Scopus Journals\",\n        \"paperTitle\": \"A Novel Deep Learning Framework for Medical Image Segmentation\",\n        \"authors\": \"R. Kumar, A. Sharma, P. Singh\",\n        \"isFirstAuthor\": true,\n        \"coAuthorCount\": 2,\n        \"journalName\": \"IEEE Transactions on Medical Imaging\",\n        \"isPaidJournal\": false,\n        \"volume\": \"42\",\n        \"year\": \"2023\",\n        \"pages\": \"1245-1258\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Validate Journal Publications",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/publications_journal/validate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 6 — Conference Publications",
+      "item": [
+        {
+          "name": "Save Conference Publications",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/publications_conference",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"conferenceType\": \"Scopus Indexed Conference\",\n        \"paperTitle\": \"Attention Mechanisms in Vision Transformers\",\n        \"authors\": \"R. Kumar, S. Verma\",\n        \"isFirstAuthor\": true,\n        \"coAuthorCount\": 1,\n        \"conferenceName\": \"IEEE CVPR 2022\",\n        \"organizer\": \"IEEE\",\n        \"year\": \"2022\",\n        \"pages\": \"5678-5685\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 7 — PhD Supervision",
+      "item": [
+        {
+          "name": "Save PhD Supervision",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/phd_supervision",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"scholarName\": \"Ms. Priya Sharma\",\n        \"researchTopic\": \"Federated Learning for Healthcare Privacy\",\n        \"universityInstitute\": \"IIT Bombay\",\n        \"supervisors\": \"Dr. R. Kumar\",\n        \"isFirstSupervisor\": true,\n        \"coSupervisorCount\": 0,\n        \"year\": \"2022\",\n        \"status\": \"Awarded\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 8 — Patents",
+      "item": [
+        {
+          "name": "Save Patents",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/patents",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"patentTitle\": \"System and Method for Real-time Medical Image Enhancement\",\n        \"inventors\": \"R. Kumar, P. Singh\",\n        \"isPrincipalInventor\": true,\n        \"coInventorCount\": 1,\n        \"year\": \"2021\",\n        \"status\": \"Granted\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 9 — Books",
+      "item": [
+        {
+          "name": "Save Books / Monographs",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/publications_books",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"type\": \"Book\",\n        \"title\": \"Introduction to Deep Learning\",\n        \"authors\": \"R. Kumar\",\n        \"year\": \"2020\",\n        \"publisher\": \"Springer\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 10 — Organized Programs",
+      "item": [
+        {
+          "name": "Save Organized Programs",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/organized_programs",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"title\": \"Workshop on Machine Learning Applications\",\n        \"fromDate\": \"2023-03-10\",\n        \"toDate\": \"2023-03-14\",\n        \"sponsoringAgency\": \"DST, Govt. of India\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 11 — Sponsored Projects",
+      "item": [
+        {
+          "name": "Save Sponsored Projects",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/sponsored_projects",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"sponsoringAgency\": \"DST, Govt. of India\",\n        \"title\": \"AI-based Crop Disease Detection System\",\n        \"period\": \"2021-2024\",\n        \"amount\": 2500000,\n        \"piCoPI\": \"Dr. R. Kumar\",\n        \"isPrincipalInvestigator\": true,\n        \"coInvestigatorCount\": 0,\n        \"status\": \"Ongoing\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 12 — Consultancy Projects",
+      "item": [
+        {
+          "name": "Save Consultancy Projects",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/consultancy_projects",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"fundingAgency\": \"Tata Consultancy Services\",\n        \"title\": \"AI-powered Customer Analytics Platform\",\n        \"period\": \"2022-2023\",\n        \"amount\": 750000,\n        \"piCoPI\": \"Dr. R. Kumar\",\n        \"status\": \"Completed\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 13 — Subjects Taught",
+      "item": [
+        {
+          "name": "Save Subjects Taught",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/subjects_taught",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      { \"category\": \"UG Level\", \"subjectName\": \"Data Structures & Algorithms\" },\n      { \"category\": \"UG Level\", \"subjectName\": \"Operating Systems\" },\n      { \"category\": \"PG Level\", \"subjectName\": \"Deep Learning\" },\n      { \"category\": \"PG Level\", \"subjectName\": \"Computer Vision\" }\n    ]\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 14 — Credit Points",
+      "item": [
+        {
+          "name": "Get Auto-Calculated Credit Summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/credit_points/summary",
+            "description": "Returns auto-calculated credits (Activities 1-4) from previously saved sections. No body needed."
+          }
+        },
+        {
+          "name": "Save Credit Points (Manual Activities 5-22)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/credit_points",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"manualActivities\": [\n      { \"activityId\": 5, \"description\": \"Conference Papers (Indexed)\", \"claimedPoints\": 4 },\n      { \"activityId\": 6, \"description\": \"Major Administrative Positions (HOD for 2 semesters)\", \"claimedPoints\": 6 },\n      { \"activityId\": 10, \"description\": \"Workshops/FDP Coordinated (3 programs)\", \"claimedPoints\": 3 },\n      { \"activityId\": 16, \"description\": \"PG Dissertations Guided (4)\", \"claimedPoints\": 4 },\n      { \"activityId\": 17, \"description\": \"UG Dissertations Guided (6)\", \"claimedPoints\": 3 }\n    ],\n    \"totalCreditsClaimed\": 68,\n    \"totalCreditsAllowed\": 100\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 15 — Referees",
+      "item": [
+        {
+          "name": "Save Referees (exactly 2)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/referees",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"name\": \"Prof. Ashok Gupta\",\n        \"designation\": \"Professor & Head\",\n        \"departmentAddress\": \"Dept. of CSE, IIT Delhi, Hauz Khas, New Delhi\",\n        \"city\": \"New Delhi\",\n        \"pincode\": \"110016\",\n        \"phone\": \"011-26591234\",\n        \"officialEmail\": \"agupta@cse.iitd.ac.in\",\n        \"personalEmail\": \"ashok.gupta@gmail.com\"\n      },\n      {\n        \"name\": \"Dr. Sunita Verma\",\n        \"designation\": \"Associate Professor\",\n        \"departmentAddress\": \"Dept. of AI, IIT Bombay, Powai, Mumbai\",\n        \"city\": \"Mumbai\",\n        \"pincode\": \"400076\",\n        \"phone\": \"022-25767890\",\n        \"officialEmail\": \"sverma@cse.iitb.ac.in\",\n        \"personalEmail\": \"sunita.verma@gmail.com\"\n      }\n    ]\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 16 — Other Info",
+      "item": [
+        {
+          "name": "Save Other Information",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/other_info",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"strength\": \"Strong research background in ML/AI with 8+ SCI publications and industry collaboration experience.\",\n    \"weakness\": \"Limited administrative experience at the Head of Department level.\",\n    \"visionForHigherEd\": \"Integrating industry-relevant curriculum with research-driven pedagogy to produce globally competitive graduates.\",\n    \"topThreePriorities\": \"1. Establish an interdisciplinary AI Research Centre. 2. Develop strong industry-academia partnerships. 3. Mentor doctoral students.\",\n    \"preferredSubjects\": [\"Machine Learning\", \"Deep Learning\", \"Computer Vision\", \"Data Science\", \"AI Ethics\"],\n    \"labInnovations\": [\"Edge AI Lab for IoT-integrated inference\", \"Medical Imaging Analytics Centre\"],\n    \"otherInfo\": \"\"\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 17 — Upload Documents",
+      "item": [
+        {
+          "name": "Upload Merged Documents PDF (≤ 3MB)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/final_documents/pdf",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "pdf",
+                  "type": "file",
+                  "src": "",
+                  "description": "Single merged PDF of all certificates. Max 3MB."
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Page 18 — Declaration & Submit",
+      "item": [
+        {
+          "name": "Save Declaration",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{appId}}/sections/declaration",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"declareInfoTrue\": true,\n    \"agreeToTerms\": true,\n    \"photoUploaded\": true,\n    \"detailsVerified\": true\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Validate All Sections",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{appId}}/validate-all",
+            "description": "Pre-submission check. Returns all incomplete or invalid sections."
+          }
+        },
+        {
+          "name": "Submit Application (FINAL — IRREVERSIBLE)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{appId}}/submit",
+            "description": "Locks the application permanently. Cannot be undone."
+          }
+        },
+        {
+          "name": "Withdraw Application",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{appId}}/withdraw",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Withdrawing due to personal reasons\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin — Applications",
+      "item": [
+        {
+          "name": "List All Applications",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/applications?page=1&limit=10&status=submitted",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "applications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "submitted"
+                },
+                {
+                  "key": "jobId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Application Detail",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/applications/{{appId}}"
+          }
+        },
+        {
+          "name": "Update Application Status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/admin/applications/{{appId}}/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"shortlisted\",\n  \"remarks\": \"Strong research profile\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Add Review Notes",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/admin/applications/{{appId}}/review",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewNotes\": \"Excellent SCI publication record. Shortlisted for interview.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Bulk Status Update",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/admin/applications/bulk-status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicationIds\": [\"{{appId}}\"],\n  \"status\": \"under_review\",\n  \"remarks\": \"Batch moved to review stage\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Export Applications to CSV",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/applications/export?jobId={{jobId}}"
+          }
+        },
+        {
+          "name": "Get Applications for a Job",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/jobs/{{jobId}}/applications"
+          }
+        },
+        {
+          "name": "Verify Section Document",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/admin/applications/{{appId}}/verify-section",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sectionType\": \"education\",\n  \"isVerified\": true,\n  \"verificationNotes\": \"Degree certificate verified — Original seen.\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin — Jobs",
+      "item": [
+        {
+          "name": "Create Job Draft",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/admin/jobs",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Assistant Professor Grade-I\",\n  \"department\": \"Computer Science & Engineering\",\n  \"designation\": \"Assistant Professor Grade-I\",\n  \"payLevel\": \"12\",\n  \"totalVacancies\": 3,\n  \"vacanciesBreakdown\": { \"GEN\": 1, \"OBC\": 1, \"SC\": 1 },\n  \"applicationFee\": 1000,\n  \"applicationStartDate\": \"2026-03-01T00:00:00.000Z\",\n  \"applicationEndDate\": \"2026-04-01T00:00:00.000Z\",\n  \"requiredSections\": [\n    { \"sectionType\": \"personal\", \"isMandatory\": true },\n    { \"sectionType\": \"photo\", \"isMandatory\": true },\n    { \"sectionType\": \"signature\", \"isMandatory\": true },\n    { \"sectionType\": \"education\", \"isMandatory\": true },\n    { \"sectionType\": \"experience\", \"isMandatory\": true },\n    { \"sectionType\": \"publications_journal\", \"isMandatory\": false },\n    { \"sectionType\": \"publications_conference\", \"isMandatory\": false },\n    { \"sectionType\": \"phd_supervision\", \"isMandatory\": false },\n    { \"sectionType\": \"patents\", \"isMandatory\": false },\n    { \"sectionType\": \"publications_books\", \"isMandatory\": false },\n    { \"sectionType\": \"organized_programs\", \"isMandatory\": false },\n    { \"sectionType\": \"sponsored_projects\", \"isMandatory\": false },\n    { \"sectionType\": \"consultancy_projects\", \"isMandatory\": false },\n    { \"sectionType\": \"subjects_taught\", \"isMandatory\": false },\n    { \"sectionType\": \"credit_points\", \"isMandatory\": true },\n    { \"sectionType\": \"referees\", \"isMandatory\": true },\n    { \"sectionType\": \"other_info\", \"isMandatory\": false },\n    { \"sectionType\": \"final_documents\", \"isMandatory\": true },\n    { \"sectionType\": \"declaration\", \"isMandatory\": true }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "List All Jobs (Admin)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/jobs?page=1&limit=10"
+          }
+        },
+        {
+          "name": "Get Job by ID (Admin)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/jobs/{{jobId}}"
+          }
+        },
+        {
+          "name": "Update Job",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/admin/jobs/{{jobId}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"totalVacancies\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Publish Job",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/admin/jobs/{{jobId}}/publish"
+          }
+        },
+        {
+          "name": "Close Job Early",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/admin/jobs/{{jobId}}/close"
+          }
+        },
+        {
+          "name": "Delete (Soft) Job",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/admin/jobs/{{jobId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin — Users",
+      "item": [
+        {
+          "name": "Create Admin/Reviewer User",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/admin/users",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"reviewer@nitkkr.ac.in\",\n  \"password\": \"Secure@123\",\n  \"firstName\": \"Review\",\n  \"lastName\": \"Officer\",\n  \"role\": \"reviewer\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin — Notices",
+      "item": [
+        {
+          "name": "Create Notice",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/notices",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"heading\": \"Recruitment Advertisement 2026\",\n  \"advertisementNumber\": \"NITKKR/2026/01\",\n  \"category\": \"recruitment\",\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "List Public Notices",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/notices?page=1&limit=10&category=recruitment"
+          }
+        }
+      ]
+    }
+  ]
+}
