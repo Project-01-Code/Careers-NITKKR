@@ -2,7 +2,7 @@ import { Job } from '../../models/job.model.js';
 import { ApiError } from '../../utils/apiError.js';
 import { ApiResponse } from '../../utils/apiResponse.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
-import { JOB_STATUS } from '../../constants.js';
+import { JOB_STATUS, HTTP_STATUS } from '../../constants.js';
 
 /**
  * @route   GET /api/jobs
@@ -103,7 +103,7 @@ export const getJobById = asyncHandler(async (req, res) => {
     .select('-createdBy -deletedAt -__v');
 
   if (!job) {
-    throw new ApiError(404, 'Job not found or not active');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found or not active');
   }
 
   res
@@ -128,7 +128,7 @@ export const getJobByAdvertisementNo = asyncHandler(async (req, res) => {
     .select('-createdBy -deletedAt -__v');
 
   if (!job) {
-    throw new ApiError(404, 'Job not found or not active');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found or not active');
   }
 
   res

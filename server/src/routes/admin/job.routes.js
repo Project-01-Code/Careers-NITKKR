@@ -22,7 +22,7 @@ const router = Router();
 router.post(
   '/',
   verifyJWT,
-  requireRole('admin'),
+  requireRole('admin', 'super_admin'),
   validate(createJobSchema),
   createJob
 );
@@ -30,7 +30,7 @@ router.post(
 router.get(
   '/',
   verifyJWT,
-  requireRole('admin'),
+  requireRole('admin', 'super_admin'),
   validate(jobFilterSchema),
   getAllJobs
 );
@@ -40,7 +40,7 @@ router.get('/:id', verifyJWT, requireRole('admin'), getJobById);
 router.patch(
   '/:id',
   verifyJWT,
-  requireRole('admin'),
+  requireRole('admin', 'super_admin'),
   validate(updateJobSchema),
   updateJob
 );

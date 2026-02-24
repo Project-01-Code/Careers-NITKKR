@@ -4,7 +4,7 @@ import { ApiError } from '../../utils/apiError.js';
 import { ApiResponse } from '../../utils/apiResponse.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { logAction } from '../../utils/auditLogger.js';
-import { JOB_STATUS } from '../../constants.js';
+import { JOB_STATUS, HTTP_STATUS } from '../../constants.js';
 
 /**
  * @route   POST /api/admin/jobs
@@ -18,7 +18,7 @@ export const createJob = asyncHandler(async (req, res) => {
   const existingJob = await Job.findOne({ advertisementNo });
   if (existingJob) {
     throw new ApiError(
-      409,
+      HTTP_STATUS.CONFLICT,
       'Job with this advertisement number already exists'
     );
   }
@@ -26,11 +26,14 @@ export const createJob = asyncHandler(async (req, res) => {
   // Validate department exists
   const departmentExists = await Department.findById(department);
   if (!departmentExists) {
-    throw new ApiError(404, 'Department not found');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Department not found');
   }
 
   if (!departmentExists.isActive) {
-    throw new ApiError(400, 'Cannot create job for inactive department');
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'Cannot create job for inactive department'
+    );
   }
 
   // Create job
@@ -158,7 +161,7 @@ export const getJobById = asyncHandler(async (req, res) => {
     .populate('createdBy', 'email profile.firstName profile.lastName');
 
   if (!job) {
-    throw new ApiError(404, 'Job not found');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
   }
 
   res.status(200).json(new ApiResponse(200, job, 'Job fetched successfully'));
@@ -176,12 +179,12 @@ export const updateJob = asyncHandler(async (req, res) => {
   });
 
   if (!job) {
-    throw new ApiError(404, 'Job not found');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
   }
 
   if (job.status === JOB_STATUS.CLOSED) {
     throw new ApiError(
-      400,
+      HTTP_STATUS.BAD_REQUEST,
       'Cannot update a closed job. Re-open it first if needed.'
     );
   }
@@ -190,10 +193,13 @@ export const updateJob = asyncHandler(async (req, res) => {
   if (req.body.department) {
     const departmentExists = await Department.findById(req.body.department);
     if (!departmentExists) {
-      throw new ApiError(404, 'Department not found');
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Department not found');
     }
     if (!departmentExists.isActive) {
-      throw new ApiError(400, 'Cannot assign inactive department');
+      throw new ApiError(
+        HTTP_STATUS.BAD_REQUEST,
+        'Cannot assign inactive department'
+      );
     }
   }
 
@@ -233,7 +239,7 @@ export const deleteJob = asyncHandler(async (req, res) => {
   });
 
   if (!job) {
-    throw new ApiError(404, 'Job not found');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
   }
 
   // Soft delete
@@ -263,17 +269,17 @@ export const publishJob = asyncHandler(async (req, res) => {
   });
 
   if (!job) {
-    throw new ApiError(404, 'Job not found');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
   }
 
   if (job.status === JOB_STATUS.PUBLISHED) {
-    throw new ApiError(400, 'Job is already published');
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Job is already published');
   }
 
   // Validate required fields for publishing
   if (!job.requiredSections || job.requiredSections.length === 0) {
     throw new ApiError(
-      400,
+      HTTP_STATUS.BAD_REQUEST,
       'Cannot publish job without required sections configured'
     );
   }
@@ -305,11 +311,11 @@ export const closeJob = asyncHandler(async (req, res) => {
   });
 
   if (!job) {
-    throw new ApiError(404, 'Job not found');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
   }
 
   if (job.status === JOB_STATUS.CLOSED) {
-    throw new ApiError(400, 'Job is already closed');
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Job is already closed');
   }
 
   job.status = JOB_STATUS.CLOSED;
