@@ -184,12 +184,24 @@ export const JOB_STATUSES = Object.values(JOB_STATUS);
 
 export const JOB_SECTION_TYPE = {
   PERSONAL: 'personal',
+  PHOTO: 'photo',
+  SIGNATURE: 'signature',
   EDUCATION: 'education',
   EXPERIENCE: 'experience',
-  RESEARCH: 'research',
-  PUBLICATIONS: 'publications',
-  REFERENCES: 'references',
-  DOCUMENTS: 'documents',
+  PUBLICATIONS_JOURNAL: 'publications_journal',
+  PUBLICATIONS_CONFERENCE: 'publications_conference',
+  PHD_SUPERVISION: 'phd_supervision',
+  PATENTS: 'patents',
+  PUBLICATIONS_BOOKS: 'publications_books',
+  ORGANIZED_PROGRAMS: 'organized_programs',
+  SPONSORED_PROJECTS: 'sponsored_projects',
+  CONSULTANCY_PROJECTS: 'consultancy_projects',
+  SUBJECTS_TAUGHT: 'subjects_taught',
+  CREDIT_POINTS: 'credit_points',
+  REFEREES: 'referees',
+  OTHER_INFO: 'other_info',
+  FINAL_DOCUMENTS: 'final_documents',
+  DECLARATION: 'declaration',
   CUSTOM: 'custom',
 };
 
@@ -212,3 +224,124 @@ export const DEGREE_LEVEL = {
 };
 
 export const DEGREE_LEVELS = Object.values(DEGREE_LEVEL);
+
+/* ---------------- APPLICATION FORM ENUMS ---------------- */
+
+export const GENDER = ['Male', 'Female', 'Transgender'];
+
+export const MARITAL_STATUS = ['Single', 'Married', 'Divorced', 'Widowed'];
+
+export const EXAM_TYPE = [
+  'Post-Doctoral',
+  'PhD',
+  'M.Tech/ME/M.Sc',
+  'B.Tech/BE/B.Sc',
+  'Intermediate/12th',
+  'Matriculation/10th',
+];
+
+export const APPOINTMENT_TYPE = [
+  'Regular',
+  'Adhoc',
+  'Contract',
+  'Guest',
+  'Temporary',
+];
+
+export const ORGANIZATION_TYPE = [
+  'Fully Funded Central Educational Institutions',
+  'IIMs and Other Management Institutions ranked by NIRF upto 50',
+  'State Educational Institutions funded by State Governments',
+  'Other Educational Institutions ranked by NIRF upto 100',
+  'Any Other Institute / Organization',
+  'Institute / University outside India with QS/THE Ranking within 500',
+];
+
+export const EXPERIENCE_TYPE = [
+  'Teaching',
+  'Industry',
+  'Research/Post-Doctoral',
+];
+
+export const JOURNAL_TYPE = [
+  'SCI / Scopus Journals',
+  'Non-SCI / Non-Scopus Journals',
+];
+
+export const CONFERENCE_TYPE = [
+  'SCI Indexed Conference',
+  'Scopus Indexed Conference',
+  'Web of Science Conference',
+  'Internationally Renowned Conference',
+];
+
+export const PHD_STATUS = ['Awarded', 'Submitted', 'Ongoing'];
+
+export const PATENT_STATUS = [
+  'Granted',
+  'Applied',
+  'Published',
+  'Under Examination',
+];
+
+export const PROJECT_STATUS = ['Completed', 'Ongoing', 'Sanctioned'];
+
+export const BOOK_TYPE = ['Book', 'Monograph', 'Book Chapter'];
+
+export const SUBJECT_LEVEL = ['UG Level', 'PG Level'];
+
+export const DEGREE_FROM_TOP_INSTITUTE = [
+  'UG Degree',
+  'PG Degree',
+  'PhD Degree',
+];
+
+export const INDIAN_STATES = [
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+  'Andaman and Nicobar Islands',
+  'Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi',
+  'Jammu and Kashmir',
+  'Ladakh',
+  'Lakshadweep',
+  'Puducherry',
+];
+
+export const NIRF_RANK_RANGES = [
+  '1-10',
+  '11-25',
+  '26-50',
+  '51-100',
+  '101-150',
+  '151-200',
+  '201+',
+  'Not Ranked',
+];

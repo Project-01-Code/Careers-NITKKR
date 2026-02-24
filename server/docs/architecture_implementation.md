@@ -231,7 +231,7 @@ POST   /api/admin/jobs/:id/close          # Close job early (sets status=closed,
 **Public Routes**
 
 ```
-GET    /api/jobs                          # List active jobs
+GET    /api/v1/jobs                          # List active jobs
        Query params (subset of admin filters):
        - designation
        - payLevel
@@ -242,9 +242,9 @@ GET    /api/jobs                          # List active jobs
        - sortBy: publishDate | applicationEndDate
        - sortOrder: asc | desc
 
-GET    /api/jobs/:id                      # Get job details by ID
-GET    /api/jobs/by-advertisement/:advertisementNo  # Get job by advertisement number
-GET    /api/departments                   # List departments
+GET    /api/v1/jobs/:id                      # Get job details by ID
+GET    /api/v1/jobs/by-advertisement/:advertisementNo  # Get job by advertisement number
+GET    /api/v1/departments                   # List departments
 ```
 
 ### Testable Outcomes
@@ -275,7 +275,7 @@ GET    /api/departments                   # List departments
 
   ```javascript
   {
-    applicationNumber: String,        // Auto-generated: "APP-2026-00001"
+    applicationNumber: String,        // Auto-generated: "APP-YYYY-XXXXXXXX" (hex)
 
     // References
     userId: ObjectId (ref: User),
@@ -351,7 +351,7 @@ GET    /api/departments                   # List departments
 #### Utilities
 
 - **Application Number Generator** (`utils/applicationNumberGenerator.js`)
-  - Format: `APP-{YEAR}-{5-digit-sequence}`
+  - Format: `APP-{YEAR}-{8-digit-hex}`
   - Atomic counter with MongoDB
 
 ### Key Endpoints
@@ -359,10 +359,10 @@ GET    /api/departments                   # List departments
 **Applicant Routes** (Protected - Applicant role)
 
 ```
-POST   /api/applications                  # Create new application (snapshots job)
-GET    /api/applications                  # List user's applications
-GET    /api/applications/:id              # Get application details
-DELETE /api/applications/:id              # Delete draft application
+POST   /api/v1/applications                  # Create new application (snapshots job)
+GET    /api/v1/applications                  # List user's applications
+GET    /api/v1/applications/:id              # Get application details
+DELETE /api/v1/applications/:id              # Delete draft application
 ```
 
 ### Testable Outcomes
@@ -410,10 +410,10 @@ DELETE /api/applications/:id              # Delete draft application
 **Applicant Routes** (Protected)
 
 ```
-PATCH  /api/applications/:id/sections/:sectionType        # Save section data
-POST   /api/applications/:id/sections/:sectionType/pdf    # Upload section PDF
-DELETE /api/applications/:id/sections/:sectionType/pdf    # Delete section PDF
-POST   /api/applications/:id/sections/:sectionType/validate  # Validate section
+PATCH  /api/v1/applications/:id/sections/:sectionType        # Save section data
+POST   /api/v1/applications/:id/sections/:sectionType/pdf    # Upload section PDF
+DELETE /api/v1/applications/:id/sections/:sectionType/pdf    # Delete section PDF
+POST   /api/v1/applications/:id/sections/:sectionType/validate  # Validate section
 ```
 
 ### Testable Outcomes
@@ -459,9 +459,9 @@ POST   /api/applications/:id/sections/:sectionType/validate  # Validate section
 **Applicant Routes** (Protected)
 
 ```
-POST   /api/applications/:id/validate-all    # Pre-submission validation check
-POST   /api/applications/:id/submit          # Final submission (locks application)
-GET    /api/applications/:id/receipt         # Get submission receipt (PDF)
+POST   /api/v1/applications/:id/validate-all    # Pre-submission validation check
+POST   /api/v1/applications/:id/submit          # Final submission (locks application)
+GET    /api/v1/applications/:id/receipt         # Get submission receipt (PDF) - [Planned]
 ```
 
 ### Testable Outcomes
@@ -511,13 +511,14 @@ GET    /api/applications/:id/receipt         # Get submission receipt (PDF)
 **Admin Routes** (Protected - Admin/Reviewer role)
 
 ```
-GET    /api/admin/applications                      # List all applications (filters)
-GET    /api/admin/applications/:id                  # View application details
-PATCH  /api/admin/applications/:id/status           # Update status
-PATCH  /api/admin/applications/:id/review           # Add review notes
-POST   /api/admin/applications/bulk-status          # Bulk status update
-GET    /api/admin/applications/export               # Export to CSV/Excel
-GET    /api/admin/jobs/:jobId/applications          # Applications for specific job
+GET    /api/v1/admin/applications                      # List all applications (filters)
+GET    /api/v1/admin/applications/:id                  # View application details
+PATCH  /api/v1/admin/applications/:id/status           # Update status
+PATCH  /api/v1/admin/applications/:id/review           # Add review notes
+POST   /api/v1/admin/applications/bulk-status          # Bulk status update
+GET    /api/v1/admin/applications/export               # Export to CSV
+GET    /api/v1/admin/jobs/:jobId/applications          # Applications for job
+PATCH  /api/v1/admin/applications/:id/verify-section   # Verify section docs
 ```
 
 ### Testable Outcomes

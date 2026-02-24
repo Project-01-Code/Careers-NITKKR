@@ -1,133 +1,200 @@
-import { ApiError } from '../utils/apiError.js';
+import { SECTION_SCHEMAS } from '../validators/sections.validator.js';
 
 /**
- * Validate section data based on custom fields
- * @param {string} sectionType - Type of section
- * @param {Object} data - Section data to validate
- * @param {Object} sectionConfig - Section configuration from job snapshot
- * @param {Array} customFields - Custom fields from job snapshot
- * @returns {Array} Validation errors
+ * Formats Zod flat error map into { field, message } array
+ * compatible with the existing API error shape.
  */
-export function validateSectionData(sectionType, data, sectionConfig, customFields) {
-    const errors = [];
-
-    // For custom section, validate custom fields
-    if (sectionType === 'custom' && customFields) {
-        customFields.forEach((field) => {
-            if (field.isMandatory && !data[field.fieldName]) {
-                errors.push({
-                    field: field.fieldName,
-                    message: `${field.fieldName} is required`
-                });
-            }
-
-            // Validate field type
-            if (data[field.fieldName]) {
-                switch (field.fieldType) {
-                    case 'number':
-                        if (isNaN(data[field.fieldName])) {
-                            errors.push({
-                                field: field.fieldName,
-                                message: 'Must be a number'
-                            });
-                        }
-                        break;
-                    case 'date':
-                        if (!Date.parse(data[field.fieldName])) {
-                            errors.push({
-                                field: field.fieldName,
-                                message: 'Invalid date'
-                            });
-                        }
-                        break;
-                    case 'dropdown':
-                        if (!field.options.includes(data[field.fieldName])) {
-                            errors.push({
-                                field: field.fieldName,
-                                message: 'Invalid option'
-                            });
-                        }
-                        break;
-                }
-            }
-        });
-    }
-
-    // For standard sections, add basic validation
-    // This can be expanded based on specific requirements
-    if (sectionType === 'personal') {
-        if (!data.fullName) {
-            errors.push({ field: 'fullName', message: 'Full name is required' });
-        }
-        if (!data.email) {
-            errors.push({ field: 'email', message: 'Email is required' });
-        }
-    }
-
-    return errors;
+function formatZodErrors(zodError) {
+  return zodError.issues.map((issue) => ({
+    field: issue.path.join('.') || 'data',
+    message: issue.message,
+  }));
 }
 
 /**
- * Validate PDF upload
- * @param {Object} file - Multer file object
- * @param {Object} sectionConfig - Section configuration
- * @returns {Array} Validation errors
+ * Main Export — validateSectionData
+ */
+export function validateSectionData(
+  sectionType,
+  data,
+  sectionConfig,
+  customFields
+) {
+  // 1. Standard sections — dispatch to the Zod schema
+  const schema = SECTION_SCHEMAS[sectionType];
+  if (schema) {
+    const result = schema.safeParse(data);
+    if (!result.success) {
+      return formatZodErrors(result.error);
+    }
+    return [];
+  }
+
+  // 2. File-only sections (photo, signature, final_documents)
+  //    Data validation is not applicable; completeness is checked
+  //    in submissionValidation.service via URL presence.
+  if (['photo', 'signature', 'final_documents'].includes(sectionType)) {
+    return [];
+  }
+
+  // 3. Custom section — validate using jobSnapshot customFields
+  if (sectionType === 'custom' && customFields) {
+    return validateCustomFields(data, customFields);
+  }
+
+  return [];
+}
+
+/**
+ * Custom field validator (legacy support for job-level custom fields)
+ */
+function validateCustomFields(data, customFields) {
+  const errors = [];
+  customFields.forEach((field) => {
+    if (field.isMandatory && !data[field.fieldName]) {
+      errors.push({
+        field: field.fieldName,
+        message: `${field.fieldName} is required`,
+      });
+    }
+    if (data[field.fieldName]) {
+      switch (field.fieldType) {
+        case 'number':
+          if (isNaN(data[field.fieldName])) {
+            errors.push({
+              field: field.fieldName,
+              message: 'Must be a number',
+            });
+          }
+          break;
+        case 'date':
+          if (!Date.parse(data[field.fieldName])) {
+            errors.push({ field: field.fieldName, message: 'Invalid date' });
+          }
+          break;
+        case 'dropdown':
+          if (!field.options.includes(data[field.fieldName])) {
+            errors.push({ field: field.fieldName, message: 'Invalid option' });
+          }
+          break;
+      }
+    }
+  });
+  return errors;
+}
+
+/**
+ * Helpers
+ */
+
+/**
+ * validateImageUpload
+ */
+export function validateImageUpload(file, fieldName) {
+  const errors = [];
+
+  if (!file) {
+    errors.push({ field: fieldName, message: 'Image file is required' });
+    return errors;
+  }
+
+  // MIME check (belt-and-suspenders on top of multer filter)
+  if (file.mimetype !== 'image/jpeg') {
+    errors.push({
+      field: fieldName,
+      message: 'Only JPEG (JPG) files are allowed',
+    });
+  }
+
+  // Magic byte check — JPEG always starts with FF D8 FF
+  if (file.buffer && file.buffer.length >= 3) {
+    const isJpeg =
+      file.buffer[0] === 0xff &&
+      file.buffer[1] === 0xd8 &&
+      file.buffer[2] === 0xff;
+    if (!isJpeg) {
+      errors.push({
+        field: fieldName,
+        message: 'File does not appear to be a valid JPEG image',
+      });
+    }
+  }
+
+  // Size check
+  const limits = { photo: 200 * 1024, signature: 50 * 1024 };
+  const maxSize = limits[fieldName] || 200 * 1024;
+  if (file.size > maxSize) {
+    const maxKB = Math.round(maxSize / 1024);
+    errors.push({
+      field: fieldName,
+      message: `File size must not exceed ${maxKB}KB`,
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * validatePDFUpload (for section certificates)
  */
 export function validatePDFUpload(file, sectionConfig) {
-    const errors = [];
+  const errors = [];
+  if (!file) return errors;
 
-    if (!file) {
-        return errors;
-    }
+  if (file.mimetype !== 'application/pdf') {
+    errors.push({ field: 'file', message: 'Only PDF files are allowed' });
+  }
 
-    // Check file type (MIME)
-    if (file.mimetype !== 'application/pdf') {
-        errors.push({ field: 'file', message: 'Only PDF files are allowed' });
-    }
+  const maxSize = (sectionConfig?.maxPDFSize || 5) * 1024 * 1024;
+  if (file.size > maxSize) {
+    errors.push({
+      field: 'file',
+      message: `File size must not exceed ${sectionConfig?.maxPDFSize || 5}MB`,
+    });
+  }
 
-    // Check file size
-    const maxSize = (sectionConfig.maxPDFSize || 5) * 1024 * 1024; // Convert MB to bytes
-    if (file.size > maxSize) {
-        errors.push({
-            field: 'file',
-            message: `File size must not exceed ${sectionConfig.maxPDFSize || 5}MB`
-        });
-    }
-
-    return errors;
+  return errors;
 }
 
 /**
- * Validate file using magic numbers (file signature)
- * This prevents file spoofing (e.g., renaming .exe to .pdf)
- * @param {Buffer} buffer - File buffer
- * @returns {boolean} True if valid PDF
+ * validateFinalPDF (for merged PDF submission)
+ */
+export function validateFinalPDF(file) {
+  const errors = [];
+  if (!file) {
+    errors.push({ field: 'file', message: 'Document PDF is required' });
+    return errors;
+  }
+
+  if (file.mimetype !== 'application/pdf') {
+    errors.push({ field: 'file', message: 'Only PDF files are allowed' });
+  }
+
+  const maxSize = 3 * 1024 * 1024; // 3MB
+  if (file.size > maxSize) {
+    errors.push({
+      field: 'file',
+      message:
+        'File size must not exceed 3MB. Please compress and merge your documents.',
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * validatePDFMagicNumber
  */
 export function validatePDFMagicNumber(buffer) {
-    if (!buffer || buffer.length < 4) {
-        return false;
-    }
-
-    // PDF magic number: %PDF (25 50 44 46)
-    const pdfSignature = Buffer.from([0x25, 0x50, 0x44, 0x46]);
-
-    // Check first 4 bytes
-    return buffer.slice(0, 4).equals(pdfSignature);
+  if (!buffer || buffer.length < 4) return false;
+  const pdfSignature = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+  return buffer.slice(0, 4).equals(pdfSignature);
 }
 
 /**
- * Stub for malware scanning
- * In production, integrate with ClamAV or cloud scanner
- * @param {Buffer} buffer - File buffer
- * @returns {Promise<boolean>} True if clean
+ * scanForMalware
  */
-export async function scanForMalware(buffer) {
-    // TODO: Integrate actual malware scanner
-    // For now, return true (clean)
-    // In production:
-    // - Use ClamAV via clamd
-    // - Or use cloud service like VirusTotal API
-
-    console.log('[STUB] Malware scan would run here');
-    return true;
+export async function scanForMalware() {
+  console.log('[STUB] Malware scan would run here');
+  return true;
 }
