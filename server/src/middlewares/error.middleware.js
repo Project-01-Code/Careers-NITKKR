@@ -77,7 +77,10 @@ export const errorHandler = (err, req, res, next) => {
   }
 
   // 6. Handle Multer Errors
-  else if (err.name === 'MulterError' || err.hasOwnProperty('storageErrors')) {
+  else if (
+    err.name === 'MulterError' ||
+    Object.prototype.hasOwnProperty.call(err, 'storageErrors')
+  ) {
     const message = `File upload error: ${err.message}`;
     error = new ApiError(HTTP_STATUS.BAD_REQUEST, message, [
       { code: err.code, field: err.field },
