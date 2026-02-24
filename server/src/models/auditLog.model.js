@@ -49,7 +49,6 @@ auditLogSchema.index({ userId: 1, timestamp: -1 });
 auditLogSchema.index({ resourceType: 1, resourceId: 1 });
 
 // Prevent modifications to audit logs (append-only)
-// Prevent modifications to audit logs (append-only)
 auditLogSchema.pre('save', async function () {
   if (!this.isNew) {
     throw new Error('Audit logs are append-only and cannot be modified');

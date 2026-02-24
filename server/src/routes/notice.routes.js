@@ -25,7 +25,7 @@ router.get('/', validate(getNoticesQuerySchema), getPublicNotices);
 router.post(
   '/',
   verifyJWT,
-  requireRole('admin'),
+  requireRole('admin', 'super_admin'),
   upload.single('file'),
   validate(createNoticeSchema),
   createNotice
@@ -34,7 +34,7 @@ router.post(
 router.patch(
   '/:id',
   verifyJWT,
-  requireRole('admin'),
+  requireRole('admin', 'super_admin'),
   upload.single('file'),
   validate(updateNoticeSchema),
   validate(noticeIdParamSchema),
@@ -44,7 +44,7 @@ router.patch(
 router.patch(
   '/:id/archive',
   verifyJWT,
-  requireRole('admin'),
+  requireRole('admin', 'super_admin'),
   validate(noticeIdParamSchema),
   archiveNotice
 );
