@@ -59,7 +59,8 @@ server/
 │   ├── middlewares/
 │   │   ├── auth.middleware.js        # verifyJWT — JWT from cookie or header
 │   │   ├── rbac.middleware.js        # requireRole('admin') etc.
-│   │   ├── upload.middleware.js      # multer + CloudinaryStorage
+│   │   ├── pdfUpload.middleware.js   # PDF upload (Cloudinary)
+│   │   ├── imageUpload.middleware.js # Image upload (Memory)
 │   │   ├── validate.middleware.js    # Zod schema validation
 │   │   └── error.middleware.js       # Global error handler
 │   ├── routes/
@@ -295,7 +296,7 @@ Every significant action (login, logout, job created, job published, etc.) is re
 ### 4.5 File Upload (Cloudinary)
 
 **Config**: `src/config/cloudinary.config.js`  
-**Middleware**: `src/middlewares/upload.middleware.js`  
+**Middleware**: `src/middlewares/pdfUpload.middleware.js`, `src/middlewares/imageUpload.middleware.js`  
 **Service**: `src/services/upload.service.js`
 
 Files (PDFs only) are uploaded **directly to Cloudinary** via `multer-storage-cloudinary`. Multer never writes to disk.

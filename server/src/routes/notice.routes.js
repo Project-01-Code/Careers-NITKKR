@@ -7,13 +7,13 @@ import {
 } from '../controllers/notice.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { requireRole } from '../middlewares/rbac.middleware.js';
-import { upload } from '../middlewares/upload.middleware.js';
+import { upload } from '../middlewares/pdfUpload.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import {
   createNoticeSchema,
   getNoticesQuerySchema,
   noticeIdParamSchema,
-  updateNoticeSchema,
+  updateNoticeSchema, 
 } from '../validators/notice.validator.js';
 
 const router = Router();
