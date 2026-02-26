@@ -70,46 +70,47 @@ export const refreshTokenSchema = z
  * Phone format: E.164 international format (e.g., +919876543210)
  */
 export const updateProfileSchema = z.object({
-  body: z.object({
-    profile: z
-      .object({
-        firstName: z
-          .string()
-          .min(2, 'First name must be at least 2 characters')
-          .max(50, 'First name must not exceed 50 characters')
-          .optional(),
-        lastName: z
-          .string()
-          .min(2, 'Last name must be at least 2 characters')
-          .max(50, 'Last name must not exceed 50 characters')
-          .optional(),
+  body: z
+    .object({
+      firstName: z
+        .string()
+        .min(2, 'First name must be at least 2 characters')
+        .max(50, 'First name must not exceed 50 characters')
+        .optional(),
+      lastName: z
+        .string()
+        .min(2, 'Last name must be at least 2 characters')
+        .max(50, 'Last name must not exceed 50 characters')
+        .optional(),
 
-        phone: z
-          .string()
-          .regex(
-            /^\+?[1-9]\d{1,14}$/,
-            'Invalid phone number format (E.164 format expected, e.g., +919876543210)'
-          )
-          .optional(),
+      phone: z
+        .string()
+        .regex(
+          /^\+?[1-9]\d{1,14}$/,
+          'Invalid phone number format (E.164 format expected, e.g., +919876543210)'
+        )
+        .optional(),
 
-        dateOfBirth: z
-          .string()
-          .refine((date) => !isNaN(Date.parse(date)), 'Invalid date format')
-          .transform((date) => new Date(date))
-          .optional(),
-        nationality: z
-          .string()
-          .min(2, 'Nationality must be at least 2 characters')
-          .max(50, 'Nationality must not exceed 50 characters')
-          .trim()
-          .optional(),
-      })
-      .refine(
-        (profile) => {
-          const keys = Object.keys(profile);
-          return keys.length > 0;
-        },
-        { message: 'At least one profile field must be provided' }
-      ),
-  }),
+      dateOfBirth: z
+        .string()
+        .optional()
+        .refine(
+          (date) => !date || !isNaN(Date.parse(date)),
+          'Invalid date format'
+        )
+        .transform((date) => (date ? new Date(date) : undefined)),
+      nationality: z
+        .string()
+        .min(2, 'Nationality must be at least 2 characters')
+        .max(50, 'Nationality must not exceed 50 characters')
+        .trim()
+        .optional(),
+    })
+    .refine(
+      (body) => {
+        const keys = Object.keys(body);
+        return keys.length > 0;
+      },
+      { message: 'At least one profile field must be provided' }
+    ),
 });
