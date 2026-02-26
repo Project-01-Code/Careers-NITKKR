@@ -12,9 +12,7 @@ import {
   DEGREE_LEVELS,
 } from '../constants.js';
 
-/* =========================================================
-   APPLICATION FEE SCHEMA
-========================================================= */
+/** Application Fee Schema */
 
 const applicationFeeSchema = z.object({
   general: z.number().min(0, 'General fee cannot be negative'),
@@ -25,9 +23,7 @@ const applicationFeeSchema = z.object({
   isRequired: z.boolean().default(true),
 });
 
-/* =========================================================
-   ELIGIBILITY CRITERIA SCHEMA
-========================================================= */
+/** Eligibility Criteria Schema */
 
 const requiredDegreeSchema = z.object({
   level: z.enum(DEGREE_LEVELS),
@@ -79,9 +75,7 @@ const eligibilityCriteriaSchema = z
     }
   });
 
-/* =========================================================
-   DOCUMENT SCHEMA
-========================================================= */
+/** Document Schema */
 
 const documentSchema = z.object({
   type: z.enum(JOB_DOCUMENT_TYPES),
@@ -91,9 +85,7 @@ const documentSchema = z.object({
   publicId: z.string().min(1, 'Cloudinary public ID is required'),
 });
 
-/* =========================================================
-   REQUIRED SECTION SCHEMA
-========================================================= */
+/** Required Section Schema */
 
 const requiredSectionSchema = z
   .object({
@@ -118,9 +110,7 @@ const requiredSectionSchema = z
     }
   });
 
-/* =========================================================
-   CUSTOM FIELD SCHEMA
-========================================================= */
+/** Custom Field Schema */
 
 const customFieldSchema = z
   .object({
@@ -143,9 +133,7 @@ const customFieldSchema = z
     }
   });
 
-/* =========================================================
-   BASE SCHEMA OBJECT (Reusable)
-========================================================= */
+/** Base Schema Object (Reusable) */
 
 const jobBaseSchema = {
   title: z
@@ -205,9 +193,7 @@ const jobBaseSchema = {
   applicationEndDate: z.string().datetime(),
 };
 
-/* =========================================================
-   CREATE JOB SCHEMA
-========================================================= */
+/** Create Job Schema */
 
 export const createJobSchema = z.object({
   body: z
@@ -227,9 +213,7 @@ export const createJobSchema = z.object({
     }),
 });
 
-/* =========================================================
-   UPDATE JOB SCHEMA
-========================================================= */
+/** Update Job Schema */
 
 export const updateJobSchema = z.object({
   body: z
@@ -252,9 +236,7 @@ export const updateJobSchema = z.object({
     }),
 });
 
-/* =========================================================
-   JOB FILTER SCHEMA (for query params)
-========================================================= */
+/** Job Filter Schema (for query params) */
 
 export const jobFilterSchema = z.object({
   query: z.object({
@@ -269,15 +251,15 @@ export const jobFilterSchema = z.object({
       .optional(),
     isActive: z
       .string()
-      .transform((val) => val === 'true')
-      .optional(),
+      .optional()
+      .transform((val) => (val !== undefined ? val === 'true' : undefined)),
     search: z.string().optional(),
     sortBy: z
       .enum(['createdAt', 'publishDate', 'applicationEndDate', 'payLevel'])
       .optional()
       .default('createdAt'),
     sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
-    page: z.string().transform(Number).optional().default('1'),
-    limit: z.string().transform(Number).optional().default('10'),
+    page: z.string().optional().default('1').transform(Number),
+    limit: z.string().optional().default('10').transform(Number),
   }),
 });

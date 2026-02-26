@@ -54,6 +54,7 @@ const registerUser = asyncHandler(async (req, res) => {
     email,
     password,
     role: USER_ROLES.APPLICANT, // Force applicant role for public registration
+    profile: {}, // Empty profile to start
   });
 
   const createdUser = await User.findById(user._id).select(
@@ -259,13 +260,13 @@ const getProfile = asyncHandler(async (req, res) => {
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
-  const { profile } = req.body;
+  const profileData = req.body;
 
   const currentUser = await User.findById(req.user._id);
 
   const oldProfile = { ...currentUser.profile.toObject() };
 
-  Object.assign(currentUser.profile, profile);
+  Object.assign(currentUser.profile, profileData);
 
   await currentUser.save();
 

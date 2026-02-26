@@ -11,7 +11,7 @@ const router = Router();
 
 // Public routes (no authentication required)
 router.get('/', validate(jobFilterSchema), getActiveJobs);
-router.get('/by-advertisement/:advertisementNo', getJobByAdvertisementNo);
+router.get('/by-advertisement', getJobByAdvertisementNo);
 router.get('/:id', getJobById);
 
 export default router;

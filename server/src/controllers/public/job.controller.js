@@ -112,12 +112,19 @@ export const getJobById = asyncHandler(async (req, res) => {
 });
 
 /**
- * @route   GET /api/jobs/by-advertisement/:advertisementNo
+ * @route   GET /api/jobs/by-advertisement?advertisementNo=...
  * @desc    Get job by advertisement number
  * @access  Public
  */
 export const getJobByAdvertisementNo = asyncHandler(async (req, res) => {
-  const { advertisementNo } = req.params;
+  const { advertisementNo } = req.query;
+
+  if (!advertisementNo) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'Advertisement number is required'
+    );
+  }
 
   const job = await Job.findOne({
     advertisementNo: advertisementNo.toUpperCase(),
