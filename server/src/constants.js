@@ -45,7 +45,7 @@ export const DB_CONFIG = {
 
 export const RATE_LIMIT = {
   WINDOW_MS: 15 * 60 * 1000, // 15 minutes
-  MAX_REQUESTS: 100, // limit each IP to 100 requests per windowMs
+  MAX_REQUESTS: 10000, // limit each IP to 10000 requests per windowMs
   MESSAGE: 'Too many requests, please try again later',
 };
 

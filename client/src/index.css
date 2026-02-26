@@ -1,1 +1,25 @@
 @import "tailwindcss";
+
+@theme {
+  --color-primary: #c21717;
+  --color-primary-dark: #9a1212;
+  --color-secondary: #212331;
+  --color-background: #fcfcfc;
+  
+  --font-sans: "Public Sans", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-background text-secondary antialiased;
+  }
+}
+
+/* Glassmorphism Utilities */
+@utility glass {
+  @apply bg-white/70 backdrop-blur-md border border-white/40 shadow-sm;
+}
+
+@utility glass-card {
+  @apply bg-white/80 backdrop-blur-lg border border-white/50 shadow-md hover:shadow-xl transition-all duration-300;
+}
