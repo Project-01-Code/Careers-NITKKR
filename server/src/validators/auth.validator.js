@@ -86,17 +86,22 @@ export const updateProfileSchema = z.object({
 
         phone: z
           .string()
-          .regex(
-            /^\+?[1-9]\d{1,14}$/,
+          .optional()
+          .transform((val) => val?.replace(/[\s-]/g, ''))
+          .refine(
+            (val) => !val || /^\+?[1-9]\d{1,14}$/.test(val),
             'Invalid phone number format (E.164 format expected, e.g., +919876543210)'
-          )
-          .optional(),
+          ),
 
         dateOfBirth: z
           .string()
-          .refine((date) => !isNaN(Date.parse(date)), 'Invalid date format')
-          .transform((date) => new Date(date))
-          .optional(),
+          .optional()
+          .transform((val) => (val === '' ? undefined : val))
+          .refine(
+            (date) => !date || !isNaN(Date.parse(date)),
+            'Invalid date format'
+          )
+          .transform((date) => (date ? new Date(date) : undefined)),
         nationality: z
           .string()
           .min(2, 'Nationality must be at least 2 characters')

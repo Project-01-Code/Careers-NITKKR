@@ -1,42 +1,102 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Home from './pages/Home';
+import Jobs from './pages/Jobs';
+import JobDetail from './pages/JobDetail';
+import ApplicationForm from './pages/ApplicationForm';
+import Notices from './pages/Notices';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import Profile from './pages/Profile';
+import AdminJobs from './pages/admin/AdminJobs';
+import AdminJobForm from './pages/admin/AdminJobForm';
+import AdminNotices from './pages/admin/AdminNotices';
+import ProtectedRoute from './components/ProtectedRoute';
 
-// Layout wrapper
-import MainLayout from './components/layout/MainLayout';
-
-// Pages - Updated paths to match folder structure
-import Home from './pages/Home/Home';
-import JobListings from './pages/Jobs/JobListings';
-import JobDetails from './pages/JobDetails/JobDetails';
-import ApplicationForm from './pages/Application/ApplicationForm';
+// Placeholder for pages not yet built
+const Placeholder = ({ title }) => (
+  <div className="flex flex-col items-center justify-center min-h-screen pt-20 px-6">
+    <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">construction</span>
+    <h1 className="text-3xl font-bold text-gray-400">{title}</h1>
+    <p className="text-gray-400 mt-2">This page is coming soon.</p>
+  </div>
+);
 
 function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        {/* The MainLayout wraps all these routes with the Navbar and Footer */}
-        <Route path="/" element={<MainLayout />}>
-          
-          {/* Landing Page */}
-          <Route index element={<Home />} />
-          
-          {/* Job Portal Routes */}
-          <Route path="jobs" element={<JobListings />} />
-          <Route path="jobs/:id" element={<JobDetails />} />
-          
-          {/* Multi-step Application Form */}
-          <Route path="apply" element={<ApplicationForm />} />
-          
-          {/* Optional: 404 Not Found Page */}
-          <Route path="*" element={
-            <div className="flex flex-col items-center justify-center h-[60vh]">
-              <h2 className="text-4xl font-bold text-gray-800">404</h2>
-              <p className="text-gray-500">The page you are looking for does not exist.</p>
-            </div>
-          } />
-          
-        </Route>
+        {/* Public Routes */}
+        <Route path="/" element={<Home />} />
+        <Route path="/jobs" element={<Jobs />} />
+        <Route path="/jobs/:id" element={<JobDetail />} />
+        <Route path="/notices" element={<Notices />} />
+        <Route path="/help" element={<Placeholder title="Help Center" />} />
+
+        {/* Auth Routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+
+        {/* Protected Routes — Authenticated Users */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/application/:jobId"
+          element={
+            <ProtectedRoute>
+              <ApplicationForm />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admin Routes — Admin / Super Admin Only */}
+        <Route
+          path="/admin"
+          element={<Navigate to="/admin/jobs" replace />}
+        />
+        <Route
+          path="/admin/jobs"
+          element={
+            <ProtectedRoute roles={['admin', 'super_admin']}>
+              <AdminJobs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/jobs/new"
+          element={
+            <ProtectedRoute roles={['admin', 'super_admin']}>
+              <AdminJobForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/jobs/:id/edit"
+          element={
+            <ProtectedRoute roles={['admin', 'super_admin']}>
+              <AdminJobForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/notices"
+          element={
+            <ProtectedRoute roles={['admin', 'super_admin']}>
+              <AdminNotices />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 404 */}
+        <Route path="*" element={<Placeholder title="404 — Page Not Found" />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 
