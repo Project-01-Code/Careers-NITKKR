@@ -97,6 +97,16 @@ export const RESOURCE_TYPES = {
   NOTICE: 'Notice',
 };
 
+export const OTP_CONFIG = {
+  LENGTH: 6,
+  EXPIRY_MINUTES: 10,
+};
+
+export const TOKEN_TYPES = {
+  EMAIL_VERIFICATION: 'email_verification',
+  PASSWORD_RESET: 'password_reset',
+};
+
 /* ---------------- APPLICATION ENUMS ---------------- */
 
 export const APPLICATION_STATUS = {
