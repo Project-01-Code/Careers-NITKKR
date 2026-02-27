@@ -20,6 +20,7 @@ import adminJobRouter from './routes/admin/job.routes.js';
 import publicJobRouter from './routes/public/job.routes.js';
 import departmentRouter from './routes/department.routes.js';
 import applicationRouter from './routes/application.routes.js';
+import paymentRouter from './routes/public/payment.routes.js';
 import adminUserRouter from './routes/admin/user.routes.js';
 import adminApplicationRouter from './routes/admin/application.routes.js';
 import adminDashboardRouter from './routes/admin/dashboard.routes.js';
@@ -27,7 +28,6 @@ import adminDashboardRouter from './routes/admin/dashboard.routes.js';
 const app = express();
 
 /* ------------------- SECURITY MIDDLEWARE ------------------- */
-
 // Helmet - Security headers
 app.use(
   helmet({
@@ -57,7 +57,6 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 /* ------------------- GENERAL MIDDLEWARE ------------------- */
-
 // Compression - Compress response bodies
 app.use(compression());
 
@@ -69,6 +68,22 @@ if (process.env.NODE_ENV !== NODE_ENV.PRODUCTION) {
 }
 
 // Body parsing
+// Webhook needs raw body for signature verification. Let's add a raw payload middleware before express.json for webhook.
+app.use(
+  '/api/v1/payments/webhook',
+  express.raw({ type: 'application/json' }),
+  (req, res, next) => {
+    req.rawBody = req.body; // Buffer from express.raw
+    // Parse the raw body into JSON for req.body
+    try {
+      req.body = JSON.parse(req.body.toString());
+    } catch (e) {
+      req.body = {};
+    }
+    next();
+  }
+);
+
 app.use(express.json({ limit: REQUEST_LIMITS.JSON_LIMIT }));
 app.use(
   express.urlencoded({
@@ -82,7 +97,6 @@ app.use(
 app.use(cookieParser());
 
 /* ------------------- HEALTH CHECK ------------------- */
-
 app.get('/health', async (req, res) => {
   const dbStatus =
     mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
@@ -96,7 +110,6 @@ app.get('/health', async (req, res) => {
 });
 
 /* ------------------- API ROUTES ------------------- */
-
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/notices', noticeRouter);
 app.use('/api/v1/admin/jobs', adminJobRouter);
@@ -106,6 +119,7 @@ app.use('/api/v1/admin/applications', adminApplicationRouter);
 app.use('/api/v1/admin/dashboard', adminDashboardRouter);
 app.use('/api/v1/departments', departmentRouter);
 app.use('/api/v1/applications', applicationRouter);
+app.use('/api/v1/payments', paymentRouter);
 
 /* ------------------- ERROR HANDLING ------------------- */
 

@@ -7,6 +7,7 @@ import { asyncHandler } from '../../utils/asyncHandler.js';
 import { logAction } from '../../utils/auditLogger.js';
 import {
     APPLICATION_STATUS,
+    PAYMENT_STATUS,
     AUDIT_ACTIONS,
     RESOURCE_TYPES,
     HTTP_STATUS,
@@ -498,6 +499,53 @@ export const verifySectionDocuments = asyncHandler(async (req, res) => {
                 HTTP_STATUS.OK,
                 application.sections.get(sectionType),
                 `Section "${sectionType}" verification updated`
+            )
+        );
+});
+
+/**
+ * @route   POST /api/v1/admin/applications/:id/exempt-fee
+ * @desc    Exempt application fee for a specific application
+ * @access  Admin, Super Admin
+ */
+export const exemptApplicationFee = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+        throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Reason for exemption is required');
+    }
+
+    const application = await Application.findById(id);
+
+    if (!application) {
+        throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
+    }
+
+    if (application.paymentStatus === PAYMENT_STATUS.PAID) {
+        throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Fee is already paid for this application');
+    }
+
+    application.paymentStatus = PAYMENT_STATUS.EXEMPTED;
+    await application.save();
+
+    // Audit log
+    await logAction({
+        userId: req.user._id,
+        action: 'FEE_EXEMPTED',
+        resourceType: RESOURCE_TYPES.APPLICATION,
+        resourceId: application._id,
+        changes: { reason },
+        req,
+    });
+
+    res
+        .status(HTTP_STATUS.OK)
+        .json(
+            new ApiResponse(
+                HTTP_STATUS.OK,
+                { paymentStatus: application.paymentStatus },
+                'Application fee has been exempted successfully'
             )
         );
 });

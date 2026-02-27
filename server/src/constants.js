@@ -109,6 +109,13 @@ export const TOKEN_TYPES = {
 
 /* ---------------- APPLICATION ENUMS ---------------- */
 
+export const PAYMENT_STATUS = {
+  PENDING: 'pending',
+  PAID: 'paid',
+  FAILED: 'failed',
+  EXEMPTED: 'exempted',
+};
+
 export const APPLICATION_STATUS = {
   DRAFT: 'draft',
   SUBMITTED: 'submitted',

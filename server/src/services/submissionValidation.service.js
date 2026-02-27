@@ -228,6 +228,17 @@ export async function canSubmitApplication(application) {
     });
   }
 
+  // Check payment status
+  if (
+    application.paymentStatus !== 'paid' &&
+    application.paymentStatus !== 'exempted'
+  ) {
+    errors.push({
+      field: 'payment',
+      message: 'Please complete payment before submitting',
+    });
+  }
+
   // Validate all sections
   const sectionErrors = validateAllSections(application);
   errors.push(...sectionErrors);

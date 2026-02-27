@@ -8,6 +8,7 @@ import {
   exportApplications,
   getApplicationsByJob,
   verifySectionDocuments,
+  exemptApplicationFee,
 } from '../../controllers/admin/application.controller.js';
 import { verifyJWT } from '../../middlewares/auth.middleware.js';
 import { requireRole } from '../../middlewares/rbac.middleware.js';
@@ -88,6 +89,14 @@ router.patch(
   requireRole('admin', 'reviewer'),
   validate(verifySectionSchema),
   verifySectionDocuments
+);
+
+// Exempt application fee
+router.post(
+  '/:id/exempt-fee',
+  verifyJWT,
+  requireRole('admin', 'super_admin'),
+  exemptApplicationFee
 );
 
 export default router;
