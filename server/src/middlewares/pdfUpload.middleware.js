@@ -8,7 +8,7 @@ import { HTTP_STATUS } from '../constants.js';
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'nit_kkr_careers',
+    folder: 'nit_kkr_careers/notices',
     resource_type: 'raw',
     allowed_formats: ['pdf'],
     public_id: (req, file) => {

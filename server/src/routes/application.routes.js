@@ -99,31 +99,25 @@ router.delete(
   deleteSectionPDF
 );
 
-// Photo Upload (JPEG ≤ 200KB)
+// Image Uploads (Photo / Signature)
 router.post(
-  '/:id/sections/photo/image',
+  '/:id/sections/:sectionType/image',
   checkApplicationOwnership,
   checkApplicationEditable,
-  uploadPhoto.single('image'),
+  (req, res, next) => {
+    if (req.params.sectionType === 'photo') {
+      uploadPhoto.single('image')(req, res, next);
+    } else if (req.params.sectionType === 'signature') {
+      uploadSignature.single('image')(req, res, next);
+    } else {
+      next();
+    }
+  },
   uploadPhotoOrSignature
-);
-router.delete(
-  '/:id/sections/photo/image',
-  checkApplicationOwnership,
-  checkApplicationEditable,
-  deletePhotoOrSignature
 );
 
-// Signature Upload (JPEG ≤ 50KB)
-router.post(
-  '/:id/sections/signature/image',
-  checkApplicationOwnership,
-  checkApplicationEditable,
-  uploadSignature.single('image'),
-  uploadPhotoOrSignature
-);
 router.delete(
-  '/:id/sections/signature/image',
+  '/:id/sections/:sectionType/image',
   checkApplicationOwnership,
   checkApplicationEditable,
   deletePhotoOrSignature
