@@ -3,6 +3,7 @@ import {
   APPLICATION_STATUS,
   JOB_SECTION_TYPES,
   JOB_FIELD_TYPES,
+  PAYMENT_STATUS,
 } from '../constants.js';
 
 /* ---------------------------------------------
@@ -133,6 +134,13 @@ const applicationSchema = new Schema(
       type: String,
       enum: Object.values(APPLICATION_STATUS),
       default: APPLICATION_STATUS.DRAFT,
+      index: true,
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: Object.values(PAYMENT_STATUS),
+      default: PAYMENT_STATUS.PENDING,
       index: true,
     },
 

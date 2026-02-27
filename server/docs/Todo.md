@@ -14,14 +14,14 @@ These are placeholder implementations, TODOs, and known shortcuts left in the co
 
 ## 💳 PHASE A: Payment Integration
 
-- [ ] Data Model:
-  - [ ] Create Payment model (orderID, txnID, amount, status).
-  - [ ] Add paymentStatus to Application model.
-- [ ] Integration:
-  - [ ] Integrate Razorpay/PayU gateway.
-  - [ ] Implement secure webhook for payment confirmation.
-- [ ] Logic:
-  - [ ] Prevent application submission unless paymentStatus === 'paid' or fee is exempted.
+- [x] Data Model:
+  - [x] Create Payment model (sessionId, paymentIntentId, amount, status).
+  - [x] Add paymentStatus to Application model.
+- [x] Integration:
+  - [x] Integrate Stripe gateway.
+  - [x] Implement secure webhook for payment confirmation.
+- [x] Logic:
+  - [x] Prevent application submission unless paymentStatus === 'paid' or fee is exempted.
 
 ## 📧 Phase B: Email Verification & Notifications
 
