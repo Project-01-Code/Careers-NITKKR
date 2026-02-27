@@ -372,6 +372,13 @@ jobSchema.index({ categories: 1 });
 jobSchema.index({ createdAt: -1 });
 jobSchema.index({ publishDate: -1 });
 
+// Full-text search index
+jobSchema.index({
+  title: 'text',
+  advertisementNo: 'text',
+  description: 'text',
+});
+
 /* ---------------------------------------------
    Virtual Fields
 --------------------------------------------- */

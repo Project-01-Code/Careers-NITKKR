@@ -19,6 +19,7 @@ import {
   validateAllBeforeSubmission,
   submitApplication,
   withdrawApplication,
+  downloadReceipt,
 } from '../controllers/applicationSubmission.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import {
@@ -152,5 +153,8 @@ router.post(
   validate(withdrawApplicationSchema),
   withdrawApplication
 );
+
+// Receipt Download (submitted applications only)
+router.get('/:id/receipt', checkApplicationOwnership, downloadReceipt);
 
 export default router;

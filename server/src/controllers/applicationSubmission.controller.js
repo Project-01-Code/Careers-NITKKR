@@ -2,10 +2,13 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
 import { canSubmitApplication } from '../services/submissionValidation.service.js';
+import { generateReceiptPDF } from '../services/receipt.service.js';
+import { sendApplicationConfirmation } from '../services/email.service.js';
 import {
   APPLICATION_STATUS,
   AUDIT_ACTIONS,
   RESOURCE_TYPES,
+  HTTP_STATUS,
 } from '../constants.js';
 import { logAction } from '../utils/auditLogger.js';
 import mongoose from 'mongoose';
@@ -98,6 +101,12 @@ export const submitApplication = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
 
+    // Send submission confirmation email (fire-and-forget)
+    sendApplicationConfirmation(req.user.email, {
+      applicationNumber: application.applicationNumber,
+      jobTitle: application.jobSnapshot.title,
+    }).catch(() => {});
+
     res.json(
       new ApiResponse(
         200,
@@ -185,4 +194,29 @@ export const withdrawApplication = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+});
+
+/**
+ * Download application submission receipt as PDF
+ * GET /api/v1/applications/:id/receipt
+ */
+export const downloadReceipt = asyncHandler(async (req, res) => {
+  const application = req.application; // Loaded by checkApplicationOwnership middleware
+
+  if (application.status !== APPLICATION_STATUS.SUBMITTED) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'Receipt is only available for submitted applications'
+    );
+  }
+
+  // Generate PDF buffer
+  const pdfBuffer = await generateReceiptPDF(application);
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename=receipt-${application.applicationNumber}.pdf`
+  );
+  res.send(pdfBuffer);
 });
