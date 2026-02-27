@@ -45,7 +45,7 @@ export const getApplicationsQuerySchema = z.object({
 export const saveSectionSchema = z.object({
   body: z.object({
     data: z
-      .record(z.any())
+      .record(z.string(), z.any())
       .refine((data) => Object.keys(data).length > 0, {
         message: 'Section data cannot be empty',
       }),

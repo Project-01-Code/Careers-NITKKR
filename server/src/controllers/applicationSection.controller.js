@@ -139,7 +139,7 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
   const uploadResult = await new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: `applications/${application.applicationNumber}/${sectionType}`,
+        folder: `nit_kkr_careers/applications/${application.applicationNumber}/${sectionType}`,
         resource_type: 'raw',
         format: 'pdf',
       },
@@ -303,7 +303,7 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
   const uploadResult = await new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: `applications/${application.applicationNumber}/${sectionType}`,
+        folder: `nit_kkr_careers/applications/${application.applicationNumber}/${sectionType}`,
         resource_type: 'image',
         format: 'jpg',
         public_id: `${application.applicationNumber}_${sectionType}`,
@@ -414,7 +414,7 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
   const uploadResult = await new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: `applications/${application.applicationNumber}/documents`,
+        folder: `nit_kkr_careers/applications/${application.applicationNumber}/documents`,
         resource_type: 'raw',
         format: 'pdf',
         public_id: `${application.applicationNumber}_documents.pdf`,
