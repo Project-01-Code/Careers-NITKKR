@@ -11,6 +11,10 @@ import Profile from './pages/Profile';
 import AdminJobs from './pages/admin/AdminJobs';
 import AdminJobForm from './pages/admin/AdminJobForm';
 import AdminNotices from './pages/admin/AdminNotices';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminApplications from './pages/admin/AdminApplications';
+import AdminUserManagement from './pages/admin/AdminUserManagement';
+import ApplicationReview from './pages/admin/ApplicationReview';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Placeholder for pages not yet built
@@ -55,10 +59,18 @@ function App() {
           }
         />
 
-        {/* Admin Routes — Admin / Super Admin Only */}
+        {/* Admin Routes — Admin / Super Admin / Reviewer */}
         <Route
           path="/admin"
-          element={<Navigate to="/admin/jobs" replace />}
+          element={<Navigate to="/admin/dashboard" replace />}
+        />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute roles={['admin', 'super_admin', 'reviewer']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/admin/jobs"
@@ -89,6 +101,30 @@ function App() {
           element={
             <ProtectedRoute roles={['admin', 'super_admin']}>
               <AdminNotices />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/applicants"
+          element={
+            <ProtectedRoute roles={['admin', 'super_admin', 'reviewer']}>
+              <AdminApplications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/applicants/:id/review"
+          element={
+            <ProtectedRoute roles={['admin', 'super_admin', 'reviewer']}>
+              <ApplicationReview />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute roles={['admin', 'super_admin']}>
+              <AdminUserManagement />
             </ProtectedRoute>
           }
         />

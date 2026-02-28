@@ -30,7 +30,7 @@ const Footer = () => {
             <ul className="space-y-3">
               {['About Institute', 'Academic Departments', 'Research', 'Faculty Directory', 'Tenders'].map((item) => (
                 <li key={item}>
-                  <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  <a href="https://nitkkr.ac.in/" className="text-gray-400 hover:text-white text-sm transition-colors">
                     {item}
                   </a>
                 </li>
