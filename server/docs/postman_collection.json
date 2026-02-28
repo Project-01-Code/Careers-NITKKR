@@ -1,48 +1,10 @@
 {
   "info": {
-    "name": "Careers NIT Kurukshetra — API",
-    "_postman_id": "nit-kkr-careers-api-v1",
-    "description": "Complete API collection for the NIT Kurukshetra Recruitment Portal.\n\nSetup:\n1. Set `baseUrl` = http://localhost:8000/api/v1\n2. Run `Login` — the test script auto-sets `accessToken`\n3. Run `List Active Jobs` — auto-sets `jobId`\n4. Run `Create Application` — auto-sets `appId`\n5. Run `Create Notice` — auto-sets `noticeId`\n6. Set `userId` manually when testing promote-user",
+    "name": "Careers NIT Kurukshetra - API",
+    "_postman_id": "nit-kkr-careers-api-v2",
+    "description": "Production-ready API collection for the NIT Kurukshetra Recruitment Portal.\n\nSetup:\n1. Import the environment file (postman_environment.json)\n2. Set your credentials in the environment variables\n3. Run any Login request to auto-save the token\n4. Run List Active Jobs to auto-capture jobId\n5. Run Create Application to auto-capture appId\n\nAll dynamic IDs (jobId, appId, noticeId, userId) are auto-captured.\nSwitch roles by running the appropriate login request.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8000/api/v1"
-    },
-    {
-      "key": "accessToken",
-      "value": ""
-    },
-    {
-      "key": "email",
-      "value": "applicant@example.com"
-    },
-    {
-      "key": "password",
-      "value": "Password@123"
-    },
-    {
-      "key": "appId",
-      "value": ""
-    },
-    {
-      "key": "jobId",
-      "value": ""
-    },
-    {
-      "key": "noticeId",
-      "value": ""
-    },
-    {
-      "key": "deptId",
-      "value": ""
-    },
-    {
-      "key": "userId",
-      "value": ""
-    }
-  ],
   "auth": {
     "type": "bearer",
     "bearer": [
@@ -60,23 +22,41 @@
         {
           "name": "Health Check",
           "request": {
-            "auth": { "type": "noauth" },
             "method": "GET",
             "url": "http://localhost:8000/health",
+            "auth": {
+              "type": "noauth"
+            },
             "description": "Returns server status and DB connection state. No auth required."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Healthy\",function(){var r=pm.response.json();pm.expect(r.status).to.eql(\"ok\");pm.expect(r).to.have.property(\"database\");});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "Auth",
+      "description": "Registration, login (all 4 roles), logout, token refresh, profile, email verification, and password reset.",
       "item": [
         {
           "name": "Register",
           "request": {
-            "auth": { "type": "noauth" },
             "method": "POST",
             "url": "{{baseUrl}}/auth/register",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Creates a new applicant account. Verification OTP is sent automatically.",
             "header": [
               {
                 "key": "Content-Type",
@@ -85,16 +65,32 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"Applicant\",\n  \"role\": \"applicant\"\n}"
+              "raw": "{\n  \"email\": \"{{applicantEmail}}\",\n  \"password\": \"{{applicantPassword}}\"\n}"
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 201\",function(){pm.response.to.have.status(201);});",
+                  "pm.test(\"User created\",function(){var r=pm.response.json();pm.expect(r.success).to.be.true;pm.expect(r.data).to.have.property(\"_id\");pm.expect(r.data).to.have.property(\"email\");pm.expect(r.data.role).to.eql(\"applicant\");});",
+                  "var r=pm.response.json();if(r.data&&r.data._id){pm.environment.set(\"userId\",r.data._id);}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Login",
+          "name": "Login as Applicant",
           "request": {
-            "auth": { "type": "noauth" },
             "method": "POST",
             "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Logs in as applicant. Token is auto-saved.",
             "header": [
               {
                 "key": "Content-Type",
@@ -103,38 +99,203 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
-            },
-            "event": [
-              {
-                "listen": "test",
-                "script": {
-                  "exec": [
-                    "var jsonData = pm.response.json();",
-                    "if (jsonData.data && jsonData.data.accessToken) {",
-                    "    pm.collectionVariables.set(\"accessToken\", jsonData.data.accessToken);",
-                    "}"
-                  ],
-                  "type": "text/javascript"
-                }
+              "raw": "{\n  \"email\": \"{{applicantEmail}}\",\n  \"password\": \"{{applicantPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Has tokens and user\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r.data).to.have.property(\"accessToken\");",
+                  "    pm.expect(r.data).to.have.property(\"refreshToken\");",
+                  "    pm.expect(r.data).to.have.property(\"user\");",
+                  "    pm.expect(r.data.user).to.have.property(\"email\");",
+                  "    pm.expect(r.data.user).to.have.property(\"role\");",
+                  "});",
+                  "var r=pm.response.json();",
+                  "if(r.data&&r.data.accessToken){",
+                  "    pm.environment.set(\"accessToken\",r.data.accessToken);",
+                  "    console.log(\"Token saved for:\",r.data.user.role);",
+                  "}"
+                ],
+                "type": "text/javascript"
               }
-            ]
-          }
+            }
+          ]
+        },
+        {
+          "name": "Login as Admin",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Logs in as admin. Token is auto-saved.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Has tokens and user\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r.data).to.have.property(\"accessToken\");",
+                  "    pm.expect(r.data).to.have.property(\"refreshToken\");",
+                  "    pm.expect(r.data).to.have.property(\"user\");",
+                  "    pm.expect(r.data.user).to.have.property(\"email\");",
+                  "    pm.expect(r.data.user).to.have.property(\"role\");",
+                  "});",
+                  "var r=pm.response.json();",
+                  "if(r.data&&r.data.accessToken){",
+                  "    pm.environment.set(\"accessToken\",r.data.accessToken);",
+                  "    console.log(\"Token saved for:\",r.data.user.role);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Reviewer",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Logs in as reviewer. Token is auto-saved.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{reviewerEmail}}\",\n  \"password\": \"{{reviewerPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Has tokens and user\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r.data).to.have.property(\"accessToken\");",
+                  "    pm.expect(r.data).to.have.property(\"refreshToken\");",
+                  "    pm.expect(r.data).to.have.property(\"user\");",
+                  "    pm.expect(r.data.user).to.have.property(\"email\");",
+                  "    pm.expect(r.data.user).to.have.property(\"role\");",
+                  "});",
+                  "var r=pm.response.json();",
+                  "if(r.data&&r.data.accessToken){",
+                  "    pm.environment.set(\"accessToken\",r.data.accessToken);",
+                  "    console.log(\"Token saved for:\",r.data.user.role);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Super Admin",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Logs in as super_admin. Token is auto-saved.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{superAdminEmail}}\",\n  \"password\": \"{{superAdminPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Has tokens and user\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r.data).to.have.property(\"accessToken\");",
+                  "    pm.expect(r.data).to.have.property(\"refreshToken\");",
+                  "    pm.expect(r.data).to.have.property(\"user\");",
+                  "    pm.expect(r.data.user).to.have.property(\"email\");",
+                  "    pm.expect(r.data.user).to.have.property(\"role\");",
+                  "});",
+                  "var r=pm.response.json();",
+                  "if(r.data&&r.data.accessToken){",
+                  "    pm.environment.set(\"accessToken\",r.data.accessToken);",
+                  "    console.log(\"Token saved for:\",r.data.user.role);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Logout",
           "request": {
             "method": "DELETE",
             "url": "{{baseUrl}}/auth/logout",
-            "description": "Clears the refresh-token cookie and invalidates the session."
-          }
+            "description": "Clears refresh-token cookie and invalidates session."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Refresh Token",
           "request": {
-            "auth": { "type": "noauth" },
             "method": "POST",
             "url": "{{baseUrl}}/auth/refresh-token",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Pass refreshToken in body OR let it be read from httpOnly cookie.",
             "header": [
               {
                 "key": "Content-Type",
@@ -144,17 +305,40 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refreshToken\": \"<paste_refresh_token_here>\"\n}"
-            },
-            "description": "Pass refreshToken in body OR let it be read from the httpOnly cookie automatically."
-          }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "var r=pm.response.json();if(r.data&&r.data.accessToken){pm.environment.set(\"accessToken\",r.data.accessToken);}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Get Profile",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/auth/profile",
-            "description": "Returns the authenticated user's profile (firstName, lastName, email, role)."
-          }
+            "description": "Returns authenticated user profile."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Profile\",function(){var r=pm.response.json();pm.expect(r.data).to.have.property(\"email\");pm.expect(r.data).to.have.property(\"role\");});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Update Profile",
@@ -171,22 +355,195 @@
               "mode": "raw",
               "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Name\"\n}"
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Send Email Verification OTP",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/verify-email/send",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Sends verification OTP to email. Use after registration.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{applicantEmail}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Email OTP",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/verify-email/confirm",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Confirms OTP. Check inbox/console for OTP value.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{applicantEmail}}\",\n  \"otp\": \"123456\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Send Password Reset OTP",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/reset-password/send",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Sends password reset OTP. Always returns 200 to prevent email enumeration.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{applicantEmail}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/reset-password/confirm",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Resets password using OTP from email.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{applicantEmail}}\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewPassword@123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "Public — Jobs",
+      "name": "Public",
+      "description": "Public endpoints (no auth): jobs, departments, notices.",
       "item": [
         {
           "name": "List Active Jobs",
           "request": {
-            "auth": { "type": "noauth" },
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/jobs?page=1&limit=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs"],
+              "raw": "{{baseUrl}}/jobs?page=1&limit=10&designation=Assistant Professor Grade-I&search=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs"
+              ],
               "query": [
                 {
                   "key": "page",
@@ -207,6 +564,9 @@
                   "disabled": true
                 }
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -214,10 +574,9 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.data && jsonData.data.jobs && jsonData.data.jobs.length > 0) {",
-                  "    pm.collectionVariables.set(\"jobId\", jsonData.data.jobs[0]._id);",
-                  "}"
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Jobs array\",function(){var r=pm.response.json();pm.expect(r.data).to.have.property(\"jobs\").that.is.an(\"array\");pm.expect(r.data).to.have.property(\"pagination\");});",
+                  "var r=pm.response.json();if(r.data&&r.data.jobs&&r.data.jobs.length>0){pm.environment.set(\"jobId\",r.data.jobs[0]._id);console.log(\"Saved jobId:\",r.data.jobs[0]._id);}"
                 ],
                 "type": "text/javascript"
               }
@@ -227,35 +586,135 @@
         {
           "name": "Get Job by ID",
           "request": {
-            "auth": { "type": "noauth" },
             "method": "GET",
-            "url": "{{baseUrl}}/jobs/{{jobId}}"
-          }
-        },
-        {
-          "name": "Get Job by Advertisement No",
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "GET",
-            "url": "{{baseUrl}}/jobs/by-advertisement/ADV-2026-001"
-          }
-        },
-        {
-          "name": "List Departments",
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "GET",
-            "url": "{{baseUrl}}/departments"
+            "url": "{{baseUrl}}/jobs/{{jobId}}",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.data && jsonData.data.length > 0) {",
-                  "    pm.collectionVariables.set(\"deptId\", jsonData.data[0]._id);",
-                  "}"
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Job object\",function(){var r=pm.response.json();pm.expect(r.data).to.have.property(\"_id\");pm.expect(r.data).to.have.property(\"title\");});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Job by Advertisement No",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/jobs/by-advertisement?advertisementNo={{advtNo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs",
+                "by-advertisement"
+              ],
+              "query": [
+                {
+                  "key": "advertisementNo",
+                  "value": "{{advtNo}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Departments",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/departments",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Departments\",function(){var r=pm.response.json();pm.expect(r.data).to.be.an(\"array\");});",
+                  "var r=pm.response.json();if(r.data&&r.data.length>0){pm.environment.set(\"deptId\",r.data[0]._id);}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Public Notices",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/notices?page=1&limit=10&category=Faculty Recruitment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notices"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "category",
+                  "value": "Faculty Recruitment",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Filter by category using optional query param."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
                 ],
                 "type": "text/javascript"
               }
@@ -266,12 +725,14 @@
     },
     {
       "name": "Applications",
+      "description": "Application CRUD. Run \"Login as Applicant\" first.",
       "item": [
         {
           "name": "Create Application",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/applications",
+            "description": "Creates application for a job. Requires verified email.",
             "header": [
               {
                 "key": "Content-Type",
@@ -281,36 +742,82 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"jobId\": \"{{jobId}}\"\n}"
-            },
-            "event": [
-              {
-                "listen": "test",
-                "script": {
-                  "exec": [
-                    "var jsonData = pm.response.json();",
-                    "if (jsonData.data && jsonData.data._id) {",
-                    "    pm.collectionVariables.set(\"appId\", jsonData.data._id);",
-                    "}"
-                  ],
-                  "type": "text/javascript"
-                }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 201\",function(){pm.response.to.have.status(201);});",
+                  "pm.test(\"Created\",function(){var r=pm.response.json();pm.expect(r.data).to.have.property(\"_id\");pm.expect(r.data).to.have.property(\"status\");});",
+                  "var r=pm.response.json();if(r.data&&r.data._id){pm.environment.set(\"appId\",r.data._id);console.log(\"Saved appId:\",r.data._id);}"
+                ],
+                "type": "text/javascript"
               }
-            ]
-          }
+            }
+          ]
         },
         {
           "name": "List My Applications",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/applications?page=1&limit=10"
-          }
+            "url": {
+              "raw": "{{baseUrl}}/applications?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"List\",function(){var r=pm.response.json();pm.expect(r.data).to.have.property(\"applications\").that.is.an(\"array\");pm.expect(r.data).to.have.property(\"pagination\");});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Get Application by ID",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/applications/{{appId}}"
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Delete Draft Application",
@@ -318,15 +825,33 @@
             "method": "DELETE",
             "url": "{{baseUrl}}/applications/{{appId}}",
             "description": "Only allowed on draft applications."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "Page 1 — Personal",
+      "name": "Application Sections",
+      "description": "All section saves, validates, and file uploads. Run \"Create Application\" first.",
       "item": [
         {
-          "name": "Save Personal Section",
+          "name": "Save Personal",
           "request": {
             "method": "PATCH",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/personal",
@@ -338,24 +863,53 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"data\": {\n    \"postAppliedFor\": \"Assistant Professor Grade-I (Level-12)\",\n    \"departmentDiscipline\": \"Computer Science & Engineering\",\n    \"category\": \"GEN\",\n    \"disability\": false,\n    \"name\": \"Dr. Ravi Kumar\",\n    \"dob\": \"1985-06-15\",\n    \"fatherName\": \"Mr. Rajesh Kumar\",\n    \"nationality\": \"Indian\",\n    \"gender\": \"Male\",\n    \"maritalStatus\": \"Married\",\n    \"aadhar\": \"123456789012\",\n    \"corrAddress\": \"H.No. 42, Sector 7\",\n    \"corrCity\": \"Kurukshetra\",\n    \"corrDistrict\": \"Kurukshetra\",\n    \"corrState\": \"Haryana\",\n    \"corrPincode\": \"136118\",\n    \"mobile\": \"9876543210\",\n    \"sameAsCorrespondence\": true,\n    \"permAddress\": \"H.No. 42, Sector 7\",\n    \"permCity\": \"Kurukshetra\",\n    \"permDistrict\": \"Kurukshetra\",\n    \"permState\": \"Haryana\",\n    \"permPincode\": \"136118\",\n    \"specialization\": [\"Machine Learning\", \"Computer Vision\"],\n    \"phdTitle\": \"Deep Learning for Medical Image Segmentation\",\n    \"phdUniversity\": \"IIT Delhi\",\n    \"phdDate\": \"2015-05-20\",\n    \"degreeFromTopInstitute\": [\"PhD Degree\", \"PG Degree\"],\n    \"scopusId\": \"57200000000\"\n  }\n}"
+              "raw": "{\n  \"data\": {\n    \"postAppliedFor\": \"Assistant Professor Grade-I (Level-12)\",\n    \"departmentDiscipline\": \"Computer Science & Engineering\",\n    \"category\": \"GEN\",\n    \"disability\": false,\n    \"name\": \"Dr. Ravi Kumar\",\n    \"dob\": \"1985-06-15\",\n    \"fatherName\": \"Mr. Rajesh Kumar\",\n    \"nationality\": \"Indian\",\n    \"gender\": \"Male\",\n    \"maritalStatus\": \"Married\",\n    \"aadhar\": \"123456789012\",\n    \"corrAddress\": \"H.No. 42, Sector 7\",\n    \"corrCity\": \"Kurukshetra\",\n    \"corrDistrict\": \"Kurukshetra\",\n    \"corrState\": \"Haryana\",\n    \"corrPincode\": \"136118\",\n    \"mobile\": \"9876543210\",\n    \"sameAsCorrespondence\": true,\n    \"permAddress\": \"H.No. 42, Sector 7\",\n    \"permCity\": \"Kurukshetra\",\n    \"permDistrict\": \"Kurukshetra\",\n    \"permState\": \"Haryana\",\n    \"permPincode\": \"136118\",\n    \"specialization\": [\n      \"Machine Learning\",\n      \"Computer Vision\"\n    ],\n    \"phdTitle\": \"Deep Learning for Medical Image Segmentation\",\n    \"phdUniversity\": \"IIT Delhi\",\n    \"phdDate\": \"2015-05-20\",\n    \"degreeFromTopInstitute\": [\n      \"PhD Degree\",\n      \"PG Degree\"\n    ],\n    \"scopusId\": \"57200000000\"\n  }\n}"
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Validate Personal Section",
+          "name": "Validate Personal",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/personal/validate"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 2 — Photo & Signature",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
-          "name": "Upload Photo (JPEG ≤ 200KB)",
+          "name": "Upload Photo (JPEG, max 200KB)",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/photo/image",
@@ -366,21 +920,55 @@
                   "key": "image",
                   "type": "file",
                   "src": "",
-                  "description": "JPEG photo, ≤ 200KB, 240x320 to 480x640 px"
+                  "description": "JPEG photo, max 200KB, 240x320 to 480x640 px"
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Delete Photo",
+          "name": "Delete Photo (JPEG, max 200KB)",
           "request": {
             "method": "DELETE",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/photo/image"
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Upload Signature (JPEG ≤ 50KB)",
+          "name": "Upload Signature (JPEG, max 50KB)",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/signature/image",
@@ -391,26 +979,55 @@
                   "key": "image",
                   "type": "file",
                   "src": "",
-                  "description": "JPEG signature, ≤ 50KB, 280x80 to 560x160 px"
+                  "description": "JPEG signature, max 50KB, 280x80 to 560x160 px"
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Delete Signature",
+          "name": "Delete Signature (JPEG, max 50KB)",
           "request": {
             "method": "DELETE",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/signature/image"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 3 — Education",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
-          "name": "Save Education Section",
+          "name": "Save Education",
           "request": {
             "method": "PATCH",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/education",
@@ -422,16 +1039,50 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"examPassed\": \"PhD\",\n        \"discipline\": \"Computer Science\",\n        \"boardUniversity\": \"IIT Delhi\",\n        \"marks\": \"Excellent\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2015\",\n        \"nirfRanking\": { \"rank\": \"1-10\", \"rankingYear\": \"2015\" }\n      },\n      {\n        \"examPassed\": \"M.Tech/ME/M.Sc\",\n        \"discipline\": \"Computer Science & Engineering\",\n        \"boardUniversity\": \"NIT Kurukshetra\",\n        \"marks\": \"8.9 CGPA\",\n        \"classDivision\": \"First with Distinction\",\n        \"yearOfPassing\": \"2010\"\n      },\n      {\n        \"examPassed\": \"B.Tech/BE/B.Sc\",\n        \"discipline\": \"Computer Science & Engineering\",\n        \"boardUniversity\": \"MDU Rohtak\",\n        \"marks\": \"78%\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2008\"\n      },\n      {\n        \"examPassed\": \"Intermediate/12th\",\n        \"discipline\": \"PCM\",\n        \"boardUniversity\": \"CBSE\",\n        \"marks\": \"85%\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2004\"\n      },\n      {\n        \"examPassed\": \"Matriculation/10th\",\n        \"discipline\": \"General\",\n        \"boardUniversity\": \"CBSE\",\n        \"marks\": \"88%\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2002\"\n      }\n    ]\n  }\n}"
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"examPassed\": \"PhD\",\n        \"discipline\": \"Computer Science\",\n        \"boardUniversity\": \"IIT Delhi\",\n        \"marks\": \"Excellent\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2015\",\n        \"nirfRanking\": {\n          \"rank\": \"1-10\",\n          \"rankingYear\": \"2015\"\n        }\n      },\n      {\n        \"examPassed\": \"M.Tech/ME/M.Sc\",\n        \"discipline\": \"CSE\",\n        \"boardUniversity\": \"NIT Kurukshetra\",\n        \"marks\": \"8.9 CGPA\",\n        \"classDivision\": \"First with Distinction\",\n        \"yearOfPassing\": \"2010\"\n      },\n      {\n        \"examPassed\": \"B.Tech/BE/B.Sc\",\n        \"discipline\": \"CSE\",\n        \"boardUniversity\": \"MDU Rohtak\",\n        \"marks\": \"78%\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2008\"\n      },\n      {\n        \"examPassed\": \"Intermediate/12th\",\n        \"discipline\": \"PCM\",\n        \"boardUniversity\": \"CBSE\",\n        \"marks\": \"85%\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2004\"\n      },\n      {\n        \"examPassed\": \"Matriculation/10th\",\n        \"discipline\": \"General\",\n        \"boardUniversity\": \"CBSE\",\n        \"marks\": \"88%\",\n        \"classDivision\": \"First\",\n        \"yearOfPassing\": \"2002\"\n      }\n    ]\n  }\n}"
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Validate Education Section",
+          "name": "Validate Education",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/education/validate"
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Upload Education PDF",
@@ -445,26 +1096,55 @@
                   "key": "pdf",
                   "type": "file",
                   "src": "",
-                  "description": "Education certificates PDF, ≤ 10MB"
+                  "description": "Education certificates PDF"
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Delete Education PDF",
           "request": {
             "method": "DELETE",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/education/pdf"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 4 — Experience",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
-          "name": "Save Experience Section",
+          "name": "Save Experience",
           "request": {
             "method": "PATCH",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/experience",
@@ -476,16 +1156,50 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"experienceType\": [\"Teaching\", \"Research/Post-Doctoral\"],\n        \"employerNameAddress\": \"IIT Bombay, Powai, Mumbai - 400076\",\n        \"isPresentEmployer\": true,\n        \"designation\": \"Assistant Professor\",\n        \"appointmentType\": \"Regular\",\n        \"payScale\": \"Level 10 (₹57,700 - ₹1,82,400)\",\n        \"fromDate\": \"2016-07-01\",\n        \"organizationType\": \"Fully Funded Central Educational Institutions\"\n      },\n      {\n        \"experienceType\": [\"Research/Post-Doctoral\"],\n        \"employerNameAddress\": \"IIT Delhi, Hauz Khas, New Delhi - 110016\",\n        \"isPresentEmployer\": false,\n        \"designation\": \"Post-Doctoral Fellow\",\n        \"appointmentType\": \"Contract\",\n        \"payScale\": \"₹45,000 per month\",\n        \"fromDate\": \"2015-06-01\",\n        \"toDate\": \"2016-06-30\",\n        \"organizationType\": \"Fully Funded Central Educational Institutions\"\n      }\n    ]\n  }\n}"
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"experienceType\": [\n          \"Teaching\",\n          \"Research/Post-Doctoral\"\n        ],\n        \"employerNameAddress\": \"IIT Bombay, Powai, Mumbai\",\n        \"isPresentEmployer\": true,\n        \"designation\": \"Assistant Professor\",\n        \"appointmentType\": \"Regular\",\n        \"payScale\": \"Level 10\",\n        \"fromDate\": \"2016-07-01\",\n        \"organizationType\": \"Fully Funded Central Educational Institutions\"\n      },\n      {\n        \"experienceType\": [\n          \"Research/Post-Doctoral\"\n        ],\n        \"employerNameAddress\": \"IIT Delhi, Hauz Khas, New Delhi\",\n        \"isPresentEmployer\": false,\n        \"designation\": \"Post-Doctoral Fellow\",\n        \"appointmentType\": \"Contract\",\n        \"payScale\": \"45000/month\",\n        \"fromDate\": \"2015-06-01\",\n        \"toDate\": \"2016-06-30\",\n        \"organizationType\": \"Fully Funded Central Educational Institutions\"\n      }\n    ]\n  }\n}"
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Validate Experience Section",
+          "name": "Validate Experience",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/experience/validate"
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Upload Experience PDF",
@@ -499,24 +1213,53 @@
                   "key": "pdf",
                   "type": "file",
                   "src": "",
-                  "description": "Experience certificates PDF, ≤ 10MB"
+                  "description": "Experience certificates PDF"
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Delete Experience PDF",
           "request": {
             "method": "DELETE",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/experience/pdf"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 5 — Journal Publications",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Save Journal Publications",
           "request": {
@@ -532,20 +1275,25 @@
               "mode": "raw",
               "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"journalType\": \"SCI / Scopus Journals\",\n        \"paperTitle\": \"A Novel Deep Learning Framework for Medical Image Segmentation\",\n        \"authors\": \"R. Kumar, A. Sharma, P. Singh\",\n        \"isFirstAuthor\": true,\n        \"coAuthorCount\": 2,\n        \"journalName\": \"IEEE Transactions on Medical Imaging\",\n        \"isPaidJournal\": false,\n        \"volume\": \"42\",\n        \"year\": \"2023\",\n        \"pages\": \"1245-1258\"\n      }\n    ]\n  }\n}"
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
-        {
-          "name": "Validate Journal Publications",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/applications/{{appId}}/sections/publications_journal/validate"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 6 — Conference Publications",
-      "item": [
         {
           "name": "Save Conference Publications",
           "request": {
@@ -561,13 +1309,25 @@
               "mode": "raw",
               "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"conferenceType\": \"Scopus Indexed Conference\",\n        \"paperTitle\": \"Attention Mechanisms in Vision Transformers\",\n        \"authors\": \"R. Kumar, S. Verma\",\n        \"isFirstAuthor\": true,\n        \"coAuthorCount\": 1,\n        \"conferenceName\": \"IEEE CVPR 2022\",\n        \"organizer\": \"IEEE\",\n        \"year\": \"2022\",\n        \"pages\": \"5678-5685\"\n      }\n    ]\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 7 — PhD Supervision",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Save PhD Supervision",
           "request": {
@@ -583,13 +1343,25 @@
               "mode": "raw",
               "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"scholarName\": \"Ms. Priya Sharma\",\n        \"researchTopic\": \"Federated Learning for Healthcare Privacy\",\n        \"universityInstitute\": \"IIT Bombay\",\n        \"supervisors\": \"Dr. R. Kumar\",\n        \"isFirstSupervisor\": true,\n        \"coSupervisorCount\": 0,\n        \"year\": \"2022\",\n        \"status\": \"Awarded\"\n      }\n    ]\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 8 — Patents",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Save Patents",
           "request": {
@@ -605,13 +1377,25 @@
               "mode": "raw",
               "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"patentTitle\": \"System and Method for Real-time Medical Image Enhancement\",\n        \"inventors\": \"R. Kumar, P. Singh\",\n        \"isPrincipalInventor\": true,\n        \"coInventorCount\": 1,\n        \"year\": \"2021\",\n        \"status\": \"Granted\"\n      }\n    ]\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 9 — Books",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Save Books / Monographs",
           "request": {
@@ -627,13 +1411,25 @@
               "mode": "raw",
               "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"type\": \"Book\",\n        \"title\": \"Introduction to Deep Learning\",\n        \"authors\": \"R. Kumar\",\n        \"year\": \"2020\",\n        \"publisher\": \"Springer\"\n      }\n    ]\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 10 — Organized Programs",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Save Organized Programs",
           "request": {
@@ -647,15 +1443,27 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"title\": \"Workshop on Machine Learning Applications\",\n        \"fromDate\": \"2023-03-10\",\n        \"toDate\": \"2023-03-14\",\n        \"sponsoringAgency\": \"DST, Govt. of India\"\n      }\n    ]\n  }\n}"
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"title\": \"Workshop on ML Applications\",\n        \"fromDate\": \"2023-03-10\",\n        \"toDate\": \"2023-03-14\",\n        \"sponsoringAgency\": \"DST, Govt. of India\"\n      }\n    ]\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 11 — Sponsored Projects",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Save Sponsored Projects",
           "request": {
@@ -671,13 +1479,25 @@
               "mode": "raw",
               "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"sponsoringAgency\": \"DST, Govt. of India\",\n        \"title\": \"AI-based Crop Disease Detection System\",\n        \"period\": \"2021-2024\",\n        \"amount\": 2500000,\n        \"piCoPI\": \"Dr. R. Kumar\",\n        \"isPrincipalInvestigator\": true,\n        \"coInvestigatorCount\": 0,\n        \"status\": \"Ongoing\"\n      }\n    ]\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 12 — Consultancy Projects",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Save Consultancy Projects",
           "request": {
@@ -693,13 +1513,25 @@
               "mode": "raw",
               "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"fundingAgency\": \"Tata Consultancy Services\",\n        \"title\": \"AI-powered Customer Analytics Platform\",\n        \"period\": \"2022-2023\",\n        \"amount\": 750000,\n        \"piCoPI\": \"Dr. R. Kumar\",\n        \"status\": \"Completed\"\n      }\n    ]\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 13 — Subjects Taught",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Save Subjects Taught",
           "request": {
@@ -713,25 +1545,54 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"data\": {\n    \"items\": [\n      { \"category\": \"UG Level\", \"subjectName\": \"Data Structures & Algorithms\" },\n      { \"category\": \"UG Level\", \"subjectName\": \"Operating Systems\" },\n      { \"category\": \"PG Level\", \"subjectName\": \"Deep Learning\" },\n      { \"category\": \"PG Level\", \"subjectName\": \"Computer Vision\" }\n    ]\n  }\n}"
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"category\": \"UG Level\",\n        \"subjectName\": \"Data Structures & Algorithms\"\n      },\n      {\n        \"category\": \"UG Level\",\n        \"subjectName\": \"Operating Systems\"\n      },\n      {\n        \"category\": \"PG Level\",\n        \"subjectName\": \"Deep Learning\"\n      },\n      {\n        \"category\": \"PG Level\",\n        \"subjectName\": \"Computer Vision\"\n      }\n    ]\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 14 — Credit Points",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
-          "name": "Get Auto-Calculated Credit Summary",
+          "name": "Get Credit Points Summary",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/credit_points/summary",
-            "description": "Returns auto-calculated credits (Activities 1-4) from previously saved sections. No body needed."
-          }
+            "description": "Auto-calculated credits from saved sections."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Save Credit Points (Manual Activities 5-22)",
+          "name": "Save Credit Points (Manual)",
           "request": {
             "method": "PATCH",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/credit_points",
@@ -743,17 +1604,29 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"data\": {\n    \"manualActivities\": [\n      { \"activityId\": 5, \"description\": \"Conference Papers (Indexed)\", \"claimedPoints\": 4 },\n      { \"activityId\": 6, \"description\": \"Major Administrative Positions (HOD for 2 semesters)\", \"claimedPoints\": 6 },\n      { \"activityId\": 10, \"description\": \"Workshops/FDP Coordinated (3 programs)\", \"claimedPoints\": 3 },\n      { \"activityId\": 16, \"description\": \"PG Dissertations Guided (4)\", \"claimedPoints\": 4 },\n      { \"activityId\": 17, \"description\": \"UG Dissertations Guided (6)\", \"claimedPoints\": 3 }\n    ],\n    \"totalCreditsClaimed\": 68,\n    \"totalCreditsAllowed\": 100\n  }\n}"
+              "raw": "{\n  \"data\": {\n    \"manualActivities\": [\n      {\n        \"activityId\": 5,\n        \"description\": \"Conference Papers (Indexed)\",\n        \"claimedPoints\": 4\n      },\n      {\n        \"activityId\": 6,\n        \"description\": \"Major Administrative Positions\",\n        \"claimedPoints\": 6\n      },\n      {\n        \"activityId\": 10,\n        \"description\": \"Workshops/FDP Coordinated\",\n        \"claimedPoints\": 3\n      }\n    ],\n    \"totalCreditsClaimed\": 68,\n    \"totalCreditsAllowed\": 100\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 15 — Referees",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
-          "name": "Save Referees (exactly 2)",
+          "name": "Save Referees",
           "request": {
             "method": "PATCH",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/referees",
@@ -765,15 +1638,27 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"name\": \"Prof. Ashok Gupta\",\n        \"designation\": \"Professor & Head\",\n        \"departmentAddress\": \"Dept. of CSE, IIT Delhi, Hauz Khas, New Delhi\",\n        \"city\": \"New Delhi\",\n        \"pincode\": \"110016\",\n        \"phone\": \"011-26591234\",\n        \"officialEmail\": \"agupta@cse.iitd.ac.in\",\n        \"personalEmail\": \"ashok.gupta@gmail.com\"\n      },\n      {\n        \"name\": \"Dr. Sunita Verma\",\n        \"designation\": \"Associate Professor\",\n        \"departmentAddress\": \"Dept. of AI, IIT Bombay, Powai, Mumbai\",\n        \"city\": \"Mumbai\",\n        \"pincode\": \"400076\",\n        \"phone\": \"022-25767890\",\n        \"officialEmail\": \"sverma@cse.iitb.ac.in\",\n        \"personalEmail\": \"sunita.verma@gmail.com\"\n      }\n    ]\n  }\n}"
+              "raw": "{\n  \"data\": {\n    \"items\": [\n      {\n        \"name\": \"Prof. Ashok Gupta\",\n        \"designation\": \"Professor & Head\",\n        \"departmentAddress\": \"Dept. of CSE, IIT Delhi\",\n        \"city\": \"New Delhi\",\n        \"pincode\": \"110016\",\n        \"phone\": \"011-26591234\",\n        \"officialEmail\": \"agupta@cse.iitd.ac.in\",\n        \"personalEmail\": \"ashok.gupta@gmail.com\"\n      },\n      {\n        \"name\": \"Dr. Sunita Verma\",\n        \"designation\": \"Associate Professor\",\n        \"departmentAddress\": \"Dept. of AI, IIT Bombay\",\n        \"city\": \"Mumbai\",\n        \"pincode\": \"400076\",\n        \"phone\": \"022-25767890\",\n        \"officialEmail\": \"sverma@cse.iitb.ac.in\",\n        \"personalEmail\": \"sunita.verma@gmail.com\"\n      }\n    ]\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 16 — Other Info",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Save Other Information",
           "request": {
@@ -787,17 +1672,29 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"data\": {\n    \"strength\": \"Strong research background in ML/AI with 8+ SCI publications and industry collaboration experience.\",\n    \"weakness\": \"Limited administrative experience at the Head of Department level.\",\n    \"visionForHigherEd\": \"Integrating industry-relevant curriculum with research-driven pedagogy to produce globally competitive graduates.\",\n    \"topThreePriorities\": \"1. Establish an interdisciplinary AI Research Centre. 2. Develop strong industry-academia partnerships. 3. Mentor doctoral students.\",\n    \"preferredSubjects\": [\"Machine Learning\", \"Deep Learning\", \"Computer Vision\", \"Data Science\", \"AI Ethics\"],\n    \"labInnovations\": [\"Edge AI Lab for IoT-integrated inference\", \"Medical Imaging Analytics Centre\"],\n    \"otherInfo\": \"\"\n  }\n}"
+              "raw": "{\n  \"data\": {\n    \"strength\": \"Strong research background in ML/AI.\",\n    \"weakness\": \"Limited HOD-level experience.\",\n    \"visionForHigherEd\": \"Industry-relevant curriculum with research-driven pedagogy.\",\n    \"topThreePriorities\": \"1. AI Research Centre 2. Industry partnerships 3. Mentor doctoral students\",\n    \"preferredSubjects\": [\n      \"Machine Learning\",\n      \"Deep Learning\",\n      \"Computer Vision\"\n    ],\n    \"labInnovations\": [\n      \"Edge AI Lab for IoT\"\n    ],\n    \"otherInfo\": \"\"\n  }\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 17 — Upload Documents",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
-          "name": "Upload Merged Documents PDF (≤ 3MB)",
+          "name": "Upload Final Documents PDF (max 3MB)",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/applications/{{appId}}/sections/final_documents/pdf",
@@ -808,17 +1705,29 @@
                   "key": "pdf",
                   "type": "file",
                   "src": "",
-                  "description": "Single merged PDF of all certificates. Max 3MB."
+                  "description": "Merged PDF of all certificates. Max 3MB."
                 }
               ]
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Page 18 — Declaration & Submit",
-      "item": [
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Save Declaration",
           "request": {
@@ -834,23 +1743,80 @@
               "mode": "raw",
               "raw": "{\n  \"data\": {\n    \"declareInfoTrue\": true,\n    \"agreeToTerms\": true,\n    \"photoUploaded\": true,\n    \"detailsVerified\": true\n  }\n}"
             }
-          }
-        },
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Submission and Payment",
+      "description": "Pre-submission validation, final submit, withdrawal, receipt, and payment.",
+      "item": [
         {
           "name": "Validate All Sections",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/applications/{{appId}}/validate-all",
-            "description": "Pre-submission check. Returns all incomplete or invalid sections."
-          }
+            "description": "Pre-submission check. Returns incomplete/invalid sections."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Submit Application (FINAL — IRREVERSIBLE)",
+          "name": "Submit Application (IRREVERSIBLE)",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/applications/{{appId}}/submit",
-            "description": "Locks the application permanently. Cannot be undone."
-          }
+            "description": "Locks the application permanently."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Withdraw Application",
@@ -867,189 +1833,19 @@
               "mode": "raw",
               "raw": "{\n  \"reason\": \"Withdrawing due to personal reasons\"\n}"
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Admin — Applications",
-      "item": [
-        {
-          "name": "List All Applications",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/admin/applications?page=1&limit=10&status=submitted",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "applications"],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "10"
-                },
-                {
-                  "key": "status",
-                  "value": "submitted"
-                },
-                {
-                  "key": "jobId",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "search",
-                  "value": "",
-                  "disabled": true
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get Application Detail",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/admin/applications/{{appId}}"
-          }
-        },
-        {
-          "name": "Get Applications for a Job",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/admin/applications/job/{{jobId}}",
-            "description": "Returns all applications for a specific job. Requires admin or reviewer role."
-          }
-        },
-        {
-          "name": "Update Application Status",
-          "request": {
-            "method": "PATCH",
-            "url": "{{baseUrl}}/admin/applications/{{appId}}/status",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"shortlisted\",\n  \"remarks\": \"Strong research profile\"\n}"
-            }
-          }
-        },
-        {
-          "name": "Add Review Notes",
-          "request": {
-            "method": "PATCH",
-            "url": "{{baseUrl}}/admin/applications/{{appId}}/review",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reviewNotes\": \"Excellent SCI publication record. Shortlisted for interview.\"\n}"
-            }
-          }
-        },
-        {
-          "name": "Bulk Status Update",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/admin/applications/bulk-status",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"applicationIds\": [\"{{appId}}\"],\n  \"status\": \"under_review\",\n  \"remarks\": \"Batch moved to review stage\"\n}"
-            }
-          }
-        },
-        {
-          "name": "Export Applications to CSV",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/admin/applications/export?jobId={{jobId}}"
-          }
-        },
-        {
-          "name": "Verify Section Document",
-          "request": {
-            "method": "PATCH",
-            "url": "{{baseUrl}}/admin/applications/{{appId}}/verify-section",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"sectionType\": \"education\",\n  \"isVerified\": true,\n  \"verificationNotes\": \"Degree certificate verified — Original seen.\"\n}"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Admin — Jobs",
-      "item": [
-        {
-          "name": "Create Job Draft",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/admin/jobs",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Assistant Professor Grade-I\",\n  \"advertisementNo\": \"NITKKR/FAC/2026/CSE/001\",\n  \"department\": \"507f1f77bcf86cd799439011\",\n  \"designation\": \"Assistant Professor Grade-I\",\n  \"payLevel\": \"12\",\n  \"positions\": 3,\n  \"recruitmentType\": \"external\",\n  \"categories\": [\"GEN\", \"OBC\", \"SC\"],\n  \"applicationFee\": {\n    \"general\": 1000,\n    \"sc_st\": 0,\n    \"obc\": 500,\n    \"ews\": 500,\n    \"pwd\": 0,\n    \"isRequired\": true\n  },\n  \"eligibilityCriteria\": {\n    \"minAge\": 21,\n    \"maxAge\": 60,\n    \"nationality\": [\"Indian\"],\n    \"minExperience\": 0,\n    \"requiredDegrees\": [\n      { \"level\": \"PhD\", \"field\": \"Computer Science\", \"isMandatory\": true }\n    ]\n  },\n  \"description\": \"Recruiting Assistant Professors in Computer Science & Engineering for NIT Kurukshetra.\",\n  \"applicationStartDate\": \"2026-06-01T00:00:00.000Z\",\n  \"applicationEndDate\": \"2026-07-01T00:00:00.000Z\",\n  \"requiredSections\": [\n    { \"sectionType\": \"personal\", \"isMandatory\": true },\n    { \"sectionType\": \"photo\", \"isMandatory\": true },\n    { \"sectionType\": \"signature\", \"isMandatory\": true },\n    { \"sectionType\": \"education\", \"isMandatory\": true },\n    { \"sectionType\": \"experience\", \"isMandatory\": true },\n    { \"sectionType\": \"credit_points\", \"isMandatory\": true },\n    { \"sectionType\": \"referees\", \"isMandatory\": true },\n    { \"sectionType\": \"final_documents\", \"isMandatory\": true },\n    { \"sectionType\": \"declaration\", \"isMandatory\": true }\n  ]\n}",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "var jsonData = pm.response.json();",
-                      "if (jsonData.data && jsonData.data._id) {",
-                      "    pm.collectionVariables.set(\"jobId\", jsonData.data._id);",
-                      "}"
-                    ],
-                    "type": "text/javascript"
-                  }
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "List All Jobs (Admin)",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/admin/jobs?page=1&limit=10"
           },
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.data && jsonData.data.jobs && jsonData.data.jobs.length > 0) {",
-                  "    pm.collectionVariables.set(\"jobId\", jsonData.data.jobs[0]._id);",
-                  "}"
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
                 ],
                 "type": "text/javascript"
               }
@@ -1057,17 +1853,30 @@
           ]
         },
         {
-          "name": "Get Job by ID (Admin)",
+          "name": "Download Receipt",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/admin/jobs/{{jobId}}"
-          }
+            "url": "{{baseUrl}}/applications/{{appId}}/receipt",
+            "description": "Downloads submission receipt PDF. Only for submitted applications."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Update Job",
+          "name": "Create Payment Order",
           "request": {
-            "method": "PATCH",
-            "url": "{{baseUrl}}/admin/jobs/{{jobId}}",
+            "method": "POST",
+            "url": "{{baseUrl}}/payments/create-order",
+            "description": "Creates payment order for application fee.",
             "header": [
               {
                 "key": "Content-Type",
@@ -1076,43 +1885,807 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"positions\": 5\n}"
+              "raw": "{\n  \"applicationId\": \"{{appId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                  "pm.test(\"Response structure\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",true);",
+                  "    pm.expect(r).to.have.property(\"data\");",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment Webhook (Stripe)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/payments/webhook",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Stripe webhook. Cannot be tested manually (needs Stripe signature). For documentation only.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"cs_test_example\"\n    }\n  }\n}"
             }
           }
-        },
-        {
-          "name": "Publish Job",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/admin/jobs/{{jobId}}/publish",
-            "description": "Transitions job from draft → active. Requires admin role."
-          }
-        },
-        {
-          "name": "Close Job Early",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/admin/jobs/{{jobId}}/close",
-            "description": "Closes the job before the end date. Requires admin role."
-          }
-        },
-        {
-          "name": "Delete (Soft) Job",
-          "request": {
-            "method": "DELETE",
-            "url": "{{baseUrl}}/admin/jobs/{{jobId}}"
-          }
         }
       ]
     },
     {
-      "name": "Admin — Users",
+      "name": "Admin",
+      "description": "Admin/super_admin endpoints. Run \"Login as Admin\" or \"Login as Super Admin\" first.",
       "item": [
         {
-          "name": "Create Admin/Reviewer User",
+          "name": "Applications",
+          "item": [
+            {
+              "name": "List All Applications",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/admin/applications?page=1&limit=10&status=submitted&jobId=&search=",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "applications"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "status",
+                      "value": "submitted"
+                    },
+                    {
+                      "key": "jobId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "search",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Application Detail",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/admin/applications/{{appId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Applications for a Job",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/admin/applications/job/{{jobId}}",
+                "description": "All applications for a specific job."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update Application Status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/admin/applications/{{appId}}/status",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"shortlisted\",\n  \"remarks\": \"Strong research profile\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Add Review Notes",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/admin/applications/{{appId}}/review",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reviewNotes\": \"Excellent SCI record. Shortlisted.\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Bulk Status Update",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/admin/applications/bulk-status",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"applicationIds\": [\n    \"{{appId}}\"\n  ],\n  \"status\": \"under_review\",\n  \"remarks\": \"Batch moved to review\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Export Applications CSV",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/admin/applications/export?jobId={{jobId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "applications",
+                    "export"
+                  ],
+                  "query": [
+                    {
+                      "key": "jobId",
+                      "value": "{{jobId}}"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Verify Section Document",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/admin/applications/{{appId}}/verify-section",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sectionType\": \"education\",\n  \"isVerified\": true,\n  \"verificationNotes\": \"Degree verified.\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Exempt Application Fee",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/admin/applications/{{appId}}/exempt-fee",
+                "description": "Exempts application fee. Admin or super_admin only."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Jobs",
+          "item": [
+            {
+              "name": "Create Job Draft",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/admin/jobs",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Assistant Professor Grade-I\",\n  \"advertisementNo\": \"NITKKR/FAC/2026/CSE/001\",\n  \"department\": \"507f1f77bcf86cd799439011\",\n  \"designation\": \"Assistant Professor Grade-I\",\n  \"payLevel\": \"12\",\n  \"positions\": 3,\n  \"recruitmentType\": \"external\",\n  \"categories\": [\n    \"GEN\",\n    \"OBC\",\n    \"SC\"\n  ],\n  \"applicationFee\": {\n    \"general\": 1000,\n    \"sc_st\": 0,\n    \"obc\": 500,\n    \"ews\": 500,\n    \"pwd\": 0,\n    \"isRequired\": true\n  },\n  \"eligibilityCriteria\": {\n    \"minAge\": 21,\n    \"maxAge\": 60,\n    \"nationality\": [\n      \"Indian\"\n    ],\n    \"minExperience\": 0,\n    \"requiredDegrees\": [\n      {\n        \"level\": \"PhD\",\n        \"field\": \"Computer Science\",\n        \"isMandatory\": true\n      }\n    ]\n  },\n  \"description\": \"Recruiting Assistant Professors in CSE.\",\n  \"applicationStartDate\": \"2026-06-01T00:00:00.000Z\",\n  \"applicationEndDate\": \"2026-07-01T00:00:00.000Z\",\n  \"requiredSections\": [\n    {\n      \"sectionType\": \"personal\",\n      \"isMandatory\": true\n    },\n    {\n      \"sectionType\": \"photo\",\n      \"isMandatory\": true\n    },\n    {\n      \"sectionType\": \"signature\",\n      \"isMandatory\": true\n    },\n    {\n      \"sectionType\": \"education\",\n      \"isMandatory\": true\n    },\n    {\n      \"sectionType\": \"experience\",\n      \"isMandatory\": true\n    },\n    {\n      \"sectionType\": \"credit_points\",\n      \"isMandatory\": true\n    },\n    {\n      \"sectionType\": \"referees\",\n      \"isMandatory\": true\n    },\n    {\n      \"sectionType\": \"final_documents\",\n      \"isMandatory\": true\n    },\n    {\n      \"sectionType\": \"declaration\",\n      \"isMandatory\": true\n    }\n  ]\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 201\",function(){pm.response.to.have.status(201);});",
+                      "var r=pm.response.json();if(r.data&&r.data._id){pm.environment.set(\"jobId\",r.data._id);}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List All Jobs (Admin)",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/admin/jobs?page=1&limit=10",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "jobs"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "var r=pm.response.json();if(r.data&&r.data.jobs&&r.data.jobs.length>0){pm.environment.set(\"jobId\",r.data.jobs[0]._id);}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Job by ID (Admin)",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/admin/jobs/{{jobId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update Job",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/admin/jobs/{{jobId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"positions\": 5\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Publish Job",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/admin/jobs/{{jobId}}/publish",
+                "description": "Draft to active."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Close Job Early",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/admin/jobs/{{jobId}}/close",
+                "description": "Closes job before end date."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete Job (Soft)",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/admin/jobs/{{jobId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Users",
+          "item": [
+            {
+              "name": "Create Admin/Reviewer",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/admin/users",
+                "description": "Super Admin creates admins; Admin creates reviewers.",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"reviewer@nitkkr.ac.in\",\n  \"password\": \"Secure@123\",\n  \"firstName\": \"Review\",\n  \"lastName\": \"Officer\",\n  \"role\": \"reviewer\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 201\",function(){pm.response.to.have.status(201);});",
+                      "var r=pm.response.json();if(r.data&&r.data._id){pm.environment.set(\"userId\",r.data._id);}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Promote User to Admin",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/admin/users/{{userId}}/promote",
+                "description": "Only super_admin can promote."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Notices (Admin)",
+          "item": [
+            {
+              "name": "Create Notice",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/notices",
+                "description": "Admin or super_admin. PDF optional.",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "heading",
+                      "value": "Recruitment Advertisement 2026",
+                      "type": "text"
+                    },
+                    {
+                      "key": "advtNo",
+                      "value": "NITKKR/2026/01",
+                      "type": "text"
+                    },
+                    {
+                      "key": "category",
+                      "value": "Faculty Recruitment",
+                      "type": "text"
+                    },
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": "",
+                      "description": "Optional PDF"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 201\",function(){pm.response.to.have.status(201);});",
+                      "var r=pm.response.json();if(r.data&&r.data._id){pm.environment.set(\"noticeId\",r.data._id);}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update Notice",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/notices/{{noticeId}}",
+                "description": "Attach new file to replace PDF.",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "heading",
+                      "value": "Updated Advertisement 2026",
+                      "type": "text"
+                    },
+                    {
+                      "key": "isActive",
+                      "value": "true",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Archive Notice",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/notices/{{noticeId}}/archive",
+                "description": "Soft-archives (isActive=false)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Dashboard",
+          "item": [
+            {
+              "name": "Get Dashboard Stats",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/admin/dashboard/stats"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Job Stats",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/admin/dashboard/stats/job/{{jobId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status 200\",function(){pm.response.to.have.status(200);});",
+                      "pm.test(\"Response structure\",function(){",
+                      "    var r=pm.response.json();",
+                      "    pm.expect(r).to.have.property(\"success\",true);",
+                      "    pm.expect(r).to.have.property(\"data\");",
+                      "    pm.expect(r).to.have.property(\"message\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Negative Tests",
+      "description": "Error handling: invalid credentials, missing auth, validation failures, forbidden access, 404.",
+      "item": [
+        {
+          "name": "Login Wrong Password",
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/admin/users",
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
             "header": [
               {
                 "key": "Content-Type",
@@ -1121,157 +2694,171 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"reviewer@nitkkr.ac.in\",\n  \"password\": \"Secure@123\",\n  \"firstName\": \"Review\",\n  \"lastName\": \"Officer\",\n  \"role\": \"reviewer\"\n}",
-              "description": "Super Admin can create admins; Admin can only create reviewers (enforced in controller)."
-            },
-            "event": [
-              {
-                "listen": "test",
-                "script": {
-                  "exec": [
-                    "var jsonData = pm.response.json();",
-                    "if (jsonData.data && jsonData.data._id) {",
-                    "    pm.collectionVariables.set(\"userId\", jsonData.data._id);",
-                    "}"
-                  ],
-                  "type": "text/javascript"
-                }
+              "raw": "{\n  \"email\": \"{{applicantEmail}}\",\n  \"password\": \"WrongPassword@999\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 401\",function(){pm.response.to.have.status(401);});",
+                  "pm.test(\"Failure response\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",false);",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "    pm.expect(r.message.toLowerCase()).to.include(\"invalid\");",
+                  "});"
+                ],
+                "type": "text/javascript"
               }
-            ]
-          }
+            }
+          ]
         },
         {
-          "name": "Promote User to Admin",
-          "request": {
-            "method": "PATCH",
-            "url": "{{baseUrl}}/admin/users/{{userId}}/promote",
-            "description": "Promotes an existing applicant/reviewer to admin. Only super_admin can call this."
-          }
-        }
-      ]
-    },
-    {
-      "name": "Admin — Dashboard",
-      "item": [
-        {
-          "name": "Get Dashboard Stats",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/admin/dashboard/stats"
-          }
-        },
-        {
-          "name": "Get Job Specific Stats",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/admin/dashboard/stats/job/{{jobId}}"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Notices",
-      "item": [
-        {
-          "name": "List Public Notices",
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/notices?page=1&limit=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["notices"],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "10" },
-                {
-                  "key": "category",
-                  "value": "Faculty Recruitment",
-                  "disabled": true
-                }
-              ]
-            },
-            "description": "Public endpoint — no auth required. Filter by category using the optional query param."
-          }
-        },
-        {
-          "name": "Create Notice (Admin)",
+          "name": "Login Missing Fields",
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/notices",
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "heading",
-                  "value": "Recruitment Advertisement 2026",
-                  "type": "text"
-                },
-                {
-                  "key": "advtNo",
-                  "value": "NITKKR/2026/01",
-                  "type": "text"
-                },
-                {
-                  "key": "category",
-                  "value": "Faculty Recruitment",
-                  "type": "text"
-                },
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "",
-                  "description": "Optional PDF attachment"
-                }
-              ]
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
             },
-            "description": "Requires admin or super_admin role. PDF is optional.",
-            "event": [
+            "header": [
               {
-                "listen": "test",
-                "script": {
-                  "exec": [
-                    "var jsonData = pm.response.json();",
-                    "if (jsonData.data && jsonData.data._id) {",
-                    "    pm.collectionVariables.set(\"noticeId\", jsonData.data._id);",
-                    "}"
-                  ],
-                  "type": "text/javascript"
-                }
+                "key": "Content-Type",
+                "value": "application/json"
               }
-            ]
-          }
-        },
-        {
-          "name": "Update Notice (Admin)",
-          "request": {
-            "method": "PATCH",
-            "url": "{{baseUrl}}/notices/{{noticeId}}",
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "heading",
-                  "value": "Updated Recruitment Advertisement 2026",
-                  "type": "text"
-                },
-                {
-                  "key": "isActive",
-                  "value": "true",
-                  "type": "text"
-                }
-              ]
-            },
-            "description": "Requires admin or super_admin role. You can replace the PDF by attaching a new file."
-          }
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 400\",function(){pm.response.to.have.status(400);});",
+                  "pm.test(\"Failure response\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",false);",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
-          "name": "Archive Notice (Admin)",
+          "name": "Protected Route No Token",
           "request": {
-            "method": "PATCH",
-            "url": "{{baseUrl}}/notices/{{noticeId}}/archive",
-            "description": "Soft-archives the notice (sets isActive = false). Requires admin or super_admin role."
-          }
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/profile",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 401\",function(){pm.response.to.have.status(401);});",
+                  "pm.test(\"Failure response\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",false);",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Applicant Tries Admin Route",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/applications",
+            "description": "Login as Applicant first. Expect 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 403\",function(){pm.response.to.have.status(403);});",
+                  "pm.test(\"Failure response\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",false);",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create App Without jobId",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 400\",function(){pm.response.to.have.status(400);});",
+                  "pm.test(\"Failure response\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",false);",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Non-Existent Resource",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobs/000000000000000000000000",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 404\",function(){pm.response.to.have.status(404);});",
+                  "pm.test(\"Failure response\",function(){",
+                  "    var r=pm.response.json();",
+                  "    pm.expect(r).to.have.property(\"success\",false);",
+                  "    pm.expect(r).to.have.property(\"message\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     }
