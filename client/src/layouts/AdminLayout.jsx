@@ -16,9 +16,17 @@ const AdminLayout = ({ children }) => {
   };
 
   const navItems = [
+    { path: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { path: '/admin/jobs', label: 'Jobs', icon: 'work' },
     { path: '/admin/notices', label: 'Notices', icon: 'campaign' },
+    { path: '/admin/applicants', label: 'Applicants', icon: 'groups' },
+    { path: '/admin/users', label: 'User Management', icon: 'person_settings', roles: ['admin', 'super_admin'] },
   ];
+
+  const filteredNavItems = navItems.filter(item => {
+    if (!item.roles) return true;
+    return item.roles.includes(user?.role);
+  });
 
   const isActive = (path) => location.pathname.startsWith(path);
 
@@ -43,7 +51,7 @@ const AdminLayout = ({ children }) => {
 
         {/* Nav Links */}
         <nav className="p-4 space-y-1">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
@@ -91,7 +99,7 @@ const AdminLayout = ({ children }) => {
 
             <div className="hidden lg:block">
               <h2 className="text-lg font-bold text-secondary">
-                {navItems.find((n) => isActive(n.path))?.label || 'Dashboard'}
+                {navItems.find((n) => isActive(n.path))?.label || 'NIT KKR Recruitment Portal'}
               </h2>
             </div>
 
