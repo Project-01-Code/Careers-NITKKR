@@ -70,6 +70,9 @@ web_modules/
 .env.*
 !.env.example
 
+# Postman environment files (use postman_environment.example.json as template)
+docs/postman_environment.json
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
