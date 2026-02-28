@@ -14,20 +14,10 @@ const router = Router();
 // Create new Admin or Reviewer
 // Super Admin can create Admin
 // Admin can create Reviewer (enforced in controller)
-router.post(
-  '/',
-  verifyJWT,
-  requireRole(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN),
-  createUser
-);
+router.post('/', verifyJWT, requireRole(USER_ROLES.ADMIN), createUser);
 
 // Promote existing user to Admin
 // Only Super Admin
-router.patch(
-  '/:userId/promote',
-  verifyJWT,
-  requireRole(USER_ROLES.SUPER_ADMIN),
-  promoteUser
-);
+router.patch('/:userId/promote', verifyJWT, requireRole(), promoteUser);
 
 export default router;

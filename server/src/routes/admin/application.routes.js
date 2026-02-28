@@ -12,6 +12,7 @@ import {
 } from '../../controllers/admin/application.controller.js';
 import { verifyJWT } from '../../middlewares/auth.middleware.js';
 import { requireRole } from '../../middlewares/rbac.middleware.js';
+import { USER_ROLES } from '../../constants.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 import {
   updateApplicationStatusSchema,
@@ -28,14 +29,14 @@ const router = Router();
 router.get(
   '/export',
   verifyJWT,
-  requireRole('admin', 'super_admin'),
+  requireRole(USER_ROLES.ADMIN),
   exportApplications
 );
 
 router.post(
   '/bulk-status',
   verifyJWT,
-  requireRole('admin', 'super_admin'),
+  requireRole(USER_ROLES.ADMIN),
   validate(bulkUpdateStatusSchema),
   bulkUpdateStatus
 );
@@ -44,7 +45,7 @@ router.post(
 router.get(
   '/',
   verifyJWT,
-  requireRole('admin', 'reviewer'),
+  requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
   getAllApplications
 );
 
@@ -52,7 +53,7 @@ router.get(
 router.get(
   '/job/:jobId',
   verifyJWT,
-  requireRole('admin', 'reviewer'),
+  requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
   getApplicationsByJob
 );
 
@@ -60,7 +61,7 @@ router.get(
 router.get(
   '/:id',
   verifyJWT,
-  requireRole('admin', 'reviewer'),
+  requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
   getApplicationById
 );
 
@@ -68,7 +69,7 @@ router.get(
 router.patch(
   '/:id/status',
   verifyJWT,
-  requireRole('admin', 'super_admin'),
+  requireRole(USER_ROLES.ADMIN),
   validate(updateApplicationStatusSchema),
   updateApplicationStatus
 );
@@ -77,7 +78,7 @@ router.patch(
 router.patch(
   '/:id/review',
   verifyJWT,
-  requireRole('admin', 'reviewer'),
+  requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
   validate(addReviewNotesSchema),
   addReviewNotes
 );
@@ -86,7 +87,7 @@ router.patch(
 router.patch(
   '/:id/verify-section',
   verifyJWT,
-  requireRole('admin', 'reviewer'),
+  requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
   validate(verifySectionSchema),
   verifySectionDocuments
 );
@@ -95,7 +96,7 @@ router.patch(
 router.post(
   '/:id/exempt-fee',
   verifyJWT,
-  requireRole('admin', 'super_admin'),
+  requireRole(USER_ROLES.ADMIN),
   exemptApplicationFee
 );
 

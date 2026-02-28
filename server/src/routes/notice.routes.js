@@ -7,13 +7,14 @@ import {
 } from '../controllers/notice.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { requireRole } from '../middlewares/rbac.middleware.js';
+import { USER_ROLES } from '../constants.js';
 import { upload } from '../middlewares/pdfUpload.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import {
   createNoticeSchema,
   getNoticesQuerySchema,
   noticeIdParamSchema,
-  updateNoticeSchema, 
+  updateNoticeSchema,
 } from '../validators/notice.validator.js';
 
 const router = Router();
@@ -25,7 +26,7 @@ router.get('/', validate(getNoticesQuerySchema), getPublicNotices);
 router.post(
   '/',
   verifyJWT,
-  requireRole('admin', 'super_admin'),
+  requireRole(USER_ROLES.ADMIN),
   upload.single('file'),
   validate(createNoticeSchema),
   createNotice
@@ -34,7 +35,7 @@ router.post(
 router.patch(
   '/:id',
   verifyJWT,
-  requireRole('admin', 'super_admin'),
+  requireRole(USER_ROLES.ADMIN),
   upload.single('file'),
   validate(updateNoticeSchema),
   validate(noticeIdParamSchema),
@@ -44,7 +45,7 @@ router.patch(
 router.patch(
   '/:id/archive',
   verifyJWT,
-  requireRole('admin', 'super_admin'),
+  requireRole(USER_ROLES.ADMIN),
   validate(noticeIdParamSchema),
   archiveNotice
 );

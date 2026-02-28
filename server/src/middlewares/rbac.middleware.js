@@ -25,56 +25,16 @@ export const requireRole = (...allowedRoles) => {
       throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
     }
 
+    // Super-Admin override - they can access any role-protected route
+    if (req.user.role === USER_ROLES.SUPER_ADMIN) {
+      return next();
+    }
+
     // Check if user's role is in allowed roles
     if (!allowedRoles.includes(req.user.role)) {
       throw new ApiError(
         HTTP_STATUS.FORBIDDEN,
         `Access denied. Required role(s): ${allowedRoles.join(', ')}`
-      );
-    }
-
-    next();
-  });
-};
-
-/**
- * Require ownership of a resource
- * Admins bypass ownership checks
- *
- * @param {Function} resourceGetter - Function that extracts resource owner ID from request
- * @returns {Function} Express middleware
- *
- * @example
- * // User can only edit their own profile (admins can edit any)
- * router.patch('/profile/:userId',
- *   verifyJWT,
- *   requireOwnership(req => req.params.userId),
- *   updateProfile
- * );
- */
-export const requireOwnership = (resourceGetter) => {
-  return asyncHandler(async (req, res, next) => {
-    // Ensure user is authenticated
-    if (!req.user) {
-      throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
-    }
-
-    // Admin/Super-Admin override - they can access any resource
-    if (
-      req.user.role === USER_ROLES.ADMIN ||
-      req.user.role === USER_ROLES.SUPER_ADMIN
-    ) {
-      return next();
-    }
-
-    // Get resource owner ID
-    const resourceOwnerId = resourceGetter(req);
-
-    // Check ownership
-    if (req.user._id.toString() !== resourceOwnerId.toString()) {
-      throw new ApiError(
-        HTTP_STATUS.FORBIDDEN,
-        'Access denied. You do not have permission to access this resource.'
       );
     }
 
