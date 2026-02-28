@@ -41,8 +41,8 @@ const Navbar = () => {
       <div className="container mx-auto px-6 flex justify-between items-center">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-bold text-xl shadow-lg transform group-hover:scale-105 transition-transform duration-300">
-            N
+          <div className="w-10 h-10">
+            <img src="https://nitkkr.ac.in/wp-content/uploads/2023/09/cropped-nitlogo-1-e1711375918194.png" alt="Logo" />
           </div>
           <div className="flex flex-col">
             <span className={`font-bold text-lg leading-tight transition-colors ${scrolled ? 'text-secondary' : 'text-gray-900'}`}>
