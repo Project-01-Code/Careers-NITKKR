@@ -1,59 +1,113 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import SectionLayout from '../SectionLayout';
+import { useApplication } from '../../context/ApplicationContext';
 
 const Experience = ({ onNext, onBack }) => {
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-secondary mb-6">Work Experience</h2>
-      
-      <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg flex items-start gap-3">
-        <span className="material-symbols-outlined text-blue-600 mt-0.5">info</span>
-        <p className="text-sm text-blue-800">Please list your experience in reverse chronological order (most recent first).</p>
-      </div>
+  const { formData, updateSection } = useApplication();
+  const [experienceList, setExperienceList] = useState([]);
 
-      <div className="space-y-4">
-        {[1, 2].map((i) => (
-          <div key={i} className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+  useEffect(() => {
+    if (formData?.experience && formData.experience.length > 0) {
+      setExperienceList(formData.experience);
+    } else {
+      setExperienceList([{ designation: '', organization: '', fromDate: '', toDate: '' }]);
+    }
+  }, [formData?.experience]);
+
+  const handleChange = (index, field, value) => {
+    const updatedList = [...experienceList];
+    updatedList[index][field] = value;
+    setExperienceList(updatedList);
+  };
+
+  const addRow = () => {
+    setExperienceList([...experienceList, { designation: '', organization: '', fromDate: '', toDate: '' }]);
+  };
+
+  const removeRow = (index) => {
+    const updatedList = experienceList.filter((_, i) => i !== index);
+    setExperienceList(updatedList);
+  };
+
+  const handleNext = () => {
+    updateSection('experience', experienceList);
+    if (onNext) onNext();
+  };
+
+  return (
+    <SectionLayout 
+      title="Work Experience" 
+      subtitle="Please list your experience in reverse chronological order (most recent first)."
+      onNext={handleNext}
+      onBack={onBack}
+    >
+      <div className="space-y-6 animate-fade-in">
+        {experienceList.map((exp, index) => (
+          <div key={index} className="border border-gray-200 rounded-xl p-6 bg-gray-50 relative group">
+            <h3 className="font-semibold text-gray-800 mb-4 flex items-center justify-between">
+              Experience #{index + 1}
+              {experienceList.length > 1 && (
+                <button 
+                  onClick={() => removeRow(index)}
+                  className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors text-sm flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-sm">delete</span>
+                  Remove
+                </button>
+              )}
+            </h3>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <div className="text-xs font-semibold text-gray-500 uppercase">Designation</div>
-                <input type="text" className="w-full px-3 py-2 rounded bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+                <input 
+                  type="text" 
+                  value={exp.designation || ''}
+                  onChange={(e) => handleChange(index, 'designation', e.target.value)}
+                  placeholder="e.g. Assistant Professor"
+                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
+                />
               </div>
               <div className="space-y-1">
                 <div className="text-xs font-semibold text-gray-500 uppercase">Organization</div>
-                <input type="text" className="w-full px-3 py-2 rounded bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+                <input 
+                  type="text" 
+                  value={exp.organization || ''}
+                  onChange={(e) => handleChange(index, 'organization', e.target.value)}
+                  placeholder="Institute/Company Name"
+                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
+                />
               </div>
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase">From</div>
-                <input type="date" className="w-full px-3 py-2 rounded bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+                <div className="text-xs font-semibold text-gray-500 uppercase">From Date</div>
+                <input 
+                  type="date" 
+                  value={exp.fromDate || ''}
+                  onChange={(e) => handleChange(index, 'fromDate', e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
+                />
               </div>
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase">To</div>
-                <input type="date" className="w-full px-3 py-2 rounded bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+                <div className="text-xs font-semibold text-gray-500 uppercase">To Date (Leave blank if current)</div>
+                <input 
+                  type="date" 
+                  value={exp.toDate || ''}
+                  onChange={(e) => handleChange(index, 'toDate', e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
+                />
               </div>
             </div>
           </div>
         ))}
         
-        <button className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2">
-          <span className="material-symbols-outlined">add</span> Add More Experience
+        <button 
+          onClick={addRow}
+          className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined">add_circle</span> Add Another Experience
         </button>
       </div>
-
-      <div className="flex justify-between pt-6">
-        <button 
-          onClick={onBack}
-          className="text-gray-600 hover:text-gray-900 font-medium px-6 py-2 transition-colors"
-        >
-          Back
-        </button>
-        <button 
-          onClick={onNext}
-          className="bg-primary hover:bg-primary-dark text-white px-8 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-primary/20"
-        >
-          Save & Next
-        </button>
-      </div>
-    </div>
+    </SectionLayout>
   );
 };
 
