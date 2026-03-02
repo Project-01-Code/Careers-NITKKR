@@ -51,7 +51,7 @@ export const saveSection = asyncHandler(async (req, res) => {
   }
 
   // Get existing section or create new
-  const existingSection = application.sections.get(sectionType) || {};
+  const existingSection = application.sections.get(sectionType)?.toObject() || {};
 
   // Update section
   application.sections.set(sectionType, {
@@ -152,8 +152,9 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
   });
 
   // Update section
+  const existingSectionData = existingSection?.toObject() || {};
   application.sections.set(sectionType, {
-    ...(existingSection || {}),
+    ...existingSectionData,
     pdfUrl: uploadResult.secure_url,
     cloudinaryId: uploadResult.public_id,
     savedAt: new Date(),
@@ -190,8 +191,9 @@ export const deleteSectionPDF = asyncHandler(async (req, res) => {
   });
 
   // Update section
+  const sectionData = existingSection.toObject();
   application.sections.set(sectionType, {
-    ...existingSection,
+    ...sectionData,
     pdfUrl: undefined,
     cloudinaryId: undefined,
     savedAt: new Date(),
@@ -316,8 +318,9 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
     stream.end(file.buffer);
   });
 
+  const existingSectionData = existingSection?.toObject() || {};
   application.sections.set(sectionType, {
-    ...(existingSection || {}),
+    ...existingSectionData,
     imageUrl: uploadResult.secure_url,
     cloudinaryId: uploadResult.public_id,
     savedAt: new Date(),
@@ -359,7 +362,9 @@ export const deletePhotoOrSignature = asyncHandler(async (req, res) => {
     resource_type: 'image',
   });
 
+  const sectionData = existingSection.toObject();
   application.sections.set(sectionType, {
+    ...sectionData,
     imageUrl: undefined,
     cloudinaryId: undefined,
     savedAt: new Date(),
@@ -427,8 +432,9 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
     stream.end(file.buffer);
   });
 
+  const existingSectionData = existingSection?.toObject() || {};
   application.sections.set('final_documents', {
-    ...(existingSection || {}),
+    ...existingSectionData,
     pdfUrl: uploadResult.secure_url,
     cloudinaryId: uploadResult.public_id,
     savedAt: new Date(),
