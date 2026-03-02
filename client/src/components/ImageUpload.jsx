@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import api from '../services/api';
 
-const ImageUpload = ({ label, value, onChange, placeholder }) => {
+const ImageUpload = ({ label, value, onChange, placeholder, applicationId, sectionType }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -24,38 +25,61 @@ const ImageUpload = ({ label, value, onChange, placeholder }) => {
     setLoading(true);
 
     try {
-      // NOTE: Using a fake timeout to simulate upload since real endpoint doesn't exist yet
-      // In production, use FormData and hit POST /api/upload
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Creating a local object URL to simulate successful upload preview
-      const fakeUrl = URL.createObjectURL(file);
-      onChange(fakeUrl);
+      if (applicationId && sectionType) {
+        // Real upload to server
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await api.post(
+          `/applications/${applicationId}/sections/${sectionType}/image`,
+          formData,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+        onChange(res.data.data.imageUrl);
+      } else {
+        // Fallback: local preview (no server)
+        const localUrl = URL.createObjectURL(file);
+        onChange(localUrl);
+      }
     } catch (err) {
-      setError('Upload failed. Try again.');
+      setError(err.response?.data?.message || 'Upload failed. Try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    try {
+      if (applicationId && sectionType) {
+        await api.delete(
+          `/applications/${applicationId}/sections/${sectionType}/image`
+        );
+      }
+      onChange('');
+    } catch (err) {
+      console.error('Failed to delete image:', err);
+      // Still remove locally
+      onChange('');
     }
   };
 
   return (
     <div className="space-y-4">
       <h4 className="text-sm font-semibold text-gray-700">{label}</h4>
-      
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
         {/* Preview Area */}
         <div className={`w-32 h-32 rounded-xl flex items-center justify-center border-2 border-dashed overflow-hidden relative ${value ? 'border-primary/50' : 'border-gray-300 bg-gray-50'}`}>
           {loading ? (
-             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           ) : value ? (
             <>
               <img src={value} alt="Preview" className="w-full h-full object-cover" />
-              <button 
-                onClick={() => onChange('')}
+              <button
+                onClick={handleRemove}
                 className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-lg"
                 title="Remove Image"
               >
-                 <span className="material-symbols-outlined text-[14px]">close</span>
+                <span className="material-symbols-outlined text-[14px]">close</span>
               </button>
             </>
           ) : (
@@ -68,10 +92,10 @@ const ImageUpload = ({ label, value, onChange, placeholder }) => {
           <label className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary/10 text-primary font-medium rounded-lg cursor-pointer hover:bg-primary/20 transition-colors">
             <span className="material-symbols-outlined text-xl">upload</span>
             Select Image
-            <input 
-              type="file" 
-              accept="image/jpeg, image/png, image/jpg" 
-              className="hidden" 
+            <input
+              type="file"
+              accept="image/jpeg, image/png, image/jpg"
+              className="hidden"
               onChange={handleFileChange}
               disabled={loading}
             />

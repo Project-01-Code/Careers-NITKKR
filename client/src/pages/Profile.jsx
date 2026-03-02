@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import MainLayout from '../layouts/MainLayout';
+import api from '../services/api';
 
 const Profile = () => {
   const { user, updateProfile, logout } = useAuth();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState('applications'); // 'profile' or 'applications'
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('applications');
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -18,8 +20,23 @@ const Profile = () => {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // Mocked applications data since GET /api/applications/my-applications API isn't ready
+  // Real applications data
   const [myApplications, setMyApplications] = useState([]);
+  const [loadingApps, setLoadingApps] = useState(false);
+
+  // Fetch user's applications from the server
+  const fetchApplications = useCallback(async () => {
+    setLoadingApps(true);
+    try {
+      const res = await api.get('/applications');
+      setMyApplications(res.data.data?.applications || []);
+    } catch (err) {
+      console.error('Failed to fetch applications:', err);
+      toast.error('Failed to load applications');
+    } finally {
+      setLoadingApps(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (user?.profile) {
@@ -34,34 +51,11 @@ const Profile = () => {
   }, [user]);
 
   useEffect(() => {
-    // If we just submitted an application, show the applications tab and maybe a specific state
+    fetchApplications();
     if (location.state?.refresh) {
       setActiveTab('applications');
-      // Mock loading an application that was just submitted
-      setMyApplications([
-        {
-          id: 'APP-2026-8942',
-          jobTitle: 'Assistant Professor (Computer Science)',
-          department: 'Computer Science and Engineering',
-          status: 'Submitted',
-          submittedAt: new Date().toISOString(),
-          paymentStatus: 'Paid'
-        }
-      ]);
-    } else {
-      // Load mock existing applications
-      setMyApplications([
-        {
-          id: 'APP-2026-1123',
-          jobTitle: 'Associate Professor (Electrical Engineering)',
-          department: 'Electrical Engineering',
-          status: 'Draft',
-          updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
-          paymentStatus: 'Pending'
-        }
-      ]);
     }
-  }, [location.state]);
+  }, [fetchApplications, location.state]);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -90,17 +84,67 @@ const Profile = () => {
     toast.success('Logged out successfully');
   };
 
-  const getStatusBadge = (status) => {
-    switch(status) {
-      case 'Submitted':
-        return <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold">Submitted</span>;
-      case 'Under Review':
-        return <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">Under Review</span>;
-      case 'Draft':
-        return <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold">Draft</span>;
-      default:
-        return <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold">{status}</span>;
+  // Delete a draft application
+  const handleDelete = async (appId) => {
+    if (!window.confirm('Are you sure you want to delete this draft application? This cannot be undone.')) return;
+    try {
+      await api.delete(`/applications/${appId}`);
+      toast.success('Application deleted');
+      setMyApplications((prev) => prev.filter((a) => a._id !== appId));
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete application');
     }
+  };
+
+  // Withdraw a submitted application
+  const handleWithdraw = async (appId) => {
+    const reason = window.prompt('Please provide a reason for withdrawal (optional):');
+    if (reason === null) return; // User cancelled
+    try {
+      await api.post(`/applications/${appId}/withdraw`, { reason });
+      toast.success('Application withdrawn');
+      fetchApplications(); // Refresh list
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to withdraw application');
+    }
+  };
+
+  // Download receipt PDF
+  const handleDownloadReceipt = async (appId) => {
+    try {
+      const res = await api.get(`/applications/${appId}/receipt`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipt-${appId}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to download receipt');
+    }
+  };
+
+  // Resume a draft application
+  const handleResume = (app) => {
+    const jobId = app.jobId?._id || app.jobId;
+    navigate(`/application/${jobId}`);
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      draft: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Draft' },
+      submitted: { bg: 'bg-green-100', text: 'text-green-700', label: 'Submitted' },
+      under_review: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Under Review' },
+      shortlisted: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Shortlisted' },
+      rejected: { bg: 'bg-red-100', text: 'text-red-700', label: 'Rejected' },
+      selected: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Selected' },
+      withdrawn: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Withdrawn' },
+    };
+    const badge = badges[status] || badges.draft;
+    return <span className={`${badge.bg} ${badge.text} px-3 py-1 rounded-full text-xs font-semibold`}>{badge.label}</span>;
   };
 
   return (
@@ -115,7 +159,7 @@ const Profile = () => {
 
       <div className="container mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          
+
           {/* Sidebar / Profile Card */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -132,7 +176,7 @@ const Profile = () => {
                   : user?.email || 'User'}
               </h3>
               <p className="text-gray-500 text-sm">{user?.email}</p>
-              
+
               <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col gap-2">
                 <button
                   onClick={() => setActiveTab('applications')}
@@ -166,7 +210,7 @@ const Profile = () => {
             className="lg:col-span-3"
           >
             <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100 min-h-[500px]">
-              
+
               <AnimatePresence mode="wait">
                 {activeTab === 'applications' && (
                   <motion.div
@@ -186,7 +230,11 @@ const Profile = () => {
                       </Link>
                     </div>
 
-                    {myApplications.length === 0 ? (
+                    {loadingApps ? (
+                      <div className="flex items-center justify-center py-16">
+                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : myApplications.length === 0 ? (
                       <div className="text-center py-16 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                         <span className="material-symbols-outlined text-5xl text-gray-300 mb-3 block">inventory_2</span>
                         <h3 className="text-lg font-medium text-gray-700 mb-1">No Applications Found</h3>
@@ -198,36 +246,74 @@ const Profile = () => {
                     ) : (
                       <div className="space-y-4">
                         {myApplications.map((app) => (
-                          <div key={app.id} className="border border-gray-200 rounded-xl p-5 hover:border-primary/30 transition-colors bg-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div key={app._id} className="border border-gray-200 rounded-xl p-5 hover:border-primary/30 transition-colors bg-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div className="space-y-1">
-                              <div className="flex items-center gap-3">
-                                <h3 className="font-bold text-gray-800 text-lg">{app.jobTitle}</h3>
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <h3 className="font-bold text-gray-800 text-lg">
+                                  {app.jobSnapshot?.title || app.jobId?.title || 'Application'}
+                                </h3>
                                 {getStatusBadge(app.status)}
                               </div>
-                              <p className="text-sm text-gray-500">{app.department} • Ref: {app.id}</p>
+                              <p className="text-sm text-gray-500">
+                                {app.jobSnapshot?.department || 'Department'} • Ref: {app.applicationNumber}
+                              </p>
                               <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
                                 <span className="material-symbols-outlined text-[14px]">schedule</span>
-                                {app.status === 'Draft' ? `Last updated: ${new Date(app.updatedAt).toLocaleDateString()}` : `Submitted array: ${new Date(app.submittedAt).toLocaleDateString()}`}
+                                {app.submittedAt
+                                  ? `Submitted: ${new Date(app.submittedAt).toLocaleDateString()}`
+                                  : `Last updated: ${new Date(app.updatedAt).toLocaleDateString()}`
+                                }
                               </p>
                             </div>
-                            
-                            <div className="flex gap-3 sm:flex-col lg:flex-row">
-                              {app.status === 'Draft' ? (
+
+                            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                              {app.status === 'draft' && (
                                 <>
-                                  <Link to={`/application/${app.id}/edit`} className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-medium text-sm hover:bg-primary hover:text-white transition-colors text-center w-full sm:w-auto flex items-center justify-center gap-2">
-                                     <span className="material-symbols-outlined text-[16px]">edit</span>
-                                     Resume
-                                  </Link>
-                                  <button className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-red-100 transition-colors text-center w-full sm:w-auto flex items-center justify-center gap-2">
-                                     <span className="material-symbols-outlined text-[16px]">delete</span>
-                                     Withdraw
+                                  <button
+                                    onClick={() => handleResume(app)}
+                                    className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-medium text-sm hover:bg-primary hover:text-white transition-colors flex items-center gap-1.5"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                                    Resume
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(app._id)}
+                                    className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                    Delete
                                   </button>
                                 </>
-                              ) : (
-                                <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors text-center w-full sm:w-auto flex items-center justify-center gap-2">
-                                   <span className="material-symbols-outlined text-[16px]">download</span>
-                                   Download PDF
+                              )}
+                              {app.status === 'submitted' && (
+                                <>
+                                  <button
+                                    onClick={() => handleDownloadReceipt(app._id)}
+                                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">download</span>
+                                    Receipt
+                                  </button>
+                                  <button
+                                    onClick={() => handleWithdraw(app._id)}
+                                    className="bg-orange-50 text-orange-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-orange-100 transition-colors flex items-center gap-1.5"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">undo</span>
+                                    Withdraw
+                                  </button>
+                                </>
+                              )}
+                              {['under_review', 'shortlisted', 'selected', 'rejected'].includes(app.status) && (
+                                <button
+                                  onClick={() => handleDownloadReceipt(app._id)}
+                                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">download</span>
+                                  Receipt
                                 </button>
+                              )}
+                              {app.status === 'withdrawn' && (
+                                <span className="text-sm text-gray-400 italic px-4 py-2">Withdrawn</span>
                               )}
                             </div>
                           </div>
@@ -326,7 +412,7 @@ const Profile = () => {
                   </motion.div>
                 )}
               </AnimatePresence>
-              
+
             </div>
           </motion.div>
         </div>
