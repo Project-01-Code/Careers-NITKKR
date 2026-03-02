@@ -19,13 +19,91 @@ import {
   TOKEN_TYPES,
 } from '../constants.js';
 
-// Cookie options for secure token storage
+/* ─────────────────────────────── Constants ─────────────────────────────── */
+
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: !IS_DEV,
   sameSite: 'strict',
 };
 
+const USER_PUBLIC_FIELDS = '-password -refreshToken -deletedAt';
+
+/* ─────────────────────────────── Helpers ────────────────────────────────── */
+
+/**
+ * Generates a random numeric OTP, bcrypt-hashes it, and upserts the token
+ * document (one active OTP per user per type).
+ * Returns the plaintext OTP so it can be emailed / returned in dev mode.
+ */
+const createAndStoreOTP = async (userId, type) => {
+  const otp = String(
+    Math.floor(
+      10 ** (OTP_CONFIG.LENGTH - 1) +
+      Math.random() * 9 * 10 ** (OTP_CONFIG.LENGTH - 1)
+    )
+  );
+
+  const hashedOtp = await bcrypt.hash(otp, 10);
+  const expiresAt = new Date(
+    Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000
+  );
+
+  // $set prevents accidental full-document replacement on existing records,
+  // which was the root cause of "Invalid OTP" on re-sent OTPs.
+  const saved = await VerificationToken.findOneAndUpdate(
+    { userId, type },
+    { $set: { otp: hashedOtp, expiresAt } },
+    { upsert: true, new: true }
+  );
+
+  // [DEBUG] — remove after confirming OTP storage works
+  console.log('[OTP STORE]', { userId, type, otp, expiresAt, savedId: saved?._id });
+
+  return otp;
+};
+
+/**
+ * Finds and validates an OTP document for a given user + type.
+ * Throws ApiError on missing / expired / wrong OTP.
+ * Deletes the document on expiry (belt-and-suspenders over the TTL index).
+ */
+const validateOTP = async (userId, type, otp) => {
+  const tokenDoc = await VerificationToken.findOne({ userId, type });
+
+  // [DEBUG] — remove after confirming OTP lookup works
+  console.log('[OTP LOOKUP]', { userId, type, found: !!tokenDoc, expiresAt: tokenDoc?.expiresAt });
+
+  if (!tokenDoc) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'OTP not found or has expired. Please request a new one.'
+    );
+  }
+
+  // Explicit expiry check: MongoDB's TTL janitor has up to ~60 s lag.
+  if (tokenDoc.expiresAt < new Date()) {
+    await VerificationToken.deleteOne({ _id: tokenDoc._id });
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'OTP has expired. Please request a new one.'
+    );
+  }
+
+  const isValid = await bcrypt.compare(otp, tokenDoc.otp);
+  if (!isValid) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Invalid OTP.');
+  }
+
+  return tokenDoc;
+};
+
+/**
+ * Generates access + refresh JWT pair, persists refresh token to the user doc,
+ * and returns both tokens.
+ */
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
     const user = await User.findById(userId);
@@ -36,46 +114,25 @@ const generateAccessAndRefreshTokens = async (userId) => {
     await user.save({ validateBeforeSave: false });
 
     return { accessToken, refreshToken };
-  } catch (error) {
+  } catch {
     throw new ApiError(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      'Something went wrong while generating refresh and access token'
+      'Something went wrong while generating tokens.'
     );
   }
 };
 
-// Generates a random numeric OTP, hashes it, upserts into verificationToken collection.
-// Returns the plaintext OTP so it can be emailed.
-const createAndStoreOTP = async (userId, type) => {
-  const otp = String(
-    Math.floor(
-      10 ** (OTP_CONFIG.LENGTH - 1) +
-        Math.random() * 9 * 10 ** (OTP_CONFIG.LENGTH - 1)
-    )
-  );
-  const hashedOtp = await bcrypt.hash(otp, 10);
-  const expiresAt = new Date(
-    Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000
-  );
+/* ──────────────────────────── Auth handlers ─────────────────────────────── */
 
-  await VerificationToken.findOneAndUpdate(
-    { userId, type },
-    { userId, otp: hashedOtp, type, expiresAt },
-    { upsert: true, new: true }
-  );
-
-  return otp;
-};
-
+// POST /auth/register
 const registerUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   const existedUser = await User.findOne({ email, deletedAt: null });
-
   if (existedUser) {
     throw new ApiError(
       HTTP_STATUS.CONFLICT,
-      'User with this email already exists'
+      'User with this email already exists.'
     );
   }
 
@@ -86,23 +143,18 @@ const registerUser = asyncHandler(async (req, res) => {
     profile: {},
   });
 
-  const createdUser = await User.findById(user._id).select(
-    '-password -refreshToken -deletedAt'
-  );
-
+  const createdUser = await User.findById(user._id).select(USER_PUBLIC_FIELDS);
   if (!createdUser) {
     throw new ApiError(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      'Something went wrong while registering the user'
+      'Something went wrong while registering the user.'
     );
   }
 
-  // Send email verification OTP (fire-and-forget)
+  // Fire-and-forget — registration must not fail just because email is slow.
   createAndStoreOTP(user._id, TOKEN_TYPES.EMAIL_VERIFICATION)
-    .then((otp) => {
-      sendVerificationOTP(email, otp).catch(() => {});
-    })
-    .catch(() => {});
+    .then((otp) => sendVerificationOTP(email, otp).catch(() => { }))
+    .catch(() => { });
 
   await logAction({
     userId: createdUser._id,
@@ -124,44 +176,29 @@ const registerUser = asyncHandler(async (req, res) => {
     );
 });
 
+// POST /auth/login
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   const user = await User.findOne({ email, deletedAt: null });
 
-  if (!user) {
+  if (!user || !(await user.isPasswordCorrect(password))) {
     await logAction({
-      userId: null,
+      userId: user?._id ?? null,
       action: AUDIT_ACTIONS.LOGIN_FAILED,
       resourceType: RESOURCE_TYPES.USER,
-      resourceId: null,
+      resourceId: user?._id ?? null,
       changes: { before: { email } },
       req,
     });
-    throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Invalid credentials');
-  }
-
-  const isPasswordValid = await user.isPasswordCorrect(password);
-
-  if (!isPasswordValid) {
-    await logAction({
-      userId: user._id,
-      action: AUDIT_ACTIONS.LOGIN_FAILED,
-      resourceType: RESOURCE_TYPES.USER,
-      resourceId: user._id,
-      changes: { before: { email } },
-      req,
-    });
-    throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Invalid credentials');
+    throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Invalid credentials.');
   }
 
   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
     user._id
   );
 
-  const loggedInUser = await User.findById(user._id).select(
-    '-password -refreshToken -deletedAt'
-  );
+  const loggedInUser = await User.findById(user._id).select(USER_PUBLIC_FIELDS);
 
   await logAction({
     userId: user._id,
@@ -178,13 +215,14 @@ const loginUser = asyncHandler(async (req, res) => {
     .cookie('refreshToken', refreshToken, cookieOptions)
     .json(
       new ApiResponse(
-        200,
+        HTTP_STATUS.OK,
         { user: loggedInUser, accessToken, refreshToken },
-        'User logged In Successfully'
+        'Logged in successfully.'
       )
     );
 });
 
+// POST /auth/logout
 const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
@@ -205,36 +243,34 @@ const logoutUser = asyncHandler(async (req, res) => {
     .status(HTTP_STATUS.OK)
     .clearCookie('accessToken', cookieOptions)
     .clearCookie('refreshToken', cookieOptions)
-    .json(new ApiResponse(HTTP_STATUS.OK, {}, 'User logged Out'));
+    .json(new ApiResponse(HTTP_STATUS.OK, {}, 'Logged out successfully.'));
 });
 
+// POST /auth/refresh-token
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies.refreshToken || req.body.refreshToken;
 
   if (!incomingRefreshToken) {
-    throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Refresh token required');
+    throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Refresh token required.');
   }
 
   try {
-    const decodedToken = jwt.verify(
+    const decoded = jwt.verify(
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
     );
 
-    const user = await User.findOne({
-      _id: decodedToken?._id,
-      deletedAt: null,
-    });
+    const user = await User.findOne({ _id: decoded?._id, deletedAt: null });
 
     if (!user) {
-      throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Invalid refresh token');
+      throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Invalid refresh token.');
     }
 
-    if (incomingRefreshToken !== user?.refreshToken) {
+    if (incomingRefreshToken !== user.refreshToken) {
       throw new ApiError(
         HTTP_STATUS.UNAUTHORIZED,
-        'Refresh token is expired or used'
+        'Refresh token is expired or already used.'
       );
     }
 
@@ -249,36 +285,38 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         new ApiResponse(
           HTTP_STATUS.OK,
           { accessToken, refreshToken: newRefreshToken },
-          'Access token refreshed'
+          'Access token refreshed.'
         )
       );
   } catch (error) {
     throw new ApiError(
       HTTP_STATUS.UNAUTHORIZED,
-      error?.message || 'Invalid refresh token'
+      error?.message || 'Invalid refresh token.'
     );
   }
 });
 
+/* ──────────────────────────── Profile handlers ──────────────────────────── */
+
+// GET /auth/profile
 const getProfile = asyncHandler(async (req, res) => {
   return res
     .status(HTTP_STATUS.OK)
     .json(
-      new ApiResponse(HTTP_STATUS.OK, req.user, 'Profile fetched successfully')
+      new ApiResponse(HTTP_STATUS.OK, req.user, 'Profile fetched successfully.')
     );
 });
 
+// PATCH /auth/profile
 const updateProfile = asyncHandler(async (req, res) => {
-  const profileData = req.body;
-
   const currentUser = await User.findById(req.user._id);
   const oldProfile = { ...currentUser.profile.toObject() };
 
-  Object.assign(currentUser.profile, profileData);
+  Object.assign(currentUser.profile, req.body);
   await currentUser.save();
 
   const updatedUser = await User.findById(req.user._id).select(
-    '-password -refreshToken -deletedAt'
+    USER_PUBLIC_FIELDS
   );
 
   await logAction({
@@ -296,42 +334,40 @@ const updateProfile = asyncHandler(async (req, res) => {
   return res
     .status(HTTP_STATUS.OK)
     .json(
-      new ApiResponse(
-        HTTP_STATUS.OK,
-        updatedUser,
-        'Profile updated successfully'
-      )
+      new ApiResponse(HTTP_STATUS.OK, updatedUser, 'Profile updated successfully.')
     );
 });
+
+/* ──────────────────────────── OTP handlers ──────────────────────────────── */
 
 // POST /auth/verify-email/send
 const sendEmailVerificationOTPHandler = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is required');
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is required.');
   }
 
   const user = await User.findOne({ email, deletedAt: null });
-
   if (!user) {
-    throw new ApiError(
-      HTTP_STATUS.NOT_FOUND,
-      'No account found with this email'
-    );
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'No account found with this email.');
   }
 
   if (user.isEmailVerified) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is already verified');
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is already verified.');
   }
 
   const otp = await createAndStoreOTP(user._id, TOKEN_TYPES.EMAIL_VERIFICATION);
-  sendVerificationOTP(email, otp).catch(() => {});
+  sendVerificationOTP(email, otp).catch(() => { });
 
   return res
     .status(HTTP_STATUS.OK)
     .json(
-      new ApiResponse(HTTP_STATUS.OK, {}, 'Verification OTP sent to your email')
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        IS_DEV ? { otp } : {},
+        'Verification OTP sent to your email.'
+      )
     );
 });
 
@@ -340,39 +376,23 @@ const verifyEmailOTPHandler = asyncHandler(async (req, res) => {
   const { email, otp } = req.body;
 
   if (!email || !otp) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email and OTP are required');
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email and OTP are required.');
   }
 
   const user = await User.findOne({ email, deletedAt: null });
-
   if (!user) {
-    throw new ApiError(
-      HTTP_STATUS.NOT_FOUND,
-      'No account found with this email'
-    );
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'No account found with this email.');
   }
 
   if (user.isEmailVerified) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is already verified');
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is already verified.');
   }
 
-  const tokenDoc = await VerificationToken.findOne({
-    userId: user._id,
-    type: TOKEN_TYPES.EMAIL_VERIFICATION,
-  });
-
-  if (!tokenDoc) {
-    throw new ApiError(
-      HTTP_STATUS.BAD_REQUEST,
-      'OTP not found or has expired. Please request a new one.'
-    );
-  }
-
-  const isValid = await bcrypt.compare(otp, tokenDoc.otp);
-
-  if (!isValid) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Invalid OTP');
-  }
+  const tokenDoc = await validateOTP(
+    user._id,
+    TOKEN_TYPES.EMAIL_VERIFICATION,
+    otp
+  );
 
   user.isEmailVerified = true;
   user.emailVerifiedAt = new Date();
@@ -382,7 +402,7 @@ const verifyEmailOTPHandler = asyncHandler(async (req, res) => {
 
   return res
     .status(HTTP_STATUS.OK)
-    .json(new ApiResponse(HTTP_STATUS.OK, {}, 'Email verified successfully'));
+    .json(new ApiResponse(HTTP_STATUS.OK, {}, 'Email verified successfully.'));
 });
 
 // POST /auth/reset-password/send
@@ -390,12 +410,12 @@ const sendPasswordResetOTPHandler = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is required');
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is required.');
   }
 
   const user = await User.findOne({ email, deletedAt: null });
 
-  // Always respond with 200 to prevent email enumeration
+  // Always 200 to prevent email enumeration — but include OTP in dev.
   if (!user) {
     return res
       .status(HTTP_STATUS.OK)
@@ -403,21 +423,21 @@ const sendPasswordResetOTPHandler = asyncHandler(async (req, res) => {
         new ApiResponse(
           HTTP_STATUS.OK,
           {},
-          'If an account exists, a reset OTP has been sent'
+          'If an account exists, a reset OTP has been sent.'
         )
       );
   }
 
   const otp = await createAndStoreOTP(user._id, TOKEN_TYPES.PASSWORD_RESET);
-  sendPasswordResetOTP(email, otp).catch(() => {});
+  sendPasswordResetOTP(email, otp).catch(() => { });
 
   return res
     .status(HTTP_STATUS.OK)
     .json(
       new ApiResponse(
         HTTP_STATUS.OK,
-        {},
-        'If an account exists, a reset OTP has been sent'
+        IS_DEV ? { otp } : {},
+        'If an account exists, a reset OTP has been sent.'
       )
     );
 });
@@ -429,43 +449,28 @@ const resetPasswordHandler = asyncHandler(async (req, res) => {
   if (!email || !otp || !newPassword) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
-      'Email, OTP, and new password are required'
+      'Email, OTP, and new password are required.'
     );
   }
 
   const user = await User.findOne({ email, deletedAt: null });
-
   if (!user) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Invalid request');
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Invalid request.');
   }
 
-  const tokenDoc = await VerificationToken.findOne({
-    userId: user._id,
-    type: TOKEN_TYPES.PASSWORD_RESET,
-  });
+  const tokenDoc = await validateOTP(user._id, TOKEN_TYPES.PASSWORD_RESET, otp);
 
-  if (!tokenDoc) {
-    throw new ApiError(
-      HTTP_STATUS.BAD_REQUEST,
-      'OTP not found or has expired. Please request a new one.'
-    );
-  }
-
-  const isValid = await bcrypt.compare(otp, tokenDoc.otp);
-
-  if (!isValid) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Invalid OTP');
-  }
-
-  user.password = newPassword; // pre-save hook handles hashing
-  await user.save();
+  user.password = newPassword; // pre-save hook on User model handles hashing
+  await user.save({ validateBeforeSave: false });
 
   await VerificationToken.deleteOne({ _id: tokenDoc._id });
 
   return res
     .status(HTTP_STATUS.OK)
-    .json(new ApiResponse(HTTP_STATUS.OK, {}, 'Password reset successfully'));
+    .json(new ApiResponse(HTTP_STATUS.OK, {}, 'Password reset successfully.'));
 });
+
+/* ──────────────────────────────── Exports ───────────────────────────────── */
 
 export {
   registerUser,

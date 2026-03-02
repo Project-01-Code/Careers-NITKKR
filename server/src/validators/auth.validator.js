@@ -59,10 +59,20 @@ export const refreshTokenSchema = z
       })
       .optional(),
   })
-  .refine((data) => data.body?.refreshToken || data.cookies?.refreshToken, {
-    message: 'Refresh token is required',
-    path: ['refreshToken'],
-  });
+  .refine(
+    (data) => {
+      const bodyToken = data.body?.refreshToken;
+      const cookieToken = data.cookies?.refreshToken;
+      return (
+        (typeof bodyToken === 'string' && bodyToken.trim().length > 0) ||
+        (typeof cookieToken === 'string' && cookieToken.trim().length > 0)
+      );
+    },
+    {
+      message: 'Refresh token is required (must be a non-empty string)',
+      path: ['refreshToken'],
+    }
+  );
 
 /**
  * Update Profile Schema
