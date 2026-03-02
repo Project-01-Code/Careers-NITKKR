@@ -4,7 +4,7 @@ import { ApiError } from '../utils/apiError.js';
 import { HTTP_STATUS, NODE_ENV } from '../constants.js';
 
 /**
- * Enhanced Error Handler Middleware
+ * Error Handler Middleware
  * Intercepts various error types (Mongoose, Zod, JWT) and standardizes them into ApiError
  */
 // eslint-disable-next-line no-unused-vars
@@ -105,7 +105,8 @@ export const errorHandler = (err, req, res, next) => {
     }),
   };
 
-  // Log error (except for 4xx errors in production)
+  // In development: log all errors
+  // In production: log only 5xx (server) errors
   if (
     process.env.NODE_ENV === NODE_ENV.DEVELOPMENT ||
     error.statusCode >= 500

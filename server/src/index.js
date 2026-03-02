@@ -13,20 +13,15 @@ let server;
 const gracefulShutdown = async (signal) => {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
 
-  // Force close after 10 seconds (in case of hang)
   const forceExit = setTimeout(() => {
-    console.error('❌ Forced shutdown after timeout');
+    console.error('❌ Forced shutdown after 10 seconds');
     process.exit(1);
   }, 10000);
-  forceExit.unref();
 
   try {
-    // 1. Close HTTP Server
+    // Stop accepting new HTTP connections
     if (server) {
       console.log('⏳ Closing HTTP server...');
-
-      // Close all existing connections to avoid hanging
-      if (server.closeAllConnections) server.closeAllConnections();
 
       await new Promise((resolve, reject) => {
         server.close((err) => {
@@ -34,14 +29,16 @@ const gracefulShutdown = async (signal) => {
           else resolve();
         });
       });
+
       console.log('✅ HTTP server closed');
     }
 
-    // 2. Close Database Connection
+    // Close database connection
     console.log('⏳ Closing database connection...');
-    // mongoose.connection.close() handles the active connection
-    await mongoose.connection.close(false);
+    await mongoose.disconnect();
     console.log('✅ Database connection closed');
+
+    clearTimeout(forceExit);
     console.log('👋 Graceful shutdown completed');
     process.exit(0);
   } catch (err) {
@@ -52,20 +49,15 @@ const gracefulShutdown = async (signal) => {
 
 /* ------------------- GLOBAL ERROR SAFETY ------------------- */
 
-// Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  console.error('❌ UNCAUGHT EXCEPTION! Shutting down...');
-  console.error('Error:', err.name, err.message);
-  console.error('Stack:', err.stack);
-  // For uncaught exceptions, we should exit immediately or restart
-  // But attempting a graceful shutdown is often safer for data
+  console.error('\n❌ UNCAUGHT EXCEPTION');
+  console.error(err);
   gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('❌ UNHANDLED REJECTION! Shutting down...');
-  console.error('Error:', err);
+process.on('unhandledRejection', (reason) => {
+  console.error('\n❌ UNHANDLED REJECTION');
+  console.error(reason);
   gracefulShutdown('UNHANDLED_REJECTION');
 });
 
@@ -75,24 +67,33 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 /* ------------------- SERVER BOOTSTRAP ------------------- */
 
-const PORT = process.env.PORT || 8000;
-const NODE_ENV = process.env.NODE_ENV || 'development';
-
 const startServer = async () => {
   try {
     console.log('🚀 Starting server...');
-    console.log(`🌱 Environment: ${NODE_ENV}`);
+    console.log(`🌱 Environment: ${process.env.NODE_ENV || 'development'}`);
 
     // Validate required environment variables
     const requiredEnvVars = [
+      // Database
       'MONGODB_URI',
+      // Auth
       'ACCESS_TOKEN_SECRET',
       'REFRESH_TOKEN_SECRET',
       'ACCESS_TOKEN_EXPIRY',
       'REFRESH_TOKEN_EXPIRY',
+      // Cloudinary
       'CLOUDINARY_CLOUD_NAME',
       'CLOUDINARY_API_KEY',
       'CLOUDINARY_API_SECRET',
+      // Email
+      'SMTP_HOST',
+      'SMTP_PORT',
+      'SMTP_USER',
+      'SMTP_PASS',
+      'EMAIL_FROM',
+      // Stripe
+      'STRIPE_SECRET_KEY',
+      'STRIPE_WEBHOOK_SECRET',
     ];
 
     const missingVars = requiredEnvVars.filter(
@@ -114,6 +115,7 @@ const startServer = async () => {
     server = http.createServer(app);
 
     // Start listening
+    const PORT = process.env.PORT || 8000;
     server.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`);
       console.log(`🔗 Health check: http://localhost:${PORT}/health`);
