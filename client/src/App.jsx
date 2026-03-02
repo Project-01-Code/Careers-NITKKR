@@ -16,15 +16,11 @@ import AdminApplications from './pages/admin/AdminApplications';
 import AdminUserManagement from './pages/admin/AdminUserManagement';
 import ApplicationReview from './pages/admin/ApplicationReview';
 import ProtectedRoute from './components/ProtectedRoute';
-
-// Placeholder for pages not yet built
-const Placeholder = ({ title }) => (
-  <div className="flex flex-col items-center justify-center min-h-screen pt-20 px-6">
-    <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">construction</span>
-    <h1 className="text-3xl font-bold text-gray-400">{title}</h1>
-    <p className="text-gray-400 mt-2">This page is coming soon.</p>
-  </div>
-);
+import PaymentSuccess from './pages/PaymentSuccess';
+import VerifyEmail from './pages/VerifyEmail';
+import ForgotPassword from './pages/ForgotPassword';
+import Help from './pages/Help';
+import NotFound from './pages/NotFound';
 
 function App() {
   return (
@@ -35,11 +31,12 @@ function App() {
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/notices" element={<Notices />} />
-        <Route path="/help" element={<Placeholder title="Help Center" />} />
+        <Route path="/help" element={<Help />} />
 
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Protected Routes — Authenticated Users */}
         <Route
@@ -51,10 +48,34 @@ function App() {
           }
         />
         <Route
+          path="/verify-email"
+          element={
+            <ProtectedRoute>
+              <VerifyEmail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/application/:jobId"
           element={
             <ProtectedRoute>
               <ApplicationForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/applications/:id/payment-success"
+          element={
+            <ProtectedRoute>
+              <PaymentSuccess />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/applications/:id/payment-cancel"
+          element={
+            <ProtectedRoute>
+              <Navigate to="/profile" replace />
             </ProtectedRoute>
           }
         />
@@ -130,7 +151,7 @@ function App() {
         />
 
         {/* 404 */}
-        <Route path="*" element={<Placeholder title="404 — Page Not Found" />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
   );
