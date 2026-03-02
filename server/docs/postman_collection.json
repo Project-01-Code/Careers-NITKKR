@@ -119,6 +119,7 @@
                   "var r=pm.response.json();",
                   "if(r.data&&r.data.accessToken){",
                   "    pm.environment.set(\"accessToken\",r.data.accessToken);",
+                  "    pm.environment.set(\"refreshToken\",r.data.refreshToken);",
                   "    console.log(\"Token saved for:\",r.data.user.role);",
                   "}"
                 ],
@@ -164,6 +165,7 @@
                   "var r=pm.response.json();",
                   "if(r.data&&r.data.accessToken){",
                   "    pm.environment.set(\"accessToken\",r.data.accessToken);",
+                  "    pm.environment.set(\"refreshToken\",r.data.refreshToken);",
                   "    console.log(\"Token saved for:\",r.data.user.role);",
                   "}"
                 ],
@@ -209,6 +211,7 @@
                   "var r=pm.response.json();",
                   "if(r.data&&r.data.accessToken){",
                   "    pm.environment.set(\"accessToken\",r.data.accessToken);",
+                  "    pm.environment.set(\"refreshToken\",r.data.refreshToken);",
                   "    console.log(\"Token saved for:\",r.data.user.role);",
                   "}"
                 ],
@@ -254,6 +257,7 @@
                   "var r=pm.response.json();",
                   "if(r.data&&r.data.accessToken){",
                   "    pm.environment.set(\"accessToken\",r.data.accessToken);",
+                  "    pm.environment.set(\"refreshToken\",r.data.refreshToken);",
                   "    console.log(\"Token saved for:\",r.data.user.role);",
                   "}"
                 ],
@@ -304,7 +308,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"<paste_refresh_token_here>\"\n}"
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
             }
           },
           "event": [
@@ -538,12 +542,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/jobs?page=1&limit=10&designation=Assistant Professor Grade-I&search=",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "jobs"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"],
               "query": [
                 {
                   "key": "page",
@@ -611,13 +611,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/jobs/by-advertisement?advertisementNo={{advtNo}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "jobs",
-                "by-advertisement"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "by-advertisement"],
               "query": [
                 {
                   "key": "advertisementNo",
@@ -676,12 +671,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/notices?page=1&limit=10&category=Faculty Recruitment",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "notices"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["notices"],
               "query": [
                 {
                   "key": "page",
@@ -764,12 +755,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/applications?page=1&limit=10",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "applications"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"],
               "query": [
                 {
                   "key": "page",
@@ -1942,13 +1929,8 @@
                 "method": "GET",
                 "url": {
                   "raw": "{{baseUrl}}/admin/applications?page=1&limit=10&status=submitted&jobId=&search=",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "admin",
-                    "applications"
-                  ],
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "applications"],
                   "query": [
                     {
                       "key": "page",
@@ -2150,14 +2132,8 @@
                 "method": "GET",
                 "url": {
                   "raw": "{{baseUrl}}/admin/applications/export?jobId={{jobId}}",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "admin",
-                    "applications",
-                    "export"
-                  ],
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "applications", "export"],
                   "query": [
                     {
                       "key": "jobId",
@@ -2277,13 +2253,8 @@
                 "method": "GET",
                 "url": {
                   "raw": "{{baseUrl}}/admin/jobs?page=1&limit=10",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "admin",
-                    "jobs"
-                  ],
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "jobs"],
                   "query": [
                     {
                       "key": "page",
