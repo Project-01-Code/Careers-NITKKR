@@ -28,34 +28,22 @@ export const HTTP_STATUS = {
   SERVICE_UNAVAILABLE: 503,
 };
 
-/* ---------------- DATABASE ---------------- */
-
-export const DB_NAME = 'careers-nitkkr';
-
-export const DB_CONFIG = {
-  MAX_POOL_SIZE: 10,
-  MIN_POOL_SIZE: 2,
-  SERVER_SELECTION_TIMEOUT: 5000,
-  SOCKET_TIMEOUT: 45000,
-  AUTO_INDEX: false,
-  MAX_IDLE_TIME: 10000,
-};
-
 /* ---------------- RATE LIMITING ---------------- */
 
 export const RATE_LIMIT = {
-  WINDOW_MS: 15 * 60 * 1000, // 15 minutes
-  MAX_REQUESTS: 10000, // limit each IP to 10000 requests per windowMs
-  MESSAGE: 'Too many requests, please try again later',
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10000, // limit each IP to 10000 requests per windowMs
+  message: 'Too many requests, please try again later',
+  standardHeaders: true,
 };
 
 /* ---------------- CORS ---------------- */
 
 export const CORS_OPTIONS = {
-  ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  CREDENTIALS: true,
-  METHODS: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  ALLOWED_HEADERS: ['Content-Type', 'Authorization'],
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
 /* ---------------- REQUEST ---------------- */
@@ -133,8 +121,6 @@ export const PAGINATION = {
   DEFAULT_LIMIT: 10,
   MAX_LIMIT: 100,
 };
-
-export const APPLICATION_STATUSES = Object.values(APPLICATION_STATUS);
 
 /* ---------------- JOB ENUMS ---------------- */
 
