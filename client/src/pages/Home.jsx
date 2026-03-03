@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import MainLayout from '../layouts/MainLayout';
 import CategoryCard from '../components/CategoryCard';
 import api from '../services/api';
 
 const Home = () => {
+  const navigate = useNavigate();
   const [notices, setNotices] = useState([]);
   const [loadingNotices, setLoadingNotices] = useState(true);
 
@@ -119,16 +120,14 @@ const Home = () => {
               <CategoryCard
                 title="Teaching Faculty"
                 icon="school"
-                count="12"
                 description="Professors, Associate Professors, and Assistant Professors across various engineering and science disciplines."
-                onClick={() => window.location.href = '/jobs?designation=Assistant+Professor'}
+                onClick={() => navigate('/jobs?designation=Assistant+Professor')}
               />
               <CategoryCard
                 title="Research & Projects"
                 icon="science"
-                count="08"
                 description="Join cutting-edge research projects and collaborative initiatives funded by national and international agencies."
-                onClick={() => window.location.href = '/jobs?recruitmentType=external'}
+                onClick={() => navigate('/jobs?recruitmentType=external')}
               />
             </div>
 

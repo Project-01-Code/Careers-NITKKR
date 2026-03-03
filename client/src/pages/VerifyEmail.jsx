@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -6,16 +6,24 @@ import toast from 'react-hot-toast';
 import MainLayout from '../layouts/MainLayout';
 
 const VerifyEmail = () => {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const navigate = useNavigate();
     const [step, setStep] = useState('send'); // 'send' or 'verify'
     const [otp, setOtp] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Redirect if already verified
+    useEffect(() => {
+        if (user?.isEmailVerified) {
+            toast.success('Email is already verified!');
+            navigate('/profile');
+        }
+    }, [user?.isEmailVerified, navigate]);
+
     const handleSendOtp = async () => {
         setLoading(true);
         try {
-            await api.post('/auth/verify-email/send');
+            await api.post('/auth/verify-email/send', { email: user.email });
             toast.success('Verification code sent to your email!');
             setStep('verify');
         } catch (err) {
@@ -34,8 +42,10 @@ const VerifyEmail = () => {
 
         setLoading(true);
         try {
-            await api.post('/auth/verify-email/confirm', { otp });
+            await api.post('/auth/verify-email/confirm', { email: user.email, otp });
             toast.success('Email verified successfully!');
+            // Refresh user data so isEmailVerified updates everywhere
+            await refreshUser();
             navigate('/profile');
         } catch (err) {
             toast.error(err.response?.data?.message || 'Invalid verification code');
@@ -43,6 +53,9 @@ const VerifyEmail = () => {
             setLoading(false);
         }
     };
+
+    // Don't render if already verified (will redirect)
+    if (user?.isEmailVerified) return null;
 
     return (
         <MainLayout>

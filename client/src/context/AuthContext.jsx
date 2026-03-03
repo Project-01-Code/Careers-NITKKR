@@ -54,11 +54,20 @@ export const AuthProvider = ({ children }) => {
     return res.data;
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const res = await api.get('/auth/profile');
+      setUser(res.data.data);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
   return (
     <AuthContext.Provider
-      value={{ user, login, signup, logout, updateProfile, loading, isAdmin }}
+      value={{ user, login, signup, logout, updateProfile, refreshUser, loading, isAdmin }}
     >
       {children}
     </AuthContext.Provider>

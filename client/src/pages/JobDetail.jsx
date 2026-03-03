@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import MainLayout from '../layouts/MainLayout';
+import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 const JobDetail = () => {
   const { id } = useParams();
+  const { user } = useAuth();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -244,9 +246,8 @@ const JobDetail = () => {
             <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm sticky top-24">
               {/* Deadline Badge */}
               {remaining != null && (
-                <div className={`text-center mb-5 py-3 rounded-xl ${
-                  remaining <= 7 ? 'bg-red-50 text-red-700' : 'bg-primary/5 text-primary'
-                }`}>
+                <div className={`text-center mb-5 py-3 rounded-xl ${remaining <= 7 ? 'bg-red-50 text-red-700' : 'bg-primary/5 text-primary'
+                  }`}>
                   <p className="text-2xl font-bold">{remaining}</p>
                   <p className="text-xs font-medium uppercase tracking-wider">days left to apply</p>
                 </div>
@@ -291,12 +292,32 @@ const JobDetail = () => {
                 </div>
               )}
 
-              <Link
-                to={`/application/${job._id}`}
-                className="block w-full text-center bg-gradient-to-r from-primary to-primary-dark text-white py-3 rounded-xl font-semibold transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5"
-              >
-                Apply Now
-              </Link>
+              {/* Apply / Login / Verify Gate */}
+              {!user ? (
+                <Link
+                  to="/login"
+                  className="block w-full text-center bg-gradient-to-r from-primary to-primary-dark text-white py-3 rounded-xl font-semibold transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5"
+                >
+                  Login to Apply
+                </Link>
+              ) : !user.isEmailVerified ? (
+                <div>
+                  <Link
+                    to="/verify-email"
+                    className="block w-full text-center bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-semibold transition-all shadow-lg"
+                  >
+                    Verify Email to Apply
+                  </Link>
+                  <p className="text-xs text-amber-600 text-center mt-2">Email verification is required before applying.</p>
+                </div>
+              ) : (
+                <Link
+                  to={`/application/${job._id}`}
+                  className="block w-full text-center bg-gradient-to-r from-primary to-primary-dark text-white py-3 rounded-xl font-semibold transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5"
+                >
+                  Apply Now
+                </Link>
+              )}
             </div>
           </motion.div>
         </div>
