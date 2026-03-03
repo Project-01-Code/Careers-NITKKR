@@ -1,123 +1,91 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
 import { useApplication } from '../../context/ApplicationContext';
+import toast from 'react-hot-toast';
+
+const EMPTY_ROW = { name: '', designation: '', departmentAddress: '', city: '', pincode: '', phone: '', officialEmail: '', personalEmail: '' };
 
 const Referees = ({ onNext, onBack }) => {
   const { formData, updateSection } = useApplication();
-  const [refereeList, setRefereeList] = useState([]);
+  const [list, setList] = useState([{ ...EMPTY_ROW }, { ...EMPTY_ROW }]);
 
   useEffect(() => {
-    if (formData?.referees && formData.referees.length > 0) {
-      setRefereeList(formData.referees);
-    } else {
-      setRefereeList([{ name: '', designation: '', organization: '', email: '', phone: '' }]);
-    }
+    const saved = formData?.referees;
+    if (saved?.items?.length) setList(saved.items.length >= 2 ? saved.items : [...saved.items, ...Array(2 - saved.items.length).fill(null).map(() => ({ ...EMPTY_ROW }))]);
+    else if (Array.isArray(saved) && saved.length) setList(saved.length >= 2 ? saved : [...saved, ...Array(2 - saved.length).fill(null).map(() => ({ ...EMPTY_ROW }))]);
+    else setList([{ ...EMPTY_ROW }, { ...EMPTY_ROW }]);
   }, [formData?.referees]);
 
-  const handleChange = (index, field, value) => {
-    const updatedList = [...refereeList];
-    updatedList[index][field] = value;
-    setRefereeList(updatedList);
+  const set = (i, field, val) => {
+    const upd = [...list];
+    upd[i] = { ...upd[i], [field]: val };
+    setList(upd);
   };
 
-  const addRow = () => {
-    setRefereeList([...refereeList, { name: '', designation: '', organization: '', email: '', phone: '' }]);
-  };
-
-  const removeRow = (index) => {
-    const updatedList = refereeList.filter((_, i) => i !== index);
-    setRefereeList(updatedList);
-  };
-
-  const handleNext = () => {
-    updateSection('referees', refereeList);
+  const handleNext = async () => {
+    if (list.length !== 2) { toast.error('Exactly 2 referees are required'); return; }
+    const bad = list.some(r =>
+      !r.name?.trim() || r.name.trim().length < 2 ||
+      !r.designation?.trim() || r.designation.trim().length < 2 ||
+      !r.departmentAddress?.trim() || r.departmentAddress.trim().length < 5 ||
+      !r.city?.trim() || !/^\d{6}$/.test(r.pincode) ||
+      !r.phone?.trim() || r.phone.trim().length < 5 ||
+      !r.officialEmail?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.officialEmail) ||
+      !r.personalEmail?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.personalEmail)
+    );
+    if (bad) { toast.error('Please complete all fields for both referees'); return; }
+    await updateSection('referees', { items: list });
     if (onNext) onNext();
   };
 
+  const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';
+
   return (
-    <SectionLayout 
-      title="Referees" 
-      subtitle="Provide details of at least two referees who are familiar with your academic and professional work."
-      onNext={handleNext}
-      onBack={onBack}
-    >
-      <div className="space-y-6 animate-fade-in">
-        {refereeList.map((ref, index) => (
-          <div key={index} className="border border-gray-200 rounded-xl p-6 bg-gray-50 relative group">
-            <h3 className="font-semibold text-gray-800 mb-4 flex items-center justify-between">
-              Referee #{index + 1}
-              {refereeList.length > 1 && (
-                <button 
-                  onClick={() => removeRow(index)}
-                  className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors text-sm flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-sm">delete</span>
-                  Remove
-                </button>
-              )}
-            </h3>
-            
+    <SectionLayout title="Referees" subtitle="Provide details of exactly 2 referees." onNext={handleNext} onBack={onBack}>
+      <div className="space-y-6">
+        {list.map((ref, i) => (
+          <div key={i} className="border border-gray-200 rounded-xl p-5 bg-gray-50 space-y-4">
+            <h3 className="font-semibold text-gray-800">Referee #{i + 1}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Full Name</div>
-                <input 
-                  type="text" 
-                  value={ref.name || ''}
-                  onChange={(e) => handleChange(index, 'name', e.target.value)}
-                  placeholder="e.g. Dr. Reviewer Name"
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
-                />
+                <label className="text-xs font-semibold text-gray-500 uppercase">Name <span className="text-red-500">*</span></label>
+                <input value={ref.name} onChange={e => set(i, 'name', e.target.value)} className={ic} placeholder="Full Name" />
               </div>
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Designation</div>
-                <input 
-                  type="text" 
-                  value={ref.designation || ''}
-                  onChange={(e) => handleChange(index, 'designation', e.target.value)}
-                  placeholder="e.g. Professor"
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
-                />
+                <label className="text-xs font-semibold text-gray-500 uppercase">Designation <span className="text-red-500">*</span></label>
+                <input value={ref.designation} onChange={e => set(i, 'designation', e.target.value)} className={ic} placeholder="Professor / HOD etc." />
               </div>
-              <div className="space-y-1 md:col-span-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Organization</div>
-                <input 
-                  type="text" 
-                  value={ref.organization || ''}
-                  onChange={(e) => handleChange(index, 'organization', e.target.value)}
-                  placeholder="Institute/Company Name"
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
-                />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Department & Address <span className="text-red-500">*</span></label>
+              <textarea value={ref.departmentAddress} onChange={e => set(i, 'departmentAddress', e.target.value)} className={`${ic} h-16`} placeholder="Department, Institute, Address..." />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase">City <span className="text-red-500">*</span></label>
+                <input value={ref.city} onChange={e => set(i, 'city', e.target.value)} className={ic} />
               </div>
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Email Address</div>
-                <input 
-                  type="email" 
-                  value={ref.email || ''}
-                  onChange={(e) => handleChange(index, 'email', e.target.value)}
-                  placeholder="referee@example.com"
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
-                />
+                <label className="text-xs font-semibold text-gray-500 uppercase">Pincode <span className="text-red-500">*</span></label>
+                <input value={ref.pincode} onChange={e => set(i, 'pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} className={ic} maxLength={6} placeholder="6 digits" />
               </div>
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Phone Number</div>
-                <input 
-                  type="tel" 
-                  value={ref.phone || ''}
-                  onChange={(e) => handleChange(index, 'phone', e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
-                />
+                <label className="text-xs font-semibold text-gray-500 uppercase">Phone / Fax <span className="text-red-500">*</span></label>
+                <input value={ref.phone} onChange={e => set(i, 'phone', e.target.value)} className={ic} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase">Official Email <span className="text-red-500">*</span></label>
+                <input type="email" value={ref.officialEmail} onChange={e => set(i, 'officialEmail', e.target.value)} className={ic} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase">Personal Email <span className="text-red-500">*</span></label>
+                <input type="email" value={ref.personalEmail} onChange={e => set(i, 'personalEmail', e.target.value)} className={ic} />
               </div>
             </div>
           </div>
         ))}
-        
-        <button 
-          onClick={addRow}
-          className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
-        >
-          <span className="material-symbols-outlined">person_add</span> Add Another Referee
-        </button>
       </div>
     </SectionLayout>
   );

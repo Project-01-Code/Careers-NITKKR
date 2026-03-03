@@ -38,7 +38,7 @@ const INITIAL_FORM_DATA = {
   creditPoints: {},
   otherInfo: {},
   documents: {},
-  declaration: false,
+  declaration: {},
 };
 
 export const ApplicationProvider = ({ children }) => {
@@ -68,7 +68,13 @@ export const ApplicationProvider = ({ children }) => {
       );
 
       if (frontendKey && sectionData?.data !== undefined) {
-        newFormData[frontendKey] = sectionData.data;
+        // Unwrap array sections: server stores {items: [...]} but frontend uses flat arrays
+        const rawData = sectionData.data;
+        if (rawData && typeof rawData === 'object' && !Array.isArray(rawData) && Array.isArray(rawData.items)) {
+          newFormData[frontendKey] = rawData.items;
+        } else {
+          newFormData[frontendKey] = rawData;
+        }
       }
     }
 
@@ -175,11 +181,25 @@ export const ApplicationProvider = ({ children }) => {
       return false;
     }
 
+    // Skip server save if section is not required for this job
+    if (jobSnapshot?.requiredSections) {
+      const isRequired = jobSnapshot.requiredSections.some(
+        (s) => s.sectionType === serverSectionType
+      );
+      if (!isRequired) {
+        console.log(`Section '${serverSectionType}' not required for this job — saved locally only`);
+        return true;
+      }
+    }
+
+    // Server expects data as an object (z.record). Wrap arrays in {items: [...]}
+    const payload = Array.isArray(data) ? { items: data } : data;
+
     setSaving(true);
     try {
       await api.patch(
         `/applications/${applicationId}/sections/${serverSectionType}`,
-        { data }
+        { data: payload }
       );
       return true;
     } catch (err) {
@@ -191,7 +211,7 @@ export const ApplicationProvider = ({ children }) => {
     } finally {
       setSaving(false);
     }
-  }, [applicationId]);
+  }, [applicationId, jobSnapshot]);
 
   /**
    * For backward compatibility — updateSection is used by step components

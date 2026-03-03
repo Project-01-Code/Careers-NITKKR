@@ -21,6 +21,8 @@ const ApplicationReview = () => {
   const [activeTab, setActiveTab] = useState('personal');
   const [submitting, setSubmitting] = useState(false);
   const [statusRemarks, setStatusRemarks] = useState('');
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [verifyNotes, setVerifyNotes] = useState('');
 
   const fetchApplication = async () => {
     try {
@@ -65,6 +67,29 @@ const ApplicationReview = () => {
       toast.error(err.response?.data?.message || 'Failed to update status');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleAddReviewNotes = async () => {
+    if (!reviewNotes.trim()) { toast.error('Please enter review notes'); return; }
+    try {
+      await api.patch(`/admin/applications/${id}/review`, { notes: reviewNotes });
+      toast.success('Review notes saved');
+      setReviewNotes('');
+      fetchApplication();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save review notes');
+    }
+  };
+
+  const handleExemptFee = async () => {
+    if (!confirm('Are you sure you want to exempt the application fee?')) return;
+    try {
+      await api.post(`/admin/applications/${id}/exempt-fee`);
+      toast.success('Application fee exempted');
+      fetchApplication();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to exempt fee');
     }
   };
 
@@ -115,9 +140,8 @@ const ApplicationReview = () => {
                   <button
                     key={s}
                     onClick={() => setActiveTab(s)}
-                    className={`px-6 py-4 text-sm font-bold whitespace-nowrap transition-all border-b-2 ${
-                      activeTab === s ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-gray-400 hover:text-gray-600'
-                    }`}
+                    className={`px-6 py-4 text-sm font-bold whitespace-nowrap transition-all border-b-2 ${activeTab === s ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-gray-400 hover:text-gray-600'
+                      }`}
                   >
                     {s.replace(/_/g, ' ').toUpperCase()}
                   </button>
@@ -175,22 +199,20 @@ const ApplicationReview = () => {
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
               <h3 className="font-bold text-secondary text-sm">SECTION VERIFICATION</h3>
               <p className="text-xs text-gray-500">Verify <strong>{activeTab.toUpperCase()}</strong> section</p>
-              
+
               <div className="flex items-center gap-4 py-2">
                 <button
                   onClick={() => handleVerifySection(activeTab, true)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
-                    app.sections[activeTab]?.isVerified ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-green-50'
-                  }`}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${app.sections[activeTab]?.isVerified ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-green-50'
+                    }`}
                 >
                   <span className="material-symbols-outlined text-lg">check_circle</span>
                   APPROVE
                 </button>
                 <button
-                   onClick={() => handleVerifySection(activeTab, false)}
-                   className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
-                    app.sections[activeTab]?.isVerified === false && app.sections[activeTab]?.verificationNotes ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-50'
-                  }`}
+                  onClick={() => handleVerifySection(activeTab, false)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${app.sections[activeTab]?.isVerified === false && app.sections[activeTab]?.verificationNotes ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-50'
+                    }`}
                 >
                   <span className="material-symbols-outlined text-lg">cancel</span>
                   REJECT
@@ -198,17 +220,62 @@ const ApplicationReview = () => {
               </div>
 
               <textarea
-                placeholder="Add verification notes..."
-                className="w-full h-24 p-3 rounded-xl border border-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                value={app.sections[activeTab]?.verificationNotes || ''}
-                readOnly
+                placeholder="Add verification notes for this section..."
+                className="w-full h-24 p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                value={verifyNotes}
+                onChange={(e) => setVerifyNotes(e.target.value)}
               />
+              <button
+                onClick={() => handleVerifySection(activeTab, app.sections[activeTab]?.isVerified || false, verifyNotes)}
+                disabled={!verifyNotes.trim()}
+                className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-40"
+              >
+                Save Section Notes
+              </button>
             </div>
+
+            {/* Review Notes */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
+              <h3 className="font-bold text-secondary text-sm">REVIEW NOTES</h3>
+              <textarea
+                placeholder="Add overall review notes for this application..."
+                className="w-full h-24 p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
+              />
+              <button
+                onClick={handleAddReviewNotes}
+                disabled={!reviewNotes.trim()}
+                className="w-full py-2.5 bg-primary hover:bg-primary-dark text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-40"
+              >
+                Save Review Notes
+              </button>
+              {app.reviewNotes && (
+                <div className="bg-gray-50 rounded-xl p-3 mt-2">
+                  <p className="text-xs text-gray-400 font-bold mb-1">EXISTING NOTES</p>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{app.reviewNotes}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Fee Exemption */}
+            {app.paymentStatus !== 'exempted' && app.paymentStatus !== 'paid' && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-3">
+                <h3 className="font-bold text-secondary text-sm">FEE MANAGEMENT</h3>
+                <p className="text-xs text-gray-500">Payment: <strong>{app.paymentStatus || 'pending'}</strong></p>
+                <button
+                  onClick={handleExemptFee}
+                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors"
+                >
+                  Exempt Application Fee
+                </button>
+              </div>
+            )}
 
             {/* Status Update */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
               <h3 className="font-bold text-secondary text-sm">UPDATE APPLICATION STATUS</h3>
-              
+
               <textarea
                 placeholder="Enter remarks for status change..."
                 className="w-full h-24 p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"

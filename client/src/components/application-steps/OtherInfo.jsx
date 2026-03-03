@@ -5,14 +5,17 @@ import { useApplication } from '../../context/ApplicationContext';
 const OtherInfo = ({ onNext, onBack }) => {
   const { formData, updateSection } = useApplication();
   const [info, setInfo] = useState({
-    awards: '',
-    professionalBodies: '',
-    administrativeRoles: '',
-    statementOfPurpose: ''
+    strength: '',
+    weakness: '',
+    visionForHigherEd: '',
+    topThreePriorities: '',
+    preferredSubjects: [],
+    labInnovations: [],
+    otherInfo: '',
   });
 
   useEffect(() => {
-    if (formData?.otherInfo) {
+    if (formData?.otherInfo && typeof formData.otherInfo === 'object') {
       setInfo(prev => ({ ...prev, ...formData.otherInfo }));
     }
   }, [formData?.otherInfo]);
@@ -22,83 +25,94 @@ const OtherInfo = ({ onNext, onBack }) => {
     setInfo(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleNext = () => {
-    updateSection('otherInfo', info);
+  const handleArrayField = (field, idx, val) => {
+    const arr = [...(info[field] || [])];
+    arr[idx] = val;
+    setInfo(prev => ({ ...prev, [field]: arr }));
+  };
+
+  const addArrayItem = (field) => {
+    const max = field === 'preferredSubjects' ? 5 : 2;
+    if ((info[field] || []).length < max) {
+      setInfo(prev => ({ ...prev, [field]: [...(prev[field] || []), ''] }));
+    }
+  };
+
+  const handleNext = async () => {
+    // Clean empty strings from arrays
+    const clean = {
+      ...info,
+      preferredSubjects: (info.preferredSubjects || []).filter(s => s.trim()),
+      labInnovations: (info.labInnovations || []).filter(s => s.trim()),
+    };
+    await updateSection('otherInfo', clean);
     if (onNext) onNext();
   };
 
+  const ic = 'w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all';
+
   return (
-    <SectionLayout 
-      title="Other Information" 
-      subtitle="Provide details on awards, memberships, and a brief SOP."
-      onNext={handleNext}
-      onBack={onBack}
-    >
-      <div className="space-y-6 animate-fade-in">
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-xl">social_leaderboard</span>
-                Awards, Honors & Fellowships
-              </label>
-              <textarea 
-                name="awards"
-                value={info.awards || ''}
-                onChange={handleChange}
-                placeholder="List major awards received, year, and awarding body..."
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all h-28"
-              />
-              <p className="text-xs text-gray-500">Provide a bulleted list or concise paragraph.</p>
-            </div>
+    <SectionLayout title="Other Information" subtitle="All fields are optional." onNext={handleNext} onBack={onBack}>
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-xl">thumb_up</span>
+              Strengths
+            </label>
+            <textarea name="strength" value={info.strength || ''} onChange={handleChange} placeholder="Describe your key strengths..." className={`${ic} h-24`} />
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-xl">workspace_premium</span>
-                Membership of Professional Bodies
-              </label>
-              <textarea 
-                name="professionalBodies"
-                value={info.professionalBodies || ''}
-                onChange={handleChange}
-                placeholder="e.g. Senior Member IEEE, Member ACM..."
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all h-28"
-              />
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-xl">thumb_down</span>
+              Weaknesses
+            </label>
+            <textarea name="weakness" value={info.weakness || ''} onChange={handleChange} placeholder="Describe areas for improvement..." className={`${ic} h-24`} />
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-xl">admin_panel_settings</span>
-                Administrative Responsibilities Shared
-              </label>
-              <textarea 
-                name="administrativeRoles"
-                value={info.administrativeRoles || ''}
-                onChange={handleChange}
-                placeholder="e.g. Head of Department, Warden, Committee Chair..."
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all h-28"
-              />
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-xl">visibility</span>
+              Vision for Higher Education
+            </label>
+            <textarea name="visionForHigherEd" value={info.visionForHigherEd || ''} onChange={handleChange} placeholder="Your vision..." className={`${ic} h-28`} />
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-xl">history_edu</span>
-                Statement of Purpose / Vision Statement
-              </label>
-              <textarea 
-                name="statementOfPurpose"
-                value={info.statementOfPurpose || ''}
-                onChange={handleChange}
-                placeholder="Briefly describe your research vision and how you plan to contribute to the institute..."
-                className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all h-40"
-              />
-              <p className="text-xs text-gray-500 flex justify-between">
-                <span>Max 500 words recommended.</span>
-                <span className={`${info.statementOfPurpose?.split(/\s+/).filter(w => w.length > 0).length > 500 ? 'text-red-500' : 'text-primary'}`}>
-                  Words: {info.statementOfPurpose?.split(/\s+/).filter(w => w.length > 0).length || 0}
-                </span>
-              </p>
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-xl">priority_high</span>
+              Top 3 Priorities if Selected
+            </label>
+            <textarea name="topThreePriorities" value={info.topThreePriorities || ''} onChange={handleChange} placeholder="List your top 3 priorities..." className={`${ic} h-24`} />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">Preferred Subjects to Teach (max 5)</label>
+            {(info.preferredSubjects || []).map((s, i) => (
+              <input key={i} value={s} onChange={e => handleArrayField('preferredSubjects', i, e.target.value)} className={ic} placeholder={`Subject ${i + 1}`} />
+            ))}
+            {(info.preferredSubjects || []).length < 5 && (
+              <button type="button" onClick={() => addArrayItem('preferredSubjects')} className="text-primary text-sm hover:underline">+ Add Subject</button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">Lab Innovations (max 2)</label>
+            {(info.labInnovations || []).map((s, i) => (
+              <input key={i} value={s} onChange={e => handleArrayField('labInnovations', i, e.target.value)} className={ic} placeholder={`Innovation ${i + 1}`} />
+            ))}
+            {(info.labInnovations || []).length < 2 && (
+              <button type="button" onClick={() => addArrayItem('labInnovations')} className="text-primary text-sm hover:underline">+ Add Innovation</button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-xl">info</span>
+              Any Other Information
+            </label>
+            <textarea name="otherInfo" value={info.otherInfo || ''} onChange={handleChange} placeholder="Any additional information..." className={`${ic} h-24`} />
           </div>
         </div>
       </div>

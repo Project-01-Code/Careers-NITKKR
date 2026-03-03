@@ -1,126 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
 import { useApplication } from '../../context/ApplicationContext';
+import toast from 'react-hot-toast';
+
+const EMPTY_ROW = { title: '', fromDate: '', toDate: '', sponsoringAgency: '' };
 
 const OrganizedPrograms = ({ onNext, onBack }) => {
   const { formData, updateSection } = useApplication();
-  const [programList, setProgramList] = useState([]);
+  const [list, setList] = useState([]);
 
   useEffect(() => {
-    if (formData?.organizedPrograms && formData.organizedPrograms.length > 0) {
-      setProgramList(formData.organizedPrograms);
-    } else {
-      setProgramList([{ title: '', type: 'Workshop', role: 'Coordinator', durationDays: '', sponsor: '' }]);
-    }
+    const saved = formData?.organizedPrograms;
+    if (saved?.items?.length) setList(saved.items);
+    else if (Array.isArray(saved) && saved.length) setList(saved);
+    else setList([{ ...EMPTY_ROW }]);
   }, [formData?.organizedPrograms]);
 
-  const handleChange = (index, field, value) => {
-    const updatedList = [...programList];
-    updatedList[index][field] = value;
-    setProgramList(updatedList);
+  const set = (i, field, val) => {
+    const upd = [...list];
+    upd[i] = { ...upd[i], [field]: val };
+    setList(upd);
   };
 
-  const addRow = () => {
-    setProgramList([...programList, { title: '', type: 'Workshop', role: 'Coordinator', durationDays: '', sponsor: '' }]);
-  };
+  const addRow = () => setList([...list, { ...EMPTY_ROW }]);
+  const removeRow = (i) => setList(list.filter((_, idx) => idx !== i));
 
-  const removeRow = (index) => {
-    const updatedList = programList.filter((_, i) => i !== index);
-    setProgramList(updatedList);
-  };
-
-  const handleNext = () => {
-    updateSection('organizedPrograms', programList);
+  const handleNext = async () => {
+    const filled = list.filter(e => e.title?.trim() || e.sponsoringAgency?.trim());
+    const bad = filled.some(e => !e.title?.trim() || e.title.trim().length < 3 || !e.fromDate || !e.toDate || !e.sponsoringAgency?.trim());
+    if (bad) { toast.error('Please complete all required fields for started entries'); return; }
+    // Validate toDate >= fromDate
+    const dateCheck = filled.some(e => e.fromDate && e.toDate && new Date(e.toDate) < new Date(e.fromDate));
+    if (dateCheck) { toast.error('To Date must be on or after From Date'); return; }
+    await updateSection('organizedPrograms', { items: filled });
     if (onNext) onNext();
   };
 
+  const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';
+
   return (
-    <SectionLayout 
-      title="Organized Programs" 
-      subtitle="Details of Workshops, Seminars, or Conferences organized."
-      onNext={handleNext}
-      onBack={onBack}
-    >
-      <div className="space-y-6 animate-fade-in">
-        {programList.map((prog, index) => (
-          <div key={index} className="border border-gray-200 rounded-xl p-6 bg-gray-50 relative group">
-            <h3 className="font-semibold text-gray-800 mb-4 flex items-center justify-between">
-              Program #{index + 1}
-              <button 
-                onClick={() => removeRow(index)}
-                className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors text-sm flex items-center gap-1"
-              >
-                <span className="material-symbols-outlined text-sm">delete</span>
-                Remove
-              </button>
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1 md:col-span-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Title of Program</div>
-                <input 
-                  type="text" 
-                  value={prog.title || ''}
-                  onChange={(e) => handleChange(index, 'title', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
-                />
+    <SectionLayout title="Organized Programs" subtitle="Workshops, conferences, seminars organized. Leave empty if none." onNext={handleNext} onBack={onBack}>
+      <div className="space-y-6">
+        {list.map((prog, i) => (
+          <div key={i} className="border border-gray-200 rounded-xl p-5 bg-gray-50 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="font-semibold text-gray-800">Program #{i + 1}</h3>
+              <button onClick={() => removeRow(i)} className="text-red-500 hover:bg-red-50 p-1 rounded text-sm flex items-center gap-1"><span className="material-symbols-outlined text-sm">delete</span>Remove</button>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Title of Program <span className="text-red-500">*</span></label>
+              <input value={prog.title} onChange={e => set(i, 'title', e.target.value)} className={ic} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase">From Date <span className="text-red-500">*</span></label>
+                <input type="date" value={prog.fromDate} onChange={e => set(i, 'fromDate', e.target.value)} className={ic} />
               </div>
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Type of Program</div>
-                <select 
-                  value={prog.type || 'Workshop'}
-                  onChange={(e) => handleChange(index, 'type', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
-                >
-                  <option value="Workshop">Workshop</option>
-                  <option value="Conference">Conference</option>
-                  <option value="Seminar">Seminar</option>
-                  <option value="FDP">Faculty Development Program (FDP)</option>
-                  <option value="Symposium">Symposium</option>
-                </select>
+                <label className="text-xs font-semibold text-gray-500 uppercase">To Date <span className="text-red-500">*</span></label>
+                <input type="date" value={prog.toDate} onChange={e => set(i, 'toDate', e.target.value)} className={ic} />
               </div>
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Role</div>
-                <select 
-                  value={prog.role || 'Coordinator'}
-                  onChange={(e) => handleChange(index, 'role', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
-                >
-                  <option value="Coordinator">Coordinator</option>
-                  <option value="Convener">Convener</option>
-                  <option value="Organizing Secretary">Organizing Secretary</option>
-                  <option value="Member">Organizing Committee Member</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Duration (Days)</div>
-                <input 
-                  type="number" 
-                  value={prog.durationDays || ''}
-                  onChange={(e) => handleChange(index, 'durationDays', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
-                  placeholder="e.g. 5"
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Sponsor / Funding Agency</div>
-                <input 
-                  type="text" 
-                  value={prog.sponsor || ''}
-                  onChange={(e) => handleChange(index, 'sponsor', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
-                  placeholder="Leave empty if self-sponsored"
-                />
+                <label className="text-xs font-semibold text-gray-500 uppercase">Sponsoring Agency <span className="text-red-500">*</span></label>
+                <input value={prog.sponsoringAgency} onChange={e => set(i, 'sponsoringAgency', e.target.value)} className={ic} placeholder="e.g. AICTE, TEQIP" />
               </div>
             </div>
           </div>
         ))}
-        
-        <button 
-          onClick={addRow}
-          className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
-        >
-          <span className="material-symbols-outlined">add_circle</span> Add Another Program
+        <button onClick={addRow} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2">
+          <span className="material-symbols-outlined">add_circle</span> Add Program
         </button>
       </div>
     </SectionLayout>
