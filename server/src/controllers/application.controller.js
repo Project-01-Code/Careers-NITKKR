@@ -8,9 +8,11 @@ import { PAGINATION, HTTP_STATUS } from '../constants.js';
 import mongoose from 'mongoose';
 
 /**
- * Create a new application
- * POST /api/applications
- * Body: { jobId }
+ * Create a new application.
+ * Captures a snapshot of the job configuration at the time of creation.
+ *
+ * @route   POST /api/v1/applications
+ * @access  Private (Applicant only)
  */
 export const createApplication = asyncHandler(async (req, res) => {
   const { jobId } = req.body;
@@ -25,16 +27,22 @@ export const createApplication = asyncHandler(async (req, res) => {
   const application = await createApplicationService(req.user._id, jobId);
 
   res
-    .status(201)
+    .status(HTTP_STATUS.CREATED)
     .json(
-      new ApiResponse(201, application, 'Application created successfully')
+      new ApiResponse(
+        HTTP_STATUS.CREATED,
+        application,
+        'Application created successfully'
+      )
     );
 });
 
 /**
- * Get all applications for the current user
- * GET /api/applications
- * Query: status, jobId, page, limit
+ * Get all applications for the current user.
+ * Supports filtering by status or jobId and includes built-in pagination.
+ *
+ * @route   GET /api/v1/applications
+ * @access  Private (Applicant only)
  */
 export const getUserApplications = asyncHandler(async (req, res) => {
   const {
@@ -54,24 +62,26 @@ export const getUserApplications = asyncHandler(async (req, res) => {
     filter.jobId = jobId;
   }
 
-  const skip = (page - 1) * limit;
-  const limitNum = Math.min(parseInt(limit), PAGINATION.MAX_LIMIT);
+  const pageNum = parseInt(page, 10);
+  const limitNum = Math.min(parseInt(limit, 10), PAGINATION.MAX_LIMIT);
+  const skip = (pageNum - 1) * limitNum;
 
   const applications = await Application.find(filter)
     .populate('jobId', 'title advertisementNo applicationEndDate status')
     .sort({ createdAt: -1 })
     .skip(skip)
-    .limit(limitNum);
+    .limit(limitNum)
+    .lean();
 
   const total = await Application.countDocuments(filter);
 
-  res.json(
+  res.status(HTTP_STATUS.OK).json(
     new ApiResponse(
-      200,
+      HTTP_STATUS.OK,
       {
         applications,
         pagination: {
-          page: parseInt(page),
+          page: pageNum,
           limit: limitNum,
           total,
           pages: Math.ceil(total / limitNum),
@@ -83,11 +93,14 @@ export const getUserApplications = asyncHandler(async (req, res) => {
 });
 
 /**
- * Get application by ID
- * GET /api/applications/:id
+ * Get full details of a specific application by ID.
+ * Ownership is verified by pre-route middleware.
+ *
+ * @route   GET /api/v1/applications/:id
+ * @access  Private (Applicant only)
  */
 export const getApplicationById = asyncHandler(async (req, res) => {
-  // Application already loaded and ownership verified by middleware
+  // Application already loaded and ownership verified by checkApplicationOwnership middleware
   const application = req.application;
 
   await application.populate([
@@ -95,24 +108,33 @@ export const getApplicationById = asyncHandler(async (req, res) => {
     { path: 'userId', select: 'email profile' },
   ]);
 
-  res.json(
-    new ApiResponse(200, application, 'Application fetched successfully')
-  );
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        application,
+        'Application fetched successfully'
+      )
+    );
 });
 
 /**
- * Delete application (only drafts)
- * DELETE /api/applications/:id
+ * Permanently delete a draft application.
+ * Uses a transaction to ensure clean removal from the User's record.
+ *
+ * @route   DELETE /api/v1/applications/:id
+ * @access  Private (Applicant only)
  */
 export const deleteApplication = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const application = req.application; // Already loaded by middleware
+  const application = req.application; // Loaded by ownership middleware
 
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // Remove from user's applicationIds
+    // Atomically remove application link from user and delete the application document
     await User.findByIdAndUpdate(
       req.user._id,
       { $pull: { applicationIds: application._id } },
@@ -123,7 +145,15 @@ export const deleteApplication = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
 
-    res.json(new ApiResponse(200, null, 'Application deleted successfully'));
+    res
+      .status(HTTP_STATUS.OK)
+      .json(
+        new ApiResponse(
+          HTTP_STATUS.OK,
+          null,
+          'Application deleted successfully'
+        )
+      );
   } catch (error) {
     await session.abortTransaction();
     throw error;

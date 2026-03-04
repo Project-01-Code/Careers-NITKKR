@@ -15,13 +15,13 @@ const FROM =
 
 /**
  * Send email verification OTP to the applicant.
- * Fire-and-forget — do not await the returned promise in the caller.
+ * Fire-and-forget - do not await the returned promise in the caller.
  */
 export const sendVerificationOTP = (email, otp) => {
   return transporter.sendMail({
     from: FROM,
     to: email,
-    subject: 'Verify your email — NIT Kurukshetra Careers',
+    subject: 'Verify your email - NIT Kurukshetra Careers',
     text: `Your email verification OTP is: ${otp}\n\nThis OTP is valid for 10 minutes. Do not share it with anyone.`,
     html: `
       <p>Hello,</p>
@@ -35,13 +35,13 @@ export const sendVerificationOTP = (email, otp) => {
 
 /**
  * Send password reset OTP to the applicant.
- * Fire-and-forget — do not await the returned promise in the caller.
+ * Fire-and-forget - do not await the returned promise in the caller.
  */
 export const sendPasswordResetOTP = (email, otp) => {
   return transporter.sendMail({
     from: FROM,
     to: email,
-    subject: 'Password Reset OTP — NIT Kurukshetra Careers',
+    subject: 'Password Reset OTP - NIT Kurukshetra Careers',
     text: `Your password reset OTP is: ${otp}\n\nThis OTP is valid for 10 minutes. Do not share it with anyone.`,
     html: `
       <p>Hello,</p>
@@ -55,7 +55,7 @@ export const sendPasswordResetOTP = (email, otp) => {
 
 /**
  * Send application submission confirmation email.
- * Fire-and-forget — do not await the returned promise in the caller.
+ * Fire-and-forget - do not await the returned promise in the caller.
  */
 export const sendApplicationConfirmation = (
   email,
@@ -64,7 +64,7 @@ export const sendApplicationConfirmation = (
   return transporter.sendMail({
     from: FROM,
     to: email,
-    subject: `Application Submitted — ${applicationNumber}`,
+    subject: `Application Submitted - ${applicationNumber}`,
     text: `Your application ${applicationNumber} for the position of ${jobTitle} has been successfully submitted.`,
     html: `
       <p>Dear Applicant,</p>

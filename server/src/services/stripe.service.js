@@ -42,6 +42,11 @@ class StripeService {
         metadata: {
           applicationId: applicationId.toString(),
         },
+        payment_intent_data: {
+          metadata: {
+            applicationId: applicationId.toString(),
+          },
+        },
       });
 
       return session;

@@ -6,9 +6,9 @@ import {
   PAYMENT_STATUS,
 } from '../constants.js';
 
-/* ---------------------------------------------
-   Job Snapshot Sub Schema
---------------------------------------------- */
+/**
+ * @description Sub-schema for storing a snapshot of job configuration at the time of application.
+ */
 const jobSnapshotSchema = new Schema(
   {
     title: String,
@@ -43,9 +43,9 @@ const jobSnapshotSchema = new Schema(
   { _id: false }
 );
 
-/* ---------------------------------------------
-   Section Data Sub Schema
---------------------------------------------- */
+/**
+ * @description Sub-schema for storing data and metadata for each application section.
+ */
 const sectionDataSchema = new Schema(
   {
     data: {
@@ -53,6 +53,7 @@ const sectionDataSchema = new Schema(
       default: {},
     },
     pdfUrl: String,
+    imageUrl: String, // For photo/signature sections
     cloudinaryId: String,
     savedAt: Date,
     isComplete: {
@@ -74,9 +75,9 @@ const sectionDataSchema = new Schema(
   { _id: false }
 );
 
-/* ---------------------------------------------
-   Status History Sub Schema
---------------------------------------------- */
+/**
+ * @description Sub-schema for tracking application status transitions.
+ */
 const statusHistorySchema = new Schema(
   {
     status: {
@@ -98,9 +99,9 @@ const statusHistorySchema = new Schema(
   { _id: false }
 );
 
-/* ---------------------------------------------
-   Main Application Schema
---------------------------------------------- */
+/**
+ * @description Main Application Schema representing a user's submission for a job.
+ */
 const applicationSchema = new Schema(
   {
     applicationNumber: {
@@ -109,50 +110,42 @@ const applicationSchema = new Schema(
       unique: true,
       index: true,
     },
-
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
       index: true,
     },
-
     jobId: {
       type: Schema.Types.ObjectId,
       ref: 'Job',
       required: true,
       index: true,
     },
-
     // Snapshot of job config at time of application
     jobSnapshot: {
       type: jobSnapshotSchema,
       required: true,
     },
-
     status: {
       type: String,
       enum: Object.values(APPLICATION_STATUS),
       default: APPLICATION_STATUS.DRAFT,
       index: true,
     },
-
     paymentStatus: {
       type: String,
       enum: Object.values(PAYMENT_STATUS),
       default: PAYMENT_STATUS.PENDING,
       index: true,
     },
-
     submittedAt: Date,
-
     // Flexible sections storage
     sections: {
       type: Map,
       of: sectionDataSchema,
       default: {},
     },
-
     validationErrors: [
       {
         section: String,
@@ -160,14 +153,12 @@ const applicationSchema = new Schema(
         message: String,
       },
     ],
-
     // Locking mechanism
     isLocked: {
       type: Boolean,
       default: false,
     },
     lockedAt: Date,
-
     // Review Details
     reviewNotes: String,
     reviewedBy: {
@@ -175,7 +166,6 @@ const applicationSchema = new Schema(
       ref: 'User',
     },
     reviewedAt: Date,
-
     statusHistory: [statusHistorySchema],
   },
   {
@@ -183,24 +173,14 @@ const applicationSchema = new Schema(
   }
 );
 
-/* ---------------------------------------------
-   Indexes
---------------------------------------------- */
+// Indexes
 // Enforce one application per job per user
 applicationSchema.index({ userId: 1, jobId: 1 }, { unique: true });
-
 // Performance indexes
 applicationSchema.index({ jobId: 1, status: 1 });
 applicationSchema.index({ 'jobSnapshot.department': 1 });
 applicationSchema.index({ createdAt: -1 });
-
 // Full-text search index
 applicationSchema.index({ applicationNumber: 'text' });
-
-/* ---------------------------------------------
-   Middlewares
---------------------------------------------- */
-// Optimistic Concurrency Control is handled by Mongoose __v by default via 'versionKey: false' if disabled, but enabled by default.
-// We keep it enabled.
 
 export const Application = mongoose.model('Application', applicationSchema);

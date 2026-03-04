@@ -17,10 +17,10 @@ export const getActiveJobs = asyncHandler(async (req, res) => {
     category,
     department,
     search,
-    sortBy = 'publishDate',
-    sortOrder = 'desc',
-    page = 1,
-    limit = 10,
+    sortBy,
+    sortOrder,
+    page,
+    limit,
   } = req.query;
 
   // Base query: only published, not deleted, and accepting applications
@@ -34,7 +34,7 @@ export const getActiveJobs = asyncHandler(async (req, res) => {
   if (designation) query.designation = designation;
   if (payLevel) query.payLevel = payLevel;
   if (recruitmentType) query.recruitmentType = recruitmentType;
-  if (department) query.department = department; // Now ObjectId
+  if (department) query.department = department;
 
   // Category filter
   if (category) {
@@ -50,10 +50,8 @@ export const getActiveJobs = asyncHandler(async (req, res) => {
     ];
   }
 
-  // Pagination
-  const pageNum = parseInt(page, 10);
-  const limitNum = parseInt(limit, 10);
-  const skip = (pageNum - 1) * limitNum;
+  // Pagination (handled by Zod transforms)
+  const skip = (page - 1) * limit;
 
   // Sorting
   const sortOptions = {};
@@ -63,9 +61,10 @@ export const getActiveJobs = asyncHandler(async (req, res) => {
     Job.find(query)
       .sort(sortOptions)
       .skip(skip)
-      .limit(limitNum)
+      .limit(limit)
       .populate('department', 'name code')
-      .select('-createdBy -deletedAt -__v'),
+      .select('-createdBy -deletedAt -__v')
+      .lean(),
     Job.countDocuments(query),
   ]);
 
@@ -73,18 +72,22 @@ export const getActiveJobs = asyncHandler(async (req, res) => {
     jobs,
     pagination: {
       total,
-      page: pageNum,
-      limit: limitNum,
-      totalPages: Math.ceil(total / limitNum),
-      hasNext: pageNum < Math.ceil(total / limitNum),
-      hasPrev: pageNum > 1,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasNext: page < Math.ceil(total / limit),
+      hasPrev: page > 1,
     },
   };
 
   res
-    .status(200)
+    .status(HTTP_STATUS.OK)
     .json(
-      new ApiResponse(200, responseData, 'Active jobs fetched successfully')
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        responseData,
+        'Active jobs fetched successfully'
+      )
     );
 });
 
@@ -100,15 +103,18 @@ export const getJobById = asyncHandler(async (req, res) => {
     deletedAt: null,
   })
     .populate('department', 'name code')
-    .select('-createdBy -deletedAt -__v');
+    .select('-createdBy -deletedAt -__v')
+    .lean();
 
   if (!job) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found or not active');
   }
 
   res
-    .status(200)
-    .json(new ApiResponse(200, job, 'Job details fetched successfully'));
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(HTTP_STATUS.OK, job, 'Job details fetched successfully')
+    );
 });
 
 /**
@@ -119,26 +125,22 @@ export const getJobById = asyncHandler(async (req, res) => {
 export const getJobByAdvertisementNo = asyncHandler(async (req, res) => {
   const { advertisementNo } = req.query;
 
-  if (!advertisementNo) {
-    throw new ApiError(
-      HTTP_STATUS.BAD_REQUEST,
-      'Advertisement number is required'
-    );
-  }
-
   const job = await Job.findOne({
     advertisementNo: advertisementNo.toUpperCase(),
     status: JOB_STATUS.PUBLISHED,
     deletedAt: null,
   })
     .populate('department', 'name code')
-    .select('-createdBy -deletedAt -__v');
+    .select('-createdBy -deletedAt -__v')
+    .lean();
 
   if (!job) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found or not active');
   }
 
   res
-    .status(200)
-    .json(new ApiResponse(200, job, 'Job details fetched successfully'));
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(HTTP_STATUS.OK, job, 'Job details fetched successfully')
+    );
 });

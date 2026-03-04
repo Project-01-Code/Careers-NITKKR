@@ -14,9 +14,9 @@ import {
   JOB_STATUS,
 } from '../constants.js';
 
-/* ---------------------------------------------
-   Application Fee Sub Schema
---------------------------------------------- */
+/**
+ * @description Sub-schema for application fee structure based on candidate category.
+ */
 const applicationFeeSchema = new Schema(
   {
     general: {
@@ -57,9 +57,9 @@ const applicationFeeSchema = new Schema(
   { _id: false }
 );
 
-/* ---------------------------------------------
-   Eligibility Criteria Sub Schema
---------------------------------------------- */
+/**
+ * @description Sub-schema for eligibility criteria including age, nationality, and experience.
+ */
 const eligibilityCriteriaSchema = new Schema(
   {
     minAge: {
@@ -113,9 +113,9 @@ const eligibilityCriteriaSchema = new Schema(
   { _id: false }
 );
 
-/* ---------------------------------------------
-   Document Sub Schema (Advertisements, Forms, Annexures)
---------------------------------------------- */
+/**
+ * @description Sub-schema for job-related documents (Advertisements, Forms, Annexures).
+ */
 const documentSchema = new Schema(
   {
     type: {
@@ -149,9 +149,9 @@ const documentSchema = new Schema(
   { _id: false }
 );
 
-/* ---------------------------------------------
-   Required Sections Sub Schema
---------------------------------------------- */
+/**
+ * @description Sub-schema defining which application sections are required for this job.
+ */
 const requiredSectionSchema = new Schema(
   {
     sectionType: {
@@ -183,9 +183,9 @@ const requiredSectionSchema = new Schema(
   { _id: false }
 );
 
-/* ---------------------------------------------
-   Custom Fields Sub Schema
---------------------------------------------- */
+/**
+ * @description Sub-schema for defining custom questions specific to this job posting.
+ */
 const customFieldSchema = new Schema(
   {
     fieldName: {
@@ -211,9 +211,9 @@ const customFieldSchema = new Schema(
   { _id: false }
 );
 
-/* ---------------------------------------------
-   Main Job Schema
---------------------------------------------- */
+/**
+ * @description Main Job Schema representing a recruitment advertisement.
+ */
 const jobSchema = new Schema(
   {
     // Basic Information
@@ -352,9 +352,9 @@ const jobSchema = new Schema(
   }
 );
 
-/* ---------------------------------------------
-   Indexes for Performance
---------------------------------------------- */
+/**
+ * @description Compiled indexes based on common query patterns for performance optimization.
+ */
 
 // Unique advertisement number
 jobSchema.index({ advertisementNo: 1 }, { unique: true });
@@ -379,9 +379,9 @@ jobSchema.index({
   description: 'text',
 });
 
-/* ---------------------------------------------
-   Virtual Fields
---------------------------------------------- */
+/**
+ * @description Virtual fields for derived data that are not persisted in the database.
+ */
 
 // isActive: derived from status, deletedAt, and applicationEndDate
 jobSchema.virtual('isActive').get(function () {
@@ -392,9 +392,9 @@ jobSchema.virtual('isActive').get(function () {
   );
 });
 
-/* ---------------------------------------------
-   Pre-save Validation
---------------------------------------------- */
+/**
+ * @description Pre-save hooks for complex data validation and consistency checks.
+ */
 
 jobSchema.pre('save', function () {
   // Validate application dates
@@ -410,9 +410,5 @@ jobSchema.pre('save', function () {
     throw new Error('Maximum age must be greater than minimum age');
   }
 });
-
-/* ---------------------------------------------
-   Export Model
---------------------------------------------- */
 
 export const Job = mongoose.model('Job', jobSchema);

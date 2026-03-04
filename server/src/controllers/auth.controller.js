@@ -1,4 +1,3 @@
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
@@ -19,62 +18,75 @@ import {
   TOKEN_TYPES,
 } from '../constants.js';
 
-/* ─────────────────────────────── Constants ─────────────────────────────── */
+// Constants
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
+/** @type {import('express').CookieOptions} */
 const cookieOptions = {
   httpOnly: true,
   secure: !IS_DEV,
   sameSite: 'strict',
 };
 
+/** Mongoose projection that strips sensitive fields from user documents. */
 const USER_PUBLIC_FIELDS = '-password -refreshToken -deletedAt';
 
-/* ─────────────────────────────── Helpers ────────────────────────────────── */
+// Helpers
 
 /**
- * Generates a random numeric OTP, bcrypt-hashes it, and upserts the token
- * document (one active OTP per user per type).
- * Returns the plaintext OTP so it can be emailed / returned in dev mode.
+ * Generates a numeric OTP and persists it to a VerificationToken document
+ * (one active OTP per user per type). Hashing is handled transparently by
+ * the model's pre-save hook — the controller never touches bcrypt.
+ *
+ * Uses a find-then-save pattern (instead of findOneAndUpdate) so that
+ * Mongoose pre-save hooks fire correctly.
+ *
+ * @param {string} userId - The user's MongoDB ObjectId.
+ * @param {string} type   - Token type constant from TOKEN_TYPES.
+ * @returns {Promise<string>} The plaintext OTP (for emailing / dev response).
  */
 const createAndStoreOTP = async (userId, type) => {
   const otp = String(
     Math.floor(
       10 ** (OTP_CONFIG.LENGTH - 1) +
-      Math.random() * 9 * 10 ** (OTP_CONFIG.LENGTH - 1)
+        Math.random() * 9 * 10 ** (OTP_CONFIG.LENGTH - 1)
     )
   );
 
-  const hashedOtp = await bcrypt.hash(otp, 10);
   const expiresAt = new Date(
     Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000
   );
 
-  // $set prevents accidental full-document replacement on existing records,
-  // which was the root cause of "Invalid OTP" on re-sent OTPs.
-  const saved = await VerificationToken.findOneAndUpdate(
-    { userId, type },
-    { $set: { otp: hashedOtp, expiresAt } },
-    { upsert: true, new: true }
-  );
+  // Find existing doc or build a new one, then save so the pre-save hook runs.
+  let tokenDoc = await VerificationToken.findOne({ userId, type });
 
-  // [DEBUG] — remove after confirming OTP storage works
-  console.log('[OTP STORE]', { userId, type, otp, expiresAt, savedId: saved?._id });
+  if (tokenDoc) {
+    tokenDoc.otp = otp; // plain - hook will hash on save
+    tokenDoc.expiresAt = expiresAt;
+  } else {
+    tokenDoc = new VerificationToken({ userId, type, otp, expiresAt });
+  }
+
+  await tokenDoc.save();
 
   return otp;
 };
 
 /**
- * Finds and validates an OTP document for a given user + type.
- * Throws ApiError on missing / expired / wrong OTP.
- * Deletes the document on expiry (belt-and-suspenders over the TTL index).
+ * Validates an OTP for a given user and token type.
+ *
+ * Performs explicit expiry check in addition to the TTL index (MongoDB's TTL
+ * janitor runs with up to ~60 s lag, so stale documents can linger).
+ *
+ * @param {string} userId - The user's MongoDB ObjectId.
+ * @param {string} type   - Token type constant from TOKEN_TYPES.
+ * @param {string} otp    - The plaintext OTP submitted by the user.
+ * @returns {Promise<import('../models/verificationToken.model.js').VerificationTokenDoc>}
+ * @throws {ApiError} On missing, expired, or incorrect OTP.
  */
 const validateOTP = async (userId, type, otp) => {
   const tokenDoc = await VerificationToken.findOne({ userId, type });
-
-  // [DEBUG] — remove after confirming OTP lookup works
-  console.log('[OTP LOOKUP]', { userId, type, found: !!tokenDoc, expiresAt: tokenDoc?.expiresAt });
 
   if (!tokenDoc) {
     throw new ApiError(
@@ -83,7 +95,6 @@ const validateOTP = async (userId, type, otp) => {
     );
   }
 
-  // Explicit expiry check: MongoDB's TTL janitor has up to ~60 s lag.
   if (tokenDoc.expiresAt < new Date()) {
     await VerificationToken.deleteOne({ _id: tokenDoc._id });
     throw new ApiError(
@@ -92,7 +103,8 @@ const validateOTP = async (userId, type, otp) => {
     );
   }
 
-  const isValid = await bcrypt.compare(otp, tokenDoc.otp);
+  const isValid = await tokenDoc.verifyOTP(otp);
+
   if (!isValid) {
     throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Invalid OTP.');
   }
@@ -101,8 +113,12 @@ const validateOTP = async (userId, type, otp) => {
 };
 
 /**
- * Generates access + refresh JWT pair, persists refresh token to the user doc,
- * and returns both tokens.
+ * Generates an access/refresh token pair, persists the refresh token to the
+ * user document, and returns both tokens.
+ *
+ * @param {string} userId - The user's MongoDB ObjectId.
+ * @returns {Promise<{ accessToken: string, refreshToken: string }>}
+ * @throws {ApiError} On any internal failure during token generation.
  */
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -122,9 +138,15 @@ const generateAccessAndRefreshTokens = async (userId) => {
   }
 };
 
-/* ──────────────────────────── Auth handlers ─────────────────────────────── */
+// Auth Handlers
 
-// POST /auth/register
+/**
+ * POST /auth/register
+ *
+ * Creates a new applicant account and fires a verification OTP email
+ * asynchronously (fire-and-forget so registration never fails due to a slow
+ * mail provider).
+ */
 const registerUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
@@ -151,10 +173,10 @@ const registerUser = asyncHandler(async (req, res) => {
     );
   }
 
-  // Fire-and-forget — registration must not fail just because email is slow.
+  // Fire-and-forget - registration must not fail just because email is slow.
   createAndStoreOTP(user._id, TOKEN_TYPES.EMAIL_VERIFICATION)
-    .then((otp) => sendVerificationOTP(email, otp).catch(() => { }))
-    .catch(() => { });
+    .then((otp) => sendVerificationOTP(email, otp).catch(() => {}))
+    .catch(() => {});
 
   await logAction({
     userId: createdUser._id,
@@ -176,7 +198,12 @@ const registerUser = asyncHandler(async (req, res) => {
     );
 });
 
-// POST /auth/login
+/**
+ * POST /auth/login
+ *
+ * Validates credentials and issues an access/refresh token pair via both
+ * cookies and the response body (supports cookie-less clients).
+ */
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
@@ -222,7 +249,11 @@ const loginUser = asyncHandler(async (req, res) => {
     );
 });
 
-// POST /auth/logout
+/**
+ * DELETE /auth/logout
+ *
+ * Clears the stored refresh token and removes auth cookies.
+ */
 const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
@@ -246,7 +277,12 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(HTTP_STATUS.OK, {}, 'Logged out successfully.'));
 });
 
-// POST /auth/refresh-token
+/**
+ * POST /auth/refresh-token
+ *
+ * Validates the incoming refresh token (from cookie or body), rotates both
+ * tokens, and issues a fresh pair.
+ */
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies.refreshToken || req.body.refreshToken;
@@ -296,9 +332,13 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-/* ──────────────────────────── Profile handlers ──────────────────────────── */
+// Profile Handlers
 
-// GET /auth/profile
+/**
+ * GET /auth/profile
+ *
+ * Returns the authenticated user's public profile (attached by verifyJWT).
+ */
 const getProfile = asyncHandler(async (req, res) => {
   return res
     .status(HTTP_STATUS.OK)
@@ -307,7 +347,12 @@ const getProfile = asyncHandler(async (req, res) => {
     );
 });
 
-// PATCH /auth/profile
+/**
+ * PATCH /auth/profile
+ *
+ * Merges validated body fields onto the user's profile sub-document and
+ * persists the update.
+ */
 const updateProfile = asyncHandler(async (req, res) => {
   const currentUser = await User.findById(req.user._id);
   const oldProfile = { ...currentUser.profile.toObject() };
@@ -334,31 +379,41 @@ const updateProfile = asyncHandler(async (req, res) => {
   return res
     .status(HTTP_STATUS.OK)
     .json(
-      new ApiResponse(HTTP_STATUS.OK, updatedUser, 'Profile updated successfully.')
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        updatedUser,
+        'Profile updated successfully.'
+      )
     );
 });
 
-/* ──────────────────────────── OTP handlers ──────────────────────────────── */
+// OTP Handlers
 
-// POST /auth/verify-email/send
+/**
+ * POST /auth/verify-email/send
+ *
+ * Public endpoint. Looks up the account by email, generates and stores an OTP,
+ * then sends a verification email. Returns the OTP in development mode only.
+ */
 const sendEmailVerificationOTPHandler = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
-  if (!email) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is required.');
-  }
-
   const user = await User.findOne({ email, deletedAt: null });
-  if (!user) {
-    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'No account found with this email.');
-  }
 
-  if (user.isEmailVerified) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is already verified.');
+  if (!user || user.isEmailVerified) {
+    return res
+      .status(HTTP_STATUS.OK)
+      .json(
+        new ApiResponse(
+          HTTP_STATUS.OK,
+          {},
+          'If an account exists, a verification OTP has been sent.'
+        )
+      );
   }
 
   const otp = await createAndStoreOTP(user._id, TOKEN_TYPES.EMAIL_VERIFICATION);
-  sendVerificationOTP(email, otp).catch(() => { });
+  sendVerificationOTP(email, otp).catch(() => {});
 
   return res
     .status(HTTP_STATUS.OK)
@@ -366,22 +421,26 @@ const sendEmailVerificationOTPHandler = asyncHandler(async (req, res) => {
       new ApiResponse(
         HTTP_STATUS.OK,
         IS_DEV ? { otp } : {},
-        'Verification OTP sent to your email.'
+        'If an account exists, a verification OTP has been sent.'
       )
     );
 });
 
-// POST /auth/verify-email/confirm
+/**
+ * POST /auth/verify-email/confirm
+ *
+ * Public endpoint. Verifies the OTP, marks the user's email as verified, and
+ * deletes the token document.
+ */
 const verifyEmailOTPHandler = asyncHandler(async (req, res) => {
   const { email, otp } = req.body;
 
-  if (!email || !otp) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email and OTP are required.');
-  }
-
   const user = await User.findOne({ email, deletedAt: null });
   if (!user) {
-    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'No account found with this email.');
+    throw new ApiError(
+      HTTP_STATUS.NOT_FOUND,
+      'No account found with this email.'
+    );
   }
 
   if (user.isEmailVerified) {
@@ -405,17 +464,17 @@ const verifyEmailOTPHandler = asyncHandler(async (req, res) => {
     .json(new ApiResponse(HTTP_STATUS.OK, {}, 'Email verified successfully.'));
 });
 
-// POST /auth/reset-password/send
+/**
+ * POST /auth/reset-password/send
+ *
+ * Public endpoint. Always responds 200 regardless of whether the email exists
+ * to prevent account enumeration. Returns the OTP in development mode only.
+ */
 const sendPasswordResetOTPHandler = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
-  if (!email) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Email is required.');
-  }
-
   const user = await User.findOne({ email, deletedAt: null });
 
-  // Always 200 to prevent email enumeration — but include OTP in dev.
   if (!user) {
     return res
       .status(HTTP_STATUS.OK)
@@ -429,7 +488,7 @@ const sendPasswordResetOTPHandler = asyncHandler(async (req, res) => {
   }
 
   const otp = await createAndStoreOTP(user._id, TOKEN_TYPES.PASSWORD_RESET);
-  sendPasswordResetOTP(email, otp).catch(() => { });
+  sendPasswordResetOTP(email, otp).catch(() => {});
 
   return res
     .status(HTTP_STATUS.OK)
@@ -442,16 +501,14 @@ const sendPasswordResetOTPHandler = asyncHandler(async (req, res) => {
     );
 });
 
-// POST /auth/reset-password/confirm
+/**
+ * POST /auth/reset-password/confirm
+ *
+ * Public endpoint. Validates the OTP then replaces the user's password.
+ * The User model's pre-save hook handles bcrypt hashing.
+ */
 const resetPasswordHandler = asyncHandler(async (req, res) => {
   const { email, otp, newPassword } = req.body;
-
-  if (!email || !otp || !newPassword) {
-    throw new ApiError(
-      HTTP_STATUS.BAD_REQUEST,
-      'Email, OTP, and new password are required.'
-    );
-  }
 
   const user = await User.findOne({ email, deletedAt: null });
   if (!user) {
@@ -460,7 +517,7 @@ const resetPasswordHandler = asyncHandler(async (req, res) => {
 
   const tokenDoc = await validateOTP(user._id, TOKEN_TYPES.PASSWORD_RESET, otp);
 
-  user.password = newPassword; // pre-save hook on User model handles hashing
+  user.password = newPassword; // pre-save hook handles hashing
   await user.save({ validateBeforeSave: false });
 
   await VerificationToken.deleteOne({ _id: tokenDoc._id });
@@ -469,8 +526,6 @@ const resetPasswordHandler = asyncHandler(async (req, res) => {
     .status(HTTP_STATUS.OK)
     .json(new ApiResponse(HTTP_STATUS.OK, {}, 'Password reset successfully.'));
 });
-
-/* ──────────────────────────────── Exports ───────────────────────────────── */
 
 export {
   registerUser,

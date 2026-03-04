@@ -18,6 +18,11 @@ router.post('/', verifyJWT, requireRole(USER_ROLES.ADMIN), createUser);
 
 // Promote existing user to Admin
 // Only Super Admin
-router.patch('/:userId/promote', verifyJWT, requireRole(), promoteUser);
+router.patch(
+  '/:userId/promote',
+  verifyJWT,
+  requireRole(USER_ROLES.SUPER_ADMIN),
+  promoteUser
+);
 
 export default router;

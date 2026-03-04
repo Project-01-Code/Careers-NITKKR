@@ -1,8 +1,11 @@
 import { SECTION_SCHEMAS } from '../validators/sections.validator.js';
 
 /**
- * Formats Zod flat error map into { field, message } array
- * compatible with the existing API error shape.
+ * Formats Zod flat error map into an array of { field, message } objects.
+ * This ensures compatibility with the standardized API error structure.
+ *
+ * @param {import('zod').ZodError} zodError - The error object from a Zod validation failure.
+ * @returns {Array<{field: string, message: string}>} Array of formatted error objects.
  */
 function formatZodErrors(zodError) {
   return zodError.issues.map((issue) => ({
@@ -12,15 +15,16 @@ function formatZodErrors(zodError) {
 }
 
 /**
- * Main Export — validateSectionData
+ * Validates the data for a specific application section.
+ * This is the primary gatekeeper for section-level data integrity.
+ *
+ * @param {string} sectionType - The identifier for the section (e.g., 'personal', 'education').
+ * @param {Object} data - The actual data stored within the section.
+ * @param {Array} customFields - Optional custom field definitions for the 'custom' section.
+ * @returns {Array<{field: string, message: string}>} Array of validation errors, empty if valid.
  */
-export function validateSectionData(
-  sectionType,
-  data,
-  sectionConfig,
-  customFields
-) {
-  // 1. Standard sections — dispatch to the Zod schema
+export function validateSectionData(sectionType, data, customFields) {
+  // 1. Standard sections: Logic is delegated to Zod schemas defined in sections.validator.js
   const schema = SECTION_SCHEMAS[sectionType];
   if (schema) {
     const result = schema.safeParse(data);
@@ -30,14 +34,13 @@ export function validateSectionData(
     return [];
   }
 
-  // 2. File-only sections (photo, signature, final_documents)
-  //    Data validation is not applicable; completeness is checked
-  //    in submissionValidation.service via URL presence.
+  // 2. File-only sections: These do not contain structured form data.
+  // Completeness (presence of URL) is checked during the overall submission validation.
   if (['photo', 'signature', 'final_documents'].includes(sectionType)) {
     return [];
   }
 
-  // 3. Custom section — validate using jobSnapshot customFields
+  // 3. Custom section: Uses a dynamic validator based on job-specific custom field configurations.
   if (sectionType === 'custom' && customFields) {
     return validateCustomFields(data, customFields);
   }
@@ -46,17 +49,24 @@ export function validateSectionData(
 }
 
 /**
- * Custom field validator (legacy support for job-level custom fields)
+ * Validates dynamically defined custom fields for a job.
+ *
+ * @param {Object} data - The user-provided data for custom fields.
+ * @param {Array} customFields - Array of field definitions (isMandatory, fieldType, options, etc.).
+ * @returns {Array<{field: string, message: string}>} Array of validation errors.
  */
 function validateCustomFields(data, customFields) {
   const errors = [];
   customFields.forEach((field) => {
+    // Mandatory check
     if (field.isMandatory && !data[field.fieldName]) {
       errors.push({
         field: field.fieldName,
         message: `${field.fieldName} is required`,
       });
     }
+
+    // Type-specific logic for provided data
     if (data[field.fieldName]) {
       switch (field.fieldType) {
         case 'number':
@@ -84,11 +94,12 @@ function validateCustomFields(data, customFields) {
 }
 
 /**
- * Helpers
- */
-
-/**
- * validateImageUpload
+ * Validates image uploads for Persona Photo and Signature.
+ * Performs checks on MIME types, magic numbers (file spoofing), and file size.
+ *
+ * @param {Object} file - The file object from Multer.
+ * @param {string} fieldName - Either 'photo' or 'signature'.
+ * @returns {Array<{field: string, message: string}>} Validation errors.
  */
 export function validateImageUpload(file, fieldName) {
   const errors = [];
@@ -98,7 +109,7 @@ export function validateImageUpload(file, fieldName) {
     return errors;
   }
 
-  // MIME check (belt-and-suspenders on top of multer filter)
+  // Ensure file is a JPEG (Project Standard)
   if (file.mimetype !== 'image/jpeg') {
     errors.push({
       field: fieldName,
@@ -106,7 +117,7 @@ export function validateImageUpload(file, fieldName) {
     });
   }
 
-  // Magic byte check — JPEG always starts with FF D8 FF
+  // Magic byte check: Verify file headers to prevent simple extension-renaming spoofing
   if (file.buffer && file.buffer.length >= 3) {
     const isJpeg =
       file.buffer[0] === 0xff &&
@@ -120,7 +131,7 @@ export function validateImageUpload(file, fieldName) {
     }
   }
 
-  // Size check
+  // Enforce specific size limits for Photo (200KB) and Signature (50KB)
   const limits = { photo: 200 * 1024, signature: 50 * 1024 };
   const maxSize = limits[fieldName] || 200 * 1024;
   if (file.size > maxSize) {
@@ -135,14 +146,32 @@ export function validateImageUpload(file, fieldName) {
 }
 
 /**
- * validatePDFUpload (for section certificates)
+ * Validates PDF uploads for individual section certificates.
+ * Checks MIME type, magic bytes, and file size.
+ *
+ * @param {Object} file - The file object (includes buffer, mimetype, size).
+ * @param {Object} sectionConfig - Configuration snapshot containing maxPDFSize limit.
+ * @returns {Array<{field: string, message: string}>} Validation errors.
  */
 export function validatePDFUpload(file, sectionConfig) {
   const errors = [];
   if (!file) return errors;
 
+  // MIME type check (first line of defense)
   if (file.mimetype !== 'application/pdf') {
     errors.push({ field: 'file', message: 'Only PDF files are allowed' });
+  }
+
+  // Magic byte check: Verify file truly starts with %PDF (0x25 0x50 0x44 0x46)
+  // Prevents spoofed uploads where a non-PDF file is renamed to .pdf
+  if (file.buffer && file.buffer.length >= 4) {
+    const pdfSignature = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+    if (!file.buffer.subarray(0, 4).equals(pdfSignature)) {
+      errors.push({
+        field: 'file',
+        message: 'File does not appear to be a valid PDF',
+      });
+    }
   }
 
   const maxSize = (sectionConfig?.maxPDFSize || 5) * 1024 * 1024;
@@ -157,7 +186,11 @@ export function validatePDFUpload(file, sectionConfig) {
 }
 
 /**
- * validateFinalPDF (for merged PDF submission)
+ * Validates the final merged document PDF before submission.
+ * Checks MIME type, magic bytes, and enforces the 3MB size cap.
+ *
+ * @param {Object} file - The file object (includes buffer, mimetype, size).
+ * @returns {Array<{field: string, message: string}>} Validation errors.
  */
 export function validateFinalPDF(file) {
   const errors = [];
@@ -166,11 +199,24 @@ export function validateFinalPDF(file) {
     return errors;
   }
 
+  // MIME type check (first line of defense)
   if (file.mimetype !== 'application/pdf') {
     errors.push({ field: 'file', message: 'Only PDF files are allowed' });
   }
 
-  const maxSize = 3 * 1024 * 1024; // 3MB
+  // Magic byte check: Verify file truly starts with %PDF (0x25 0x50 0x44 0x46)
+  // Prevents spoofed uploads where a non-PDF file is renamed to .pdf
+  if (file.buffer && file.buffer.length >= 4) {
+    const pdfSignature = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+    if (!file.buffer.subarray(0, 4).equals(pdfSignature)) {
+      errors.push({
+        field: 'file',
+        message: 'File does not appear to be a valid PDF',
+      });
+    }
+  }
+
+  const maxSize = 3 * 1024 * 1024; // Standardized 3MB limit for merged documents
   if (file.size > maxSize) {
     errors.push({
       field: 'file',
@@ -183,18 +229,11 @@ export function validateFinalPDF(file) {
 }
 
 /**
- * validatePDFMagicNumber
- */
-export function validatePDFMagicNumber(buffer) {
-  if (!buffer || buffer.length < 4) return false;
-  const pdfSignature = Buffer.from([0x25, 0x50, 0x44, 0x46]);
-  return buffer.slice(0, 4).equals(pdfSignature);
-}
-
-/**
- * scanForMalware
+ * Placeholder for malware scanning logic.
+ *
+ * @returns {Promise<boolean>} Always returns true (stub).
  */
 export async function scanForMalware() {
-  console.log('[STUB] Malware scan would run here');
+  // Implementation for ClamAV or similar service would go here.
   return true;
 }

@@ -23,6 +23,12 @@ const departmentSchema = new Schema(
   }
 );
 
+departmentSchema.methods.toJSON = function () {
+  const departmentObject = this.toObject();
+  delete departmentObject.__v;
+  return departmentObject;
+};
+
 departmentSchema.index({ code: 1 }, { unique: true });
 departmentSchema.index({ isActive: 1 });
 

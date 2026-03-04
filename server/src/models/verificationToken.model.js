@@ -1,26 +1,42 @@
 import mongoose, { Schema } from 'mongoose';
+import bcrypt from 'bcryptjs';
 import { TOKEN_TYPES } from '../constants.js';
 
-const verificationTokenSchema = new Schema({
-  userId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
+const verificationTokenSchema = new Schema(
+  {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    otp: {
+      type: String,
+      required: true,
+    },
+    type: {
+      type: String,
+      enum: Object.values(TOKEN_TYPES),
+      required: true,
+    },
+    expiresAt: {
+      type: Date,
+      required: true,
+    },
   },
-  otp: {
-    type: String,
-    required: true,
-  },
-  type: {
-    type: String,
-    enum: Object.values(TOKEN_TYPES),
-    required: true,
-  },
-  expiresAt: {
-    type: Date,
-    required: true,
-  },
+  { timestamps: true }
+);
+
+// Hash OTP before saving (mirrors password hashing in user.model.js)
+verificationTokenSchema.pre('save', async function () {
+  if (!this.isModified('otp')) return;
+
+  this.otp = await bcrypt.hash(this.otp, 10);
 });
+
+// Compare a plain OTP against the stored hash
+verificationTokenSchema.methods.verifyOTP = async function (plainOtp) {
+  return bcrypt.compare(plainOtp, this.otp);
+};
 
 // Auto-delete documents when expiresAt is reached
 verificationTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

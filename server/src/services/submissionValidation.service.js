@@ -2,19 +2,15 @@ import { Job } from '../models/job.model.js';
 import { ApiError } from '../utils/apiError.js';
 import { HTTP_STATUS } from '../constants.js';
 
-/**
- * Section types that require an imageUrl (uploaded via imageUpload middleware)
- */
+/** Sections that exclusively require an image (Photo/Signature) */
 const IMAGE_ONLY_SECTIONS = ['photo', 'signature'];
 
-/**
- * Section types that require a pdfUrl (uploaded via file upload)
- */
+/** Sections that exclusively require a single merged PDF */
 const PDF_ONLY_SECTIONS = ['final_documents'];
 
 /**
- * Array-based sections
- * (unless minItems override in jobSnapshot.requiredSections config)
+ * Sections that expect an array of entries (items).
+ * These are maps to specific form sections.
  */
 const ARRAY_SECTIONS = [
   'education',
@@ -31,21 +27,23 @@ const ARRAY_SECTIONS = [
 ];
 
 /**
- * Validate all sections of an application before submission.
+ * Iterates through all required sections of an application and checks for completeness.
+ * This is called during the final validation before submission.
  *
- * @param {Object} application - Application document
- * @returns {Array<{section, field, message}>} Validation errors
+ * @param {Object} application - The Mongoose Application document.
+ * @returns {Array<{section: string, field: string, message: string}>} Array of validation errors.
  */
 export function validateAllSections(application) {
   const errors = [];
 
   application.jobSnapshot.requiredSections.forEach((sectionConfig) => {
+    // Skip optional sections
     if (!sectionConfig.isMandatory) return;
 
     const sectionType = sectionConfig.sectionType;
     const section = application.sections.get(sectionType);
 
-    // Image-only sections
+    // 1. Image-only validation (Photo/Signature existence check)
     if (IMAGE_ONLY_SECTIONS.includes(sectionType)) {
       if (!section?.imageUrl) {
         errors.push({
@@ -57,7 +55,7 @@ export function validateAllSections(application) {
       return;
     }
 
-    // PDF-only sections
+    // 2. PDF-only validation (Merged documents existence check)
     if (PDF_ONLY_SECTIONS.includes(sectionType)) {
       if (!section?.pdfUrl) {
         errors.push({
@@ -69,16 +67,16 @@ export function validateAllSections(application) {
       return;
     }
 
-    // Declaration section
+    // 3. Declaration & Checklist validation
     if (sectionType === 'declaration') {
       const data = section?.data || {};
-      const required = [
+      const requiredFlags = [
         'declareInfoTrue',
         'agreeToTerms',
         'photoUploaded',
         'detailsVerified',
       ];
-      required.forEach((flag) => {
+      requiredFlags.forEach((flag) => {
         if (data[flag] !== true) {
           errors.push({
             section: 'declaration',
@@ -90,10 +88,11 @@ export function validateAllSections(application) {
       return;
     }
 
-    // Array-based sections
+    // 4. List-based sections (Education, Experience, etc.)
+    // We enforce a minimum number of entries (usually 1) for mandatory sections.
     if (ARRAY_SECTIONS.includes(sectionType)) {
       const items = section?.data?.items;
-      const minItems = sectionConfig.minItems ?? 1; // default min 1 for mandatory array sections
+      const minItems = sectionConfig.minItems ?? 1;
       if (!items || items.length < minItems) {
         errors.push({
           section: sectionType,
@@ -104,7 +103,7 @@ export function validateAllSections(application) {
       return;
     }
 
-    // Generic section data check
+    // 5. General existence check for standard sections
     if (!section || !section.data || Object.keys(section.data).length === 0) {
       errors.push({
         section: sectionType,
@@ -114,7 +113,7 @@ export function validateAllSections(application) {
       return;
     }
 
-    // Referees: exactly 2 required
+    // 6. Referees special case: Recruitment rules usually mandate exactly 2.
     if (sectionType === 'referees') {
       const items = section.data?.items;
       if (!items || items.length !== 2) {
@@ -127,7 +126,7 @@ export function validateAllSections(application) {
       return;
     }
 
-    // Existing PDF check from sectionConfig
+    // 7. Section-specific PDF upload check (e.g., Degree certificates)
     if (sectionConfig.requiresPDF && !section.pdfUrl) {
       errors.push({
         section: sectionType,
@@ -137,7 +136,7 @@ export function validateAllSections(application) {
     }
   });
 
-  // Hard-enforce declaration (even if not in requiredSections list)
+  // Fail-Safe: Hard-enforce declaration status check even if omitted from requiredSections list
   const declarationSection = application.sections.get('declaration');
   const hasDeclarationError = errors.some((e) => e.section === 'declaration');
   if (
@@ -156,20 +155,14 @@ export function validateAllSections(application) {
 }
 
 /**
- * Check if job is still accepting applications
- * Verifies job exists, is published, and deadline hasn't passed
+ * Checks if a specific job advertisement is still active and open for applications.
  *
- * @param {string} jobId - MongoDB ObjectId of the job
- * @returns {Promise<boolean>} True if job is accepting applications
- * @throws {ApiError} 404 if job not found
- * @throws {ApiError} 400 if job is not published
- * @throws {ApiError} 400 if application deadline has passed
- *
- * @example
- * await checkJobDeadline(jobId); // Throws if deadline passed
+ * @param {string} jobId - MongoDB ObjectId of the job.
+ * @returns {Promise<boolean>} True if open.
+ * @throws {ApiError} If not found, not published, or after deadline.
  */
 export async function checkJobDeadline(jobId) {
-  const job = await Job.findById(jobId);
+  const job = await Job.findById(jobId).lean();
 
   if (!job) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
@@ -182,6 +175,7 @@ export async function checkJobDeadline(jobId) {
     );
   }
 
+  // Current system time vs Job end date
   if (new Date() > new Date(job.applicationEndDate)) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
@@ -193,26 +187,16 @@ export async function checkJobDeadline(jobId) {
 }
 
 /**
- * Check if application can be submitted
- * Performs comprehensive validation before allowing submission
+ * Performs a comprehensive 'Ready to Submit' check for the entire application.
+ * Aggregates status checks, payment verification, section completeness, and deadlines.
  *
- * @param {Object} application - Application document to validate
- * @returns {Promise<{canSubmit: boolean, errors: Array}>} Validation result
- * @returns {boolean} return.canSubmit - Whether application can be submitted
- * @returns {Array<Object>} return.errors - Array of validation errors
- *
- * @example
- * const result = await canSubmitApplication(application);
- * if (result.canSubmit) {
- *   // Proceed with submission
- * } else {
- *   console.log('Validation errors:', result.errors);
- * }
+ * @param {Object} application - The application document to validate.
+ * @returns {Promise<{canSubmit: boolean, errors: Array}>} Final validation result.
  */
 export async function canSubmitApplication(application) {
   const errors = [];
 
-  // Check application status
+  // 1. Status Check: Must be in 'draft' to submit.
   if (application.status !== 'draft') {
     errors.push({
       field: 'status',
@@ -220,7 +204,7 @@ export async function canSubmitApplication(application) {
     });
   }
 
-  // Check if locked
+  // 2. Mutability Check: Cannot submit locked applications.
   if (application.isLocked) {
     errors.push({
       field: 'isLocked',
@@ -228,7 +212,7 @@ export async function canSubmitApplication(application) {
     });
   }
 
-  // Check payment status
+  // 3. Financial Check: Payment must be cleared or exempted.
   if (
     application.paymentStatus !== 'paid' &&
     application.paymentStatus !== 'exempted'
@@ -239,11 +223,11 @@ export async function canSubmitApplication(application) {
     });
   }
 
-  // Validate all sections
+  // 4. Data Content Check: Validate completeness of all sections.
   const sectionErrors = validateAllSections(application);
   errors.push(...sectionErrors);
 
-  // Check job deadline
+  // 5. Chronological Check: Ensure deadline has not passed since user started draft.
   try {
     await checkJobDeadline(application.jobId);
   } catch (error) {

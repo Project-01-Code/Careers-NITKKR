@@ -119,8 +119,8 @@ export const personalSchema = z.object({
   lastPromotionDepartment: z.string().optional().or(z.literal('')),
 });
 
-// No data schema needed; image upload is file-only.
-// Presence validated in submissionValidation.service via section.imageUrl existence.
+// No data schema for photo/signature — image upload is file-only.
+// Completeness validated via section.imageUrl presence in submissionValidation.service.
 
 const educationEntrySchema = z.object({
   examPassed: z.enum(EXAM_TYPE, {
@@ -366,8 +366,18 @@ const refereeEntrySchema = z.object({
   city: z.string().min(1, 'City is required'),
   pincode: pincodeRegex,
   phone: z.string().min(5, 'Phone/Fax number is required'),
-  officialEmail: z.string().email('Invalid official email address'),
-  personalEmail: z.string().email('Invalid personal email address'),
+  officialEmail: z
+    .string()
+    .refine(
+      (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+      'Invalid official email address'
+    ),
+  personalEmail: z
+    .string()
+    .refine(
+      (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+      'Invalid personal email address'
+    ),
 });
 
 export const refereesSchema = z
@@ -389,7 +399,7 @@ export const otherInfoSchema = z.object({
   otherInfo: z.string().optional().or(z.literal('')),
 });
 
-// Completeness validated via section.pdfUrl presence in submission validation.
+// Completeness of final_documents validated via section.pdfUrl presence in submission validation.
 
 export const declarationSchema = z.object({
   declareInfoTrue: z.literal(true, {

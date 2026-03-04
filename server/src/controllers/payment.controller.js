@@ -6,6 +6,12 @@ import { Application } from '../models/application.model.js';
 import { Payment } from '../models/payment.model.js';
 import { stripeService } from '../services/stripe.service.js';
 
+/**
+ * Create a specialized Stripe checkout session and record a pending payment.
+ *
+ * @route   POST /api/v1/payments/create-order
+ * @access  Private (Applicant only)
+ */
 export const createPaymentOrder = asyncHandler(async (req, res) => {
   const { applicationId } = req.body;
   const userId = req.user._id;
@@ -48,17 +54,17 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     cancelUrl
   );
 
-  // Store payment record in DB
+  // Store payment record in DB with PENDING status
   await Payment.create({
     sessionId: session.id,
     amount: amountToCharge,
-    currency: session.currency || 'inr',
-    status: PAYMENT_STATUS.CREATED,
+    currency: session.currency?.toLowerCase() || 'inr',
+    status: PAYMENT_STATUS.PENDING,
     applicationId: application._id,
     userId: userId,
   });
 
-  res.json(
+  res.status(HTTP_STATUS.CREATED).json(
     new ApiResponse(
       HTTP_STATUS.CREATED,
       {

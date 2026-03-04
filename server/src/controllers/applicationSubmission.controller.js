@@ -14,17 +14,20 @@ import { logAction } from '../utils/auditLogger.js';
 import mongoose from 'mongoose';
 
 /**
- * Validate all sections before submission
- * POST /api/applications/:id/validate-all
+ * Validate all sections before submission (dry-run).
+ * Returns a list of errors without actually submitting.
+ *
+ * @route   POST /api/v1/applications/:id/validate-all
+ * @access  Private (Applicant only)
  */
 export const validateAllBeforeSubmission = asyncHandler(async (req, res) => {
   const application = req.application; // Loaded by middleware
 
   const validationResult = await canSubmitApplication(application);
 
-  res.json(
+  res.status(HTTP_STATUS.OK).json(
     new ApiResponse(
-      200,
+      HTTP_STATUS.OK,
       {
         canSubmit: validationResult.canSubmit,
         errors: validationResult.errors,
@@ -38,26 +41,29 @@ export const validateAllBeforeSubmission = asyncHandler(async (req, res) => {
 });
 
 /**
- * Submit application
- * POST /api/applications/:id/submit
+ * Submit the application (point of no return).
+ * Runs full validation, locks the application, and fires a confirmation email.
+ *
+ * @route   POST /api/v1/applications/:id/submit
+ * @access  Private (Applicant only)
  */
 export const submitApplication = asyncHandler(async (req, res) => {
   const application = req.application; // Loaded by middleware
 
-  // Check if already submitted
+  // Guard: application must be a draft to be submittable
   if (application.status !== APPLICATION_STATUS.DRAFT) {
     throw new ApiError(
-      400,
+      HTTP_STATUS.BAD_REQUEST,
       `Application cannot be submitted. Current status: ${application.status}`
     );
   }
 
-  // Hard validation
+  // Full validation run before committing the transaction
   const validationResult = await canSubmitApplication(application);
 
   if (!validationResult.canSubmit) {
     throw new ApiError(
-      400,
+      HTTP_STATUS.BAD_REQUEST,
       'Application validation failed',
       validationResult.errors
     );
@@ -86,8 +92,8 @@ export const submitApplication = asyncHandler(async (req, res) => {
 
     await application.save({ session });
 
-    // Create audit log
-    logAction({
+    // Audit log - awaited so a failure here aborts the transaction
+    await logAction({
       userId: req.user._id,
       action: AUDIT_ACTIONS.APPLICATION_SUBMITTED,
       resourceType: RESOURCE_TYPES.APPLICATION,
@@ -107,9 +113,9 @@ export const submitApplication = asyncHandler(async (req, res) => {
       jobTitle: application.jobSnapshot.title,
     }).catch(() => {});
 
-    res.json(
+    res.status(HTTP_STATUS.OK).json(
       new ApiResponse(
-        200,
+        HTTP_STATUS.OK,
         {
           applicationNumber: application.applicationNumber,
           submittedAt: application.submittedAt,
@@ -127,17 +133,20 @@ export const submitApplication = asyncHandler(async (req, res) => {
 });
 
 /**
- * Withdraw application
- * POST /api/applications/:id/withdraw
+ * Withdraw a submitted application.
+ * Can only be done while the application is in 'submitted' state.
+ *
+ * @route   POST /api/v1/applications/:id/withdraw
+ * @access  Private (Applicant only)
  */
 export const withdrawApplication = asyncHandler(async (req, res) => {
   const application = req.application; // Loaded by middleware
   const { reason } = req.body;
 
-  // Can only withdraw submitted applications
+  // Guard: can only withdraw if currently submitted
   if (application.status !== APPLICATION_STATUS.SUBMITTED) {
     throw new ApiError(
-      400,
+      HTTP_STATUS.BAD_REQUEST,
       `Only submitted applications can be withdrawn. Current status: ${application.status}`
     );
   }
@@ -162,8 +171,8 @@ export const withdrawApplication = asyncHandler(async (req, res) => {
 
     await application.save({ session });
 
-    // Create audit log
-    logAction({
+    // Audit log - awaited so a failure here aborts the transaction
+    await logAction({
       userId: req.user._id,
       action: AUDIT_ACTIONS.APPLICATION_WITHDRAWN,
       resourceType: RESOURCE_TYPES.APPLICATION,
@@ -178,9 +187,9 @@ export const withdrawApplication = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
 
-    res.json(
+    res.status(HTTP_STATUS.OK).json(
       new ApiResponse(
-        200,
+        HTTP_STATUS.OK,
         {
           applicationNumber: application.applicationNumber,
           status: application.status,
@@ -197,8 +206,11 @@ export const withdrawApplication = asyncHandler(async (req, res) => {
 });
 
 /**
- * Download application submission receipt as PDF
- * GET /api/v1/applications/:id/receipt
+ * Download the application submission receipt as a PDF.
+ * Only available after the application has been submitted.
+ *
+ * @route   GET /api/v1/applications/:id/receipt
+ * @access  Private (Applicant only)
  */
 export const downloadReceipt = asyncHandler(async (req, res) => {
   const application = req.application; // Loaded by checkApplicationOwnership middleware
