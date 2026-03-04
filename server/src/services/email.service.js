@@ -83,3 +83,35 @@ export const sendApplicationConfirmation = (
     `,
   });
 };
+
+/**
+ * Send application status update notification.
+ * Fire-and-forget.
+ */
+export const sendApplicationStatusUpdate = (
+  email,
+  { applicationNumber, status, remarks }
+) => {
+  return transporter.sendMail({
+    from: FROM,
+    to: email,
+    subject: `Application Status Updated - ${applicationNumber}`,
+    text: `The status of your application ${applicationNumber} has been updated to "${status}".${remarks ? `\n\nRemarks: ${remarks}` : ''}`,
+    html: `
+      <p>Dear Applicant,</p>
+      <p>The status of your application for NIT Kurukshetra has been updated.</p>
+      <table style="border-collapse: collapse; margin-top: 12px;">
+        <tr>
+          <td style="padding: 4px 12px 4px 0; font-weight: bold;">Application Number</td>
+          <td style="padding: 4px 0;">${applicationNumber}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 12px 4px 0; font-weight: bold;">New Status</td>
+          <td style="padding: 4px 0;"><strong>${status.toUpperCase()}</strong></td>
+        </tr>
+      </table>
+      ${remarks ? `<p style="margin-top: 16px;"><strong>Remarks:</strong><br/>${remarks}</p>` : ''}
+      <p style="margin-top: 24px;">Please log in to the recruitment portal for further details.</p>
+    `,
+  });
+};

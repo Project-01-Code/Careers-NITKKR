@@ -3,6 +3,7 @@ import http from 'http';
 import mongoose from 'mongoose';
 import app from './app.js';
 import { connectDB } from './db/connectDB.js';
+import { startBackgroundWorker } from './services/backgroundWorker.service.js';
 
 // Environment variables are loaded first via env.config.js (before any other module reads process.env)
 
@@ -110,6 +111,9 @@ const startServer = async () => {
 
     // Initialize database connection
     await connectDB();
+
+    // Start background services
+    startBackgroundWorker();
 
     // Create HTTP server
     server = http.createServer(app);
