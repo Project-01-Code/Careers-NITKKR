@@ -1191,6 +1191,30 @@ PATCH /admin/users/:id/promote         — Promote to admin (super_admin only)
 
 ---
 
+### Admin - Promote User
+
+```
+PATCH /admin/users/:userId/promote
+Auth: Required (super_admin only)
+```
+
+Promotes an existing user (usually an applicant or reviewer) to the `admin` role.
+
+**Response 200**
+
+```json
+{
+  "data": {
+    "_id": "...",
+    "email": "...",
+    "role": "admin"
+  },
+  "message": "User promoted to Admin successfully"
+}
+```
+
+---
+
 ### Admin - Notices
 
 ```
@@ -1222,14 +1246,65 @@ GET /admin/dashboard/stats/job/:jobId
 ```json
 {
   "data": {
-    "totalJobs": 5,
-    "totalApplications": 120,
-    "applicationsByStatus": {
-      "draft": 20,
-      "submitted": 80,
-      "shortlisted": 15,
-      "rejected": 3,
-      "selected": 2
+    "applications": {
+      "total": 120,
+      "byStatus": {
+        "draft": 20,
+        "submitted": 80,
+        "under_review": 15,
+        "selected": 5
+      }
+    },
+    "jobs": {
+      "total": 5,
+      "byStatus": {
+        "draft": 1,
+        "published": 4
+      }
+    },
+    "users": {
+      "totalApplicants": 500
+    },
+    "payments": {
+      "totalCollected": 150000,
+      "totalTransactions": 45
+    },
+    "recentApplications": [
+      {
+        "_id": "...",
+        "applicationNumber": "APP/2026/01",
+        "status": "submitted",
+        "createdAt": "...",
+        "jobId": { "title": "...", "advertisementNo": "..." },
+        "userId": { "email": "..." }
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Admin - Job Stats
+
+```
+GET /admin/dashboard/stats/job/:jobId
+```
+
+**Response 200** includes `byPayment` breakdown:
+
+```json
+{
+  "data": {
+    "job": { ... },
+    "applications": {
+      "total": 50,
+      "byStatus": { ... },
+      "byPayment": {
+        "paid": 40,
+        "pending": 5,
+        "exempted": 5
+      }
     }
   }
 }
@@ -1369,4 +1444,4 @@ const PAYMENT_STATUS = ['pending', 'paid', 'failed', 'exempted'];
 
 ---
 
-_Last updated: 2026-02-28 | Backend version: v1_
+_Last updated: 2026-03-04 | Backend version: v1_
