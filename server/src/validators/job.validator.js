@@ -13,7 +13,6 @@ import {
 } from '../constants.js';
 
 /** Application Fee Schema */
-
 const applicationFeeSchema = z.object({
   general: z.number().min(0, 'General fee cannot be negative'),
   sc_st: z.number().min(0, 'SC/ST fee cannot be negative'),
@@ -24,7 +23,6 @@ const applicationFeeSchema = z.object({
 });
 
 /** Eligibility Criteria Schema */
-
 const requiredDegreeSchema = z.object({
   level: z.enum(DEGREE_LEVELS),
   field: z.string().min(1, 'Degree field is required'),
@@ -70,23 +68,28 @@ const eligibilityCriteriaSchema = z
       ctx.addIssue({
         path: ['maxAge'],
         message: 'Maximum age must be greater than minimum age',
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
       });
     }
   });
 
 /** Document Schema */
-
 const documentSchema = z.object({
   type: z.enum(JOB_DOCUMENT_TYPES),
   category: z.enum(JOB_CATEGORIES).optional(),
   label: z.string().min(1, 'Document label is required'),
-  url: z.string().url('Invalid URL'),
+  url: z.string().refine((val) => {
+    try {
+      new URL(val);
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Invalid URL'),
   publicId: z.string().min(1, 'Cloudinary public ID is required'),
 });
 
 /** Required Section Schema */
-
 const requiredSectionSchema = z
   .object({
     sectionType: z.enum(JOB_SECTION_TYPES),
@@ -105,13 +108,12 @@ const requiredSectionSchema = z
       ctx.addIssue({
         path: ['pdfLabel'],
         message: 'pdfLabel is required when requiresPDF is true',
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
       });
     }
   });
 
 /** Custom Field Schema */
-
 const customFieldSchema = z
   .object({
     fieldName: z.string().min(1, 'Field name is required'),
@@ -128,73 +130,55 @@ const customFieldSchema = z
       ctx.addIssue({
         path: ['options'],
         message: 'Dropdown fields must have options',
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
       });
     }
   });
 
 /** Base Schema Object (Reusable) */
-
 const jobBaseSchema = {
   title: z
     .string()
     .min(5, 'Title must be at least 5 characters')
     .max(200, 'Title cannot exceed 200 characters'),
-
   advertisementNo: z
     .string()
     .regex(
       /^[A-Z0-9/-]+$/,
       'Advertisement number must be uppercase alphanumeric'
     ),
-
   department: z
     .string()
     .regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID format'),
-
   designation: z.enum(JOB_DESIGNATIONS),
-
   grade: z.enum(JOB_GRADES).optional(),
-
   payLevel: z.enum(JOB_PAY_LEVELS),
-
   positions: z.number().int().min(1, 'At least one position is required'),
-
   recruitmentType: z.enum(JOB_RECRUITMENT_TYPES).default('external'),
-
   categories: z.array(z.enum(JOB_CATEGORIES)).optional().default([]),
-
   applicationFee: applicationFeeSchema,
-
   eligibilityCriteria: eligibilityCriteriaSchema,
-
   description: z.string().min(50, 'Description must be at least 50 characters'),
-
   qualifications: z.array(z.string()).optional(),
-
   responsibilities: z.array(z.string()).optional(),
-
   documents: z.array(documentSchema).optional().default([]),
-
   requiredSections: z
     .array(requiredSectionSchema)
     .min(1, 'At least one required section is mandatory'),
-
   customFields: z.array(customFieldSchema).optional(),
-
   applicationStartDate: z
     .string()
-    .datetime()
+    .refine((val) => !isNaN(Date.parse(val)), 'Invalid date format')
     .refine(
       (date) => new Date(date) > new Date(),
       'Application start date must be in the future'
     ),
-
-  applicationEndDate: z.string().datetime(),
+  applicationEndDate: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), 'Invalid date format'),
 };
 
 /** Create Job Schema */
-
 export const createJobSchema = z.object({
   body: z
     .object(jobBaseSchema)
@@ -202,19 +186,17 @@ export const createJobSchema = z.object({
     .superRefine((data, ctx) => {
       const startDate = new Date(data.applicationStartDate);
       const endDate = new Date(data.applicationEndDate);
-
       if (endDate <= startDate) {
         ctx.addIssue({
           path: ['applicationEndDate'],
           message: 'Application end date must be after start date',
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
         });
       }
     }),
 });
 
 /** Update Job Schema */
-
 export const updateJobSchema = z.object({
   body: z
     .object(jobBaseSchema)
@@ -224,12 +206,11 @@ export const updateJobSchema = z.object({
       if (data.applicationStartDate && data.applicationEndDate) {
         const startDate = new Date(data.applicationStartDate);
         const endDate = new Date(data.applicationEndDate);
-
         if (endDate <= startDate) {
           ctx.addIssue({
             path: ['applicationEndDate'],
             message: 'Application end date must be after start date',
-            code: z.ZodIssueCode.custom,
+            code: 'custom',
           });
         }
       }
@@ -237,7 +218,6 @@ export const updateJobSchema = z.object({
 });
 
 /** Job Filter Schema (for query params) */
-
 export const jobFilterSchema = z.object({
   query: z.object({
     status: z.enum(JOB_STATUSES).optional(),
@@ -261,5 +241,22 @@ export const jobFilterSchema = z.object({
     sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
     page: z.string().optional().default('1').transform(Number),
     limit: z.string().optional().default('10').transform(Number),
+  }),
+});
+
+/** Job ID Param Schema */
+export const jobIdParamSchema = z.object({
+  params: z.object({
+    id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid job ID format'),
+  }),
+});
+
+/** Job By Advertisement Number Schema */
+export const jobByAdvertisementSchema = z.object({
+  query: z.object({
+    advertisementNo: z
+      .string()
+      .min(1, 'Advertisement number is required')
+      .regex(/^[A-Z0-9/.-]+$/i, 'Invalid advertisement number format'),
   }),
 });

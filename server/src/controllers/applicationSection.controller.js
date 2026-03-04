@@ -4,7 +4,6 @@ import { ApiError } from '../utils/apiError.js';
 import {
   validateSectionData,
   validatePDFUpload,
-  validatePDFMagicNumber,
   validateFinalPDF,
   validateImageUpload,
   scanForMalware,
@@ -13,7 +12,10 @@ import {
   calculateAutoCredits,
   calcManualCredits,
 } from '../services/creditPoints.service.js';
-import cloudinary from '../config/cloudinary.config.js';
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} from '../services/upload.service.js';
 import { HTTP_STATUS } from '../constants.js';
 
 /**
@@ -42,7 +44,6 @@ export const saveSection = asyncHandler(async (req, res) => {
   const errors = validateSectionData(
     sectionType,
     data,
-    sectionConfig,
     application.jobSnapshot.customFields
   );
 
@@ -51,25 +52,28 @@ export const saveSection = asyncHandler(async (req, res) => {
   }
 
   // Get existing section or create new
-  const existingSection = application.sections.get(sectionType)?.toObject() || {};
+  const existingSection =
+    application.sections.get(sectionType)?.toObject() || {};
 
   // Update section
   application.sections.set(sectionType, {
     ...existingSection,
     data,
     savedAt: new Date(),
-    isComplete: errors.length === 0,
+    isComplete: true, // Always true here: errors would have thrown above
   });
 
   await application.save();
 
-  res.json(
-    new ApiResponse(
-      200,
-      application.sections.get(sectionType),
-      'Section saved successfully'
-    )
-  );
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        application.sections.get(sectionType),
+        'Section saved successfully'
+      )
+    );
 });
 
 /**
@@ -109,14 +113,6 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
     );
   }
 
-  // Validate magic number (prevent file spoofing)
-  if (!validatePDFMagicNumber(file.buffer)) {
-    throw new ApiError(
-      HTTP_STATUS.BAD_REQUEST,
-      'Invalid PDF file. File may be corrupted or spoofed.'
-    );
-  }
-
   // Scan for malware (stub)
   const isClean = await scanForMalware(file.buffer);
   if (!isClean) {
@@ -125,50 +121,36 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
 
   // Delete old PDF if exists
   const existingSection = application.sections.get(sectionType);
-  if (existingSection?.cloudinaryId) {
-    try {
-      await cloudinary.uploader.destroy(existingSection.cloudinaryId, {
-        resource_type: 'raw',
-      });
-    } catch (error) {
-      console.error('Error deleting old PDF:', error);
-    }
-  }
+  await deleteFromCloudinary(existingSection?.cloudinaryId, 'raw');
 
   // Upload to Cloudinary
-  const uploadResult = await new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: `nit_kkr_careers/applications/${application.applicationNumber}/${sectionType}`,
-        resource_type: 'raw',
-        format: 'pdf',
-      },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      }
-    );
-    uploadStream.end(file.buffer);
+  const appNo = application.applicationNumber;
+  const uploaded = await uploadToCloudinary(file.buffer, {
+    publicId: `nit_kkr_careers/applications/${appNo}/${sectionType}/${appNo}_${sectionType}.pdf`,
+    resourceType: 'raw',
+    format: 'pdf',
   });
 
   // Update section
   const existingSectionData = existingSection?.toObject() || {};
   application.sections.set(sectionType, {
     ...existingSectionData,
-    pdfUrl: uploadResult.secure_url,
-    cloudinaryId: uploadResult.public_id,
+    pdfUrl: uploaded.url,
+    cloudinaryId: uploaded.publicId,
     savedAt: new Date(),
   });
 
   await application.save();
 
-  res.json(
-    new ApiResponse(
-      200,
-      application.sections.get(sectionType),
-      'PDF uploaded successfully'
-    )
-  );
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        application.sections.get(sectionType),
+        'PDF uploaded successfully'
+      )
+    );
 });
 
 /**
@@ -185,12 +167,10 @@ export const deleteSectionPDF = asyncHandler(async (req, res) => {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'No PDF found for this section');
   }
 
-  // Delete from Cloudinary
-  await cloudinary.uploader.destroy(existingSection.cloudinaryId, {
-    resource_type: 'raw',
-  });
+  // Delete from Cloudinary (non-throwing)
+  await deleteFromCloudinary(existingSection.cloudinaryId, 'raw');
 
-  // Update section
+  // Clear the PDF fields from the section
   const sectionData = existingSection.toObject();
   application.sections.set(sectionType, {
     ...sectionData,
@@ -201,7 +181,9 @@ export const deleteSectionPDF = asyncHandler(async (req, res) => {
 
   await application.save();
 
-  res.json(new ApiResponse(200, null, 'PDF deleted successfully'));
+  res
+    .status(HTTP_STATUS.OK)
+    .json(new ApiResponse(HTTP_STATUS.OK, null, 'PDF deleted successfully'));
 });
 
 /**
@@ -232,7 +214,6 @@ export const validateSection = asyncHandler(async (req, res) => {
     const dataErrors = validateSectionData(
       sectionType,
       section.data,
-      sectionConfig,
       application.jobSnapshot.customFields
     );
     errors.push(...dataErrors);
@@ -247,16 +228,15 @@ export const validateSection = asyncHandler(async (req, res) => {
 
   const isValid = errors.length === 0;
 
-  res.json(
-    new ApiResponse(
-      200,
-      {
-        isValid,
-        errors,
-      },
-      isValid ? 'Section is valid' : 'Section has validation errors'
-    )
-  );
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        { isValid, errors },
+        isValid ? 'Section is valid' : 'Section has validation errors'
+      )
+    );
 });
 
 /**
@@ -276,7 +256,7 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
     );
   }
 
-  // Validated by imageUpload middleware (size + JPEG filter)
+  // Validate image (magic bytes + MIME + size)
   const imageErrors = validateImageUpload(file, sectionType);
   if (imageErrors.length > 0) {
     throw new ApiError(
@@ -286,59 +266,44 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
     );
   }
 
-  // Delete previous image from Cloudinary if it exists
-  const existingSection = application.sections.get(sectionType);
-  if (existingSection?.cloudinaryId) {
-    try {
-      await cloudinary.uploader.destroy(existingSection.cloudinaryId, {
-        resource_type: 'image',
-      });
-    } catch (err) {
-      console.error(
-        `[Cloudinary] Failed to delete old ${sectionType}:`,
-        err.message
-      );
-    }
+  // Scan for malware
+  const isClean = await scanForMalware(file.buffer);
+  if (!isClean) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'File failed security scan');
   }
 
-  // Stream upload to Cloudinary as image
-  const uploadResult = await new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: `nit_kkr_careers/applications/${application.applicationNumber}/${sectionType}`,
-        resource_type: 'image',
-        format: 'jpg',
-        public_id: `${application.applicationNumber}_${sectionType}`,
-      },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      }
-    );
-    stream.end(file.buffer);
+  // Delete previous image from Cloudinary if it exists (non-throwing)
+  const existingSection = application.sections.get(sectionType);
+  await deleteFromCloudinary(existingSection?.cloudinaryId, 'image');
+
+  // Upload to Cloudinary as image
+  const appNo = application.applicationNumber;
+  const uploaded = await uploadToCloudinary(file.buffer, {
+    publicId: `nit_kkr_careers/applications/${appNo}/${sectionType}/${appNo}_${sectionType}`,
+    resourceType: 'image',
+    format: 'jpg',
   });
 
   const existingSectionData = existingSection?.toObject() || {};
   application.sections.set(sectionType, {
     ...existingSectionData,
-    imageUrl: uploadResult.secure_url,
-    cloudinaryId: uploadResult.public_id,
+    imageUrl: uploaded.url,
+    cloudinaryId: uploaded.publicId,
     savedAt: new Date(),
     isComplete: true,
   });
 
   await application.save();
 
-  res.json(
-    new ApiResponse(
-      200,
-      {
-        sectionType,
-        imageUrl: uploadResult.secure_url,
-      },
-      `${sectionType.charAt(0).toUpperCase() + sectionType.slice(1)} uploaded successfully`
-    )
-  );
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        application.sections.get(sectionType),
+        `${sectionType.charAt(0).toUpperCase() + sectionType.slice(1)} uploaded successfully`
+      )
+    );
 });
 
 /**
@@ -358,9 +323,8 @@ export const deletePhotoOrSignature = asyncHandler(async (req, res) => {
     );
   }
 
-  await cloudinary.uploader.destroy(existingSection.cloudinaryId, {
-    resource_type: 'image',
-  });
+  // Delete from Cloudinary (non-throwing)
+  await deleteFromCloudinary(existingSection.cloudinaryId, 'image');
 
   const sectionData = existingSection.toObject();
   application.sections.set(sectionType, {
@@ -373,7 +337,15 @@ export const deletePhotoOrSignature = asyncHandler(async (req, res) => {
 
   await application.save();
 
-  res.json(new ApiResponse(200, null, `${sectionType} deleted successfully`));
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        null,
+        `${sectionType} deleted successfully`
+      )
+    );
 });
 
 /**
@@ -393,63 +365,43 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
     );
   }
 
-  if (!validatePDFMagicNumber(file.buffer)) {
-    throw new ApiError(
-      HTTP_STATUS.BAD_REQUEST,
-      'Invalid PDF file. File may be corrupted or spoofed.'
-    );
+  // Scan for malware (stub - replace with ClamAV or equivalent in production)
+  const isClean = await scanForMalware(file.buffer);
+  if (!isClean) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'File failed security scan');
   }
-
-  // Delete existing doc if present
+  // Delete existing doc if present (non-throwing)
   const existingSection = application.sections.get('final_documents');
-  if (existingSection?.cloudinaryId) {
-    try {
-      await cloudinary.uploader.destroy(existingSection.cloudinaryId, {
-        resource_type: 'raw',
-      });
-    } catch (err) {
-      console.error(
-        '[Cloudinary] Failed to delete old final documents:',
-        err.message
-      );
-    }
-  }
+  await deleteFromCloudinary(existingSection?.cloudinaryId, 'raw');
 
   // Upload to Cloudinary
-  const uploadResult = await new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: `nit_kkr_careers/applications/${application.applicationNumber}/documents`,
-        resource_type: 'raw',
-        format: 'pdf',
-        public_id: `${application.applicationNumber}_documents.pdf`,
-      },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      }
-    );
-    stream.end(file.buffer);
+  const appNo = application.applicationNumber;
+  const uploaded = await uploadToCloudinary(file.buffer, {
+    publicId: `nit_kkr_careers/applications/${appNo}/documents/${appNo}_documents.pdf`,
+    resourceType: 'raw',
+    format: 'pdf',
   });
 
   const existingSectionData = existingSection?.toObject() || {};
   application.sections.set('final_documents', {
     ...existingSectionData,
-    pdfUrl: uploadResult.secure_url,
-    cloudinaryId: uploadResult.public_id,
+    pdfUrl: uploaded.url,
+    cloudinaryId: uploaded.publicId,
     savedAt: new Date(),
     isComplete: true,
   });
 
   await application.save();
 
-  res.json(
-    new ApiResponse(
-      200,
-      { pdfUrl: uploadResult.secure_url },
-      'Documents uploaded successfully'
-    )
-  );
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        application.sections.get('final_documents'),
+        'Documents uploaded successfully'
+      )
+    );
 });
 
 /**
@@ -464,9 +416,9 @@ export const getCreditPointsSummary = asyncHandler(async (req, res) => {
   const manualActivities = creditSection?.data?.manualActivities || [];
   const manualTotal = calcManualCredits(manualActivities);
 
-  res.json(
+  res.status(HTTP_STATUS.OK).json(
     new ApiResponse(
-      200,
+      HTTP_STATUS.OK,
       {
         autoCredits,
         manualTotal,

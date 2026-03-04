@@ -4,7 +4,13 @@ import { ApiError } from '../../utils/apiError.js';
 import { ApiResponse } from '../../utils/apiResponse.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { logAction } from '../../utils/auditLogger.js';
-import { JOB_STATUS, HTTP_STATUS } from '../../constants.js';
+import {
+  JOB_STATUS,
+  HTTP_STATUS,
+  AUDIT_ACTIONS,
+  RESOURCE_TYPES,
+  PAGINATION,
+} from '../../constants.js';
 
 /**
  * @route   POST /api/admin/jobs
@@ -50,14 +56,18 @@ export const createJob = asyncHandler(async (req, res) => {
   // Log action
   await logAction({
     userId: req.user._id,
-    action: 'JOB_CREATED',
-    resourceType: 'Job',
+    action: AUDIT_ACTIONS.JOB_CREATED,
+    resourceType: RESOURCE_TYPES.JOB,
     resourceId: job._id,
     changes: { after: job.toObject() },
     req,
   });
 
-  res.status(201).json(new ApiResponse(201, job, 'Job created successfully'));
+  res
+    .status(HTTP_STATUS.CREATED)
+    .json(
+      new ApiResponse(HTTP_STATUS.CREATED, job, 'Job created successfully')
+    );
 });
 
 /**
@@ -112,7 +122,7 @@ export const getAllJobs = asyncHandler(async (req, res) => {
 
   // Pagination
   const pageNum = parseInt(page, 10);
-  const limitNum = parseInt(limit, 10);
+  const limitNum = Math.min(parseInt(limit, 10), PAGINATION.MAX_LIMIT);
   const skip = (pageNum - 1) * limitNum;
 
   // Sorting
@@ -126,7 +136,8 @@ export const getAllJobs = asyncHandler(async (req, res) => {
       .skip(skip)
       .limit(limitNum)
       .populate('department', 'name code')
-      .populate('createdBy', 'email profile.firstName profile.lastName'),
+      .populate('createdBy', 'email profile.firstName profile.lastName')
+      .lean(),
     Job.countDocuments(query),
   ]);
 
@@ -143,8 +154,10 @@ export const getAllJobs = asyncHandler(async (req, res) => {
   };
 
   res
-    .status(200)
-    .json(new ApiResponse(200, responseData, 'Jobs fetched successfully'));
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(HTTP_STATUS.OK, responseData, 'Jobs fetched successfully')
+    );
 });
 
 /**
@@ -164,7 +177,9 @@ export const getJobById = asyncHandler(async (req, res) => {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
   }
 
-  res.status(200).json(new ApiResponse(200, job, 'Job fetched successfully'));
+  res
+    .status(HTTP_STATUS.OK)
+    .json(new ApiResponse(HTTP_STATUS.OK, job, 'Job fetched successfully'));
 });
 
 /**
@@ -214,8 +229,8 @@ export const updateJob = asyncHandler(async (req, res) => {
 
   await logAction({
     userId: req.user._id,
-    action: 'JOB_UPDATED',
-    resourceType: 'Job',
+    action: AUDIT_ACTIONS.JOB_UPDATED,
+    resourceType: RESOURCE_TYPES.JOB,
     resourceId: job._id,
     changes: {
       before: previousState,
@@ -224,7 +239,9 @@ export const updateJob = asyncHandler(async (req, res) => {
     req,
   });
 
-  res.status(200).json(new ApiResponse(200, job, 'Job updated successfully'));
+  res
+    .status(HTTP_STATUS.OK)
+    .json(new ApiResponse(HTTP_STATUS.OK, job, 'Job updated successfully'));
 });
 
 /**
@@ -248,13 +265,15 @@ export const deleteJob = asyncHandler(async (req, res) => {
 
   await logAction({
     userId: req.user._id,
-    action: 'JOB_DELETED',
-    resourceType: 'Job',
+    action: AUDIT_ACTIONS.JOB_DELETED,
+    resourceType: RESOURCE_TYPES.JOB,
     resourceId: job._id,
     req,
   });
 
-  res.status(200).json(new ApiResponse(200, null, 'Job deleted successfully'));
+  res
+    .status(HTTP_STATUS.OK)
+    .json(new ApiResponse(HTTP_STATUS.OK, null, 'Job deleted successfully'));
 });
 
 /**
@@ -290,13 +309,15 @@ export const publishJob = asyncHandler(async (req, res) => {
 
   await logAction({
     userId: req.user._id,
-    action: 'JOB_PUBLISHED',
-    resourceType: 'Job',
+    action: AUDIT_ACTIONS.JOB_PUBLISHED,
+    resourceType: RESOURCE_TYPES.JOB,
     resourceId: job._id,
     req,
   });
 
-  res.status(200).json(new ApiResponse(200, job, 'Job published successfully'));
+  res
+    .status(HTTP_STATUS.OK)
+    .json(new ApiResponse(HTTP_STATUS.OK, job, 'Job published successfully'));
 });
 
 /**
@@ -324,11 +345,13 @@ export const closeJob = asyncHandler(async (req, res) => {
 
   await logAction({
     userId: req.user._id,
-    action: 'JOB_CLOSED',
-    resourceType: 'Job',
+    action: AUDIT_ACTIONS.JOB_CLOSED,
+    resourceType: RESOURCE_TYPES.JOB,
     resourceId: job._id,
     req,
   });
 
-  res.status(200).json(new ApiResponse(200, job, 'Job closed successfully'));
+  res
+    .status(HTTP_STATUS.OK)
+    .json(new ApiResponse(HTTP_STATUS.OK, job, 'Job closed successfully'));
 });

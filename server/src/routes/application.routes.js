@@ -34,23 +34,10 @@ import {
   withdrawApplicationSchema,
   sectionTypeParamSchema,
 } from '../validators/application.validator.js';
-import {
-  uploadPhoto,
-  uploadSignature,
-} from '../middlewares/imageUpload.middleware.js';
-import multer from 'multer';
+import { uploadImageBySection } from '../middlewares/imageUpload.middleware.js';
+import { uploadPDFToMemory } from '../middlewares/pdfUpload.middleware.js';
 
 const router = Router();
-
-// Memory storage multer for section PDFs (≤ 10MB) and final documents (≤ 3MB — enforced in controller)
-const pdfUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') cb(null, true);
-    else cb(new Error('Only PDF files are allowed'), false);
-  },
-});
 
 // All routes require authentication
 router.use(verifyJWT);
@@ -89,7 +76,7 @@ router.post(
   checkApplicationOwnership,
   checkApplicationEditable,
   validate(sectionTypeParamSchema),
-  pdfUpload.single('pdf'),
+  uploadPDFToMemory.single('pdf'),
   uploadSectionPDF
 );
 router.delete(
@@ -105,15 +92,7 @@ router.post(
   '/:id/sections/:sectionType/image',
   checkApplicationOwnership,
   checkApplicationEditable,
-  (req, res, next) => {
-    if (req.params.sectionType === 'photo') {
-      uploadPhoto.single('image')(req, res, next);
-    } else if (req.params.sectionType === 'signature') {
-      uploadSignature.single('image')(req, res, next);
-    } else {
-      next();
-    }
-  },
+  uploadImageBySection,
   uploadPhotoOrSignature
 );
 
@@ -124,12 +103,12 @@ router.delete(
   deletePhotoOrSignature
 );
 
-// Final Documents (merged PDF ≤ 3MB)
+// Final Documents (merged PDF ≤ 3MB — enforced in controller after magic-byte check)
 router.post(
   '/:id/sections/final_documents/pdf',
   checkApplicationOwnership,
   checkApplicationEditable,
-  pdfUpload.single('pdf'),
+  uploadPDFToMemory.single('pdf'),
   uploadFinalDocuments
 );
 

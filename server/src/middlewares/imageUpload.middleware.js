@@ -48,3 +48,24 @@ export const uploadSignature = multer({
     files: 1,
   },
 });
+
+/**
+ * Route-level dispatcher that selects the correct image multer instance
+ * based on the `sectionType` URL parameter.
+ *
+ * Handles:
+ *   POST /api/v1/applications/:id/sections/photo/image
+ *   POST /api/v1/applications/:id/sections/signature/image
+ *
+ * If sectionType is neither 'photo' nor 'signature', the request is passed
+ * through unchanged and the controller will reject it.
+ */
+export const uploadImageBySection = (req, res, next) => {
+  if (req.params.sectionType === 'photo') {
+    uploadPhoto.single('image')(req, res, next);
+  } else if (req.params.sectionType === 'signature') {
+    uploadSignature.single('image')(req, res, next);
+  } else {
+    next();
+  }
+};

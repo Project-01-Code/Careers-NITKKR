@@ -8,7 +8,7 @@ import {
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { requireRole } from '../middlewares/rbac.middleware.js';
 import { USER_ROLES } from '../constants.js';
-import { upload } from '../middlewares/pdfUpload.middleware.js';
+import { uploadPDFToMemory } from '../middlewares/pdfUpload.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import {
   createNoticeSchema,
@@ -27,7 +27,7 @@ router.post(
   '/',
   verifyJWT,
   requireRole(USER_ROLES.ADMIN),
-  upload.single('file'),
+  uploadPDFToMemory.single('file'),
   validate(createNoticeSchema),
   createNotice
 );
@@ -36,7 +36,7 @@ router.patch(
   '/:id',
   verifyJWT,
   requireRole(USER_ROLES.ADMIN),
-  upload.single('file'),
+  uploadPDFToMemory.single('file'),
   validate(updateNoticeSchema),
   validate(noticeIdParamSchema),
   updateNotice

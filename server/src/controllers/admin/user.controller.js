@@ -11,7 +11,7 @@ import { logAction } from '../../utils/auditLogger.js';
  * @access  Super Admin (for Admin creation) / Admin (for Reviewer creation)
  */
 export const createUser = asyncHandler(async (req, res) => {
-  const { email, password, fullName, role } = req.body;
+  const { email, password, firstName, lastName, role } = req.body;
 
   // 1. Validate Target Role
   if (![USER_ROLES.ADMIN, USER_ROLES.REVIEWER].includes(role)) {
@@ -47,8 +47,8 @@ export const createUser = asyncHandler(async (req, res) => {
     password,
     role,
     profile: {
-      firstName: fullName?.split(' ')[0] || 'User',
-      lastName: fullName?.split(' ').slice(1).join(' ') || '',
+      firstName: firstName || 'User',
+      lastName: lastName || '',
     },
   });
 
@@ -104,7 +104,7 @@ export const promoteUser = asyncHandler(async (req, res) => {
 
   await logAction({
     userId: req.user._id,
-    action: AUDIT_ACTIONS.PROFILE_UPDATED,
+    action: AUDIT_ACTIONS.ROLE_PROMOTED,
     resourceType: 'User',
     resourceId: user._id,
     changes: { oldRole, newRole: USER_ROLES.ADMIN, promotedBy: req.user.email },

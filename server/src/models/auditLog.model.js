@@ -46,7 +46,9 @@ const auditLogSchema = new Schema(
 
 // Indexes for efficient querying
 auditLogSchema.index({ userId: 1, timestamp: -1 });
+
 auditLogSchema.index({ resourceType: 1, resourceId: 1 });
+
 auditLogSchema.index(
   { timestamp: 1 },
   { expireAfterSeconds: 60 * 60 * 24 * 90 }

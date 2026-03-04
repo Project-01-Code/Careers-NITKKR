@@ -3,6 +3,11 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { HTTP_STATUS } from '../constants.js';
+import { scanForMalware } from '../services/sectionValidation.service.js';
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} from '../services/upload.service.js';
 
 /**
  * @desc    Create a new notice (Admin only)
@@ -12,11 +17,27 @@ import { HTTP_STATUS } from '../constants.js';
 export const createNotice = asyncHandler(async (req, res) => {
   const { heading, advtNo, category, externalLink } = req.body;
 
-  // Extract Cloudinary URL and public ID if file was uploaded (optional)
-  const pdfUrl = req.file ? req.file.path : null;
-  const cloudinaryId = req.file ? req.file.filename : null;
+  let pdfUrl = null;
+  let cloudinaryId = null;
 
-  // Create notice in database
+  if (req.file) {
+    const isClean = await scanForMalware(req.file.buffer);
+    if (!isClean) {
+      throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'File failed security scan');
+    }
+
+    const baseName = req.file.originalname.replace(/\.pdf$/i, '');
+    const publicId = `nit_kkr_careers/notices/notice_${Date.now()}_${baseName}.pdf`;
+
+    const uploaded = await uploadToCloudinary(req.file.buffer, {
+      publicId,
+      resourceType: 'raw',
+      format: 'pdf',
+    });
+    pdfUrl = uploaded.url;
+    cloudinaryId = uploaded.publicId;
+  }
+
   const notice = await Notice.create({
     heading,
     advtNo,
@@ -47,24 +68,20 @@ export const getPublicNotices = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 4;
   const skip = (page - 1) * limit;
 
-  // Build filter query
   const filter = { isActive: true };
-
-  // Add category filter if provided
   if (req.query.category) {
     filter.category = req.query.category;
   }
 
-  // Get total count for pagination metadata
-  const totalResults = await Notice.countDocuments(filter);
-  const totalPages = Math.ceil(totalResults / limit);
-
-  // Fetch notices with pagination, sorted by newest first
-  const notices = await Notice.find(filter)
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .select('-__v');
+  const [notices, totalResults] = await Promise.all([
+    Notice.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('-__v')
+      .lean(),
+    Notice.countDocuments(filter),
+  ]);
 
   res.status(HTTP_STATUS.OK).json(
     new ApiResponse(
@@ -73,7 +90,7 @@ export const getPublicNotices = asyncHandler(async (req, res) => {
         notices,
         pagination: {
           currentPage: page,
-          totalPages,
+          totalPages: Math.ceil(totalResults / limit),
           totalResults,
           limit,
         },
@@ -84,26 +101,17 @@ export const getPublicNotices = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Archive a notice (soft delete) (Admin only)
+ * @desc    Archive a notice (soft delete)
  * @route   PATCH /api/v1/notices/:id/archive
  * @access  Admin
  */
 export const archiveNotice = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const notice = await Notice.findById(req.params.id);
 
-  // Find and update notice
-  const notice = await Notice.findById(id);
-
-  if (!notice) {
-    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Notice not found');
-  }
-
-  // Check if already archived
-  if (!notice.isActive) {
+  if (!notice) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Notice not found');
+  if (!notice.isActive)
     throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Notice is already archived');
-  }
 
-  // Soft delete by setting isActive to false
   notice.isActive = false;
   await notice.save();
 
@@ -120,36 +128,39 @@ export const archiveNotice = asyncHandler(async (req, res) => {
  * @access  Admin
  */
 export const updateNotice = asyncHandler(async (req, res) => {
-  const { id } = req.params;
   const { heading, advtNo, category, externalLink, isActive } = req.body;
 
-  // Find notice
-  const notice = await Notice.findById(id);
+  const notice = await Notice.findById(req.params.id);
+  if (!notice) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Notice not found');
 
-  if (!notice) {
-    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Notice not found');
+  if (req.file) {
+    const isClean = await scanForMalware(req.file.buffer);
+    if (!isClean) {
+      throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'File failed security scan');
+    }
+
+    // Delete old PDF from Cloudinary (non-throwing)
+    await deleteFromCloudinary(notice.cloudinaryId, 'raw');
+
+    // Upload new PDF
+    const baseName = req.file.originalname.replace(/\.pdf$/i, '');
+    const publicId = `nit_kkr_careers/notices/notice_${Date.now()}_${baseName}.pdf`;
+
+    const uploaded = await uploadToCloudinary(req.file.buffer, {
+      publicId,
+      resourceType: 'raw',
+      format: 'pdf',
+    });
+    notice.pdfUrl = uploaded.url;
+    notice.cloudinaryId = uploaded.publicId;
   }
 
-  // If new PDF uploaded, delete old one from Cloudinary
-  if (req.file && notice.cloudinaryId) {
-    const { deleteFile } = await import('../services/upload.service.js');
-    await deleteFile(notice.cloudinaryId);
-  }
-
-  // Update fields (only update provided fields)
   if (heading !== undefined) notice.heading = heading;
   if (advtNo !== undefined) notice.advtNo = advtNo;
   if (category !== undefined) notice.category = category;
   if (externalLink !== undefined) notice.externalLink = externalLink;
   if (isActive !== undefined) notice.isActive = isActive;
 
-  // Update PDF fields if new file uploaded
-  if (req.file) {
-    notice.pdfUrl = req.file.path;
-    notice.cloudinaryId = req.file.filename;
-  }
-
-  // Save updated notice
   await notice.save();
 
   res

@@ -1,27 +1,9 @@
 import multer from 'multer';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
-import cloudinary from '../config/cloudinary.config.js';
 import { ApiError } from '../utils/apiError.js';
 import { HTTP_STATUS } from '../constants.js';
 
-// Cloudinary storage — uploads directly to cloud (used for notice PDFs)
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'nit_kkr_careers/notices',
-    resource_type: 'raw',
-    allowed_formats: ['pdf'],
-    public_id: (req, file) => {
-      // Include .pdf extension so Cloudinary serves it as PDF (browser preview, not forced download)
-      const timestamp = Date.now();
-      const originalName = file.originalname.replace(/\.pdf$/i, '');
-      return `notice_${timestamp}_${originalName}.pdf`;
-    },
-  },
-});
-
-// File filter — accepts only PDF
-const fileFilter = (req, file, cb) => {
+// File filter —-accepts only PDF MIME type
+const pdfFileFilter = (req, file, cb) => {
   if (file.mimetype === 'application/pdf') {
     cb(null, true);
   } else {
@@ -32,11 +14,23 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Multer instance with Cloudinary storage (for notice PDF uploads)
-export const upload = multer({
-  storage,
-  fileFilter,
+/**
+ * Memory storage multer for ALL PDF uploads in the system.
+ *
+ * Keeps the file buffer in-memory so controllers can run magic-byte
+ * checks, malware scanning, and size validation BEFORE deciding whether
+ * to upload to Cloudinary.
+ *
+ * Used for:
+ *   POST /api/v1/applications/:id/sections/:sectionType/pdf   (section PDFs)
+ *   POST /api/v1/applications/:id/sections/final_documents/pdf
+ *   POST /api/v1/notices                                       (notice PDFs)
+ *   PATCH /api/v1/notices/:id
+ */
+export const uploadPDFToMemory = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: pdfFileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
+    fileSize: 10 * 1024 * 1024, // 10MB outer gate; tighter limits enforced per-section in controller
   },
 });

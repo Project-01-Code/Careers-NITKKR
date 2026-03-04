@@ -1,47 +1,27 @@
 import { z } from 'zod';
+import { APPLICATION_STATUS, JOB_SECTION_TYPES } from '../constants.js';
 
-/**
- * Application Validators
- * Zod schemas for validating application-related requests
- */
-
-/**
- * Create Application Schema
- * Validates request body for creating a new application
- */
+/** Create Application Schema */
 export const createApplicationSchema = z.object({
   body: z.object({
-    jobId: z.string().min(1, 'Job ID is required'),
+    jobId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid job ID format'),
   }),
 });
 
-/**
- * Get Applications Query Schema
- * Validates query parameters for listing applications
- */
+/** Get Applications Query Schema */
 export const getApplicationsQuerySchema = z.object({
   query: z.object({
-    status: z
-      .enum([
-        'draft',
-        'submitted',
-        'under_review',
-        'shortlisted',
-        'rejected',
-        'selected',
-        'withdrawn',
-      ])
+    status: z.enum(Object.values(APPLICATION_STATUS)).optional(),
+    jobId: z
+      .string()
+      .regex(/^[0-9a-fA-F]{24}$/, 'Invalid job ID format')
       .optional(),
-    jobId: z.string().optional(),
-    page: z.coerce.number().int().positive().optional(),
-    limit: z.coerce.number().int().positive().max(100).optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(100).default(10),
   }),
 });
 
-/**
- * Save Section Schema
- * Validates request body for saving section data
- */
+/** Save Section Schema */
 export const saveSectionSchema = z.object({
   body: z.object({
     data: z
@@ -51,15 +31,12 @@ export const saveSectionSchema = z.object({
       }),
   }),
   params: z.object({
-    id: z.string().min(1, 'Application ID is required'),
-    sectionType: z.string().min(1, 'Section type is required'),
+    id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid application ID format'),
+    sectionType: z.enum(JOB_SECTION_TYPES),
   }),
 });
 
-/**
- * Withdraw Application Schema
- * Validates request body for withdrawing an application
- */
+/** Withdraw Application Schema */
 export const withdrawApplicationSchema = z.object({
   body: z.object({
     reason: z
@@ -68,17 +45,14 @@ export const withdrawApplicationSchema = z.object({
       .optional(),
   }),
   params: z.object({
-    id: z.string().min(1, 'Application ID is required'),
+    id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid application ID format'),
   }),
 });
 
-/**
- * Section Type Param Schema
- * Validates sectionType parameter
- */
+/** Section Type Param Schema */
 export const sectionTypeParamSchema = z.object({
   params: z.object({
-    id: z.string().min(1, 'Application ID is required'),
-    sectionType: z.string().min(1, 'Section type is required'),
+    id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid application ID format'),
+    sectionType: z.enum(JOB_SECTION_TYPES),
   }),
 });

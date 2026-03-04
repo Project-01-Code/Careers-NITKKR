@@ -18,6 +18,10 @@ import {
   loginSchema,
   refreshTokenSchema,
   updateProfileSchema,
+  sendEmailVerificationSchema,
+  verifyEmailOTPSchema,
+  sendPasswordResetSchema,
+  resetPasswordSchema,
 } from '../validators/auth.validator.js';
 
 const router = Router();
@@ -38,11 +42,19 @@ router
   .patch(verifyJWT, validate(updateProfileSchema), updateProfile);
 
 // Email verification
-router.route('/verify-email/send').post(sendEmailVerificationOTPHandler);
-router.route('/verify-email/confirm').post(verifyEmailOTPHandler);
+router
+  .route('/verify-email/send')
+  .post(validate(sendEmailVerificationSchema), sendEmailVerificationOTPHandler);
+router
+  .route('/verify-email/confirm')
+  .post(validate(verifyEmailOTPSchema), verifyEmailOTPHandler);
 
 // Password reset
-router.route('/reset-password/send').post(sendPasswordResetOTPHandler);
-router.route('/reset-password/confirm').post(resetPasswordHandler);
+router
+  .route('/reset-password/send')
+  .post(validate(sendPasswordResetSchema), sendPasswordResetOTPHandler);
+router
+  .route('/reset-password/confirm')
+  .post(validate(resetPasswordSchema), resetPasswordHandler);
 
 export default router;

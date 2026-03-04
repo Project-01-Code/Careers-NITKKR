@@ -1,17 +1,35 @@
 import { z } from 'zod';
 
+// Reusable Field Definitions
+
 /**
- * User Registration Schema
- * Email-only authentication with strong password requirements
- * Password policy: Minimum 8 characters, uppercase, lowercase, and number required
+ * Trims and lowercases the raw string before piping into z.email().
+ * Using .pipe() is the Zod 4 replacement for the deprecated .email() method.
+ */
+const emailField = (requiredMsg = 'Email is required') =>
+  z
+    .string({ required_error: requiredMsg })
+    .trim()
+    .toLowerCase()
+    .pipe(z.email('Invalid email format'));
+
+/**
+ * Numeric OTP as a string - exact length enforced in OTP_CONFIG on the server,
+ * but we at least make sure at least 1 character was sent.
+ */
+const otpField = z
+  .string({ required_error: 'OTP is required' })
+  .min(1, 'OTP is required');
+
+// Auth Schemas
+
+/**
+ * POST /auth/register
+ * Password policy: 8-100 chars, uppercase + lowercase + digit required.
  */
 export const registerSchema = z.object({
   body: z.object({
-    email: z
-      .string({ required_error: 'Email is required' })
-      .email('Invalid email format')
-      .toLowerCase()
-      .trim(),
+    email: emailField(),
 
     password: z
       .string({ required_error: 'Password is required' })
@@ -25,16 +43,12 @@ export const registerSchema = z.object({
 });
 
 /**
- * User Login Schema
- * Password validation (only presence check)
+ * POST /auth/login
+ * Only presence check on password - avoid leaking policy info on login.
  */
 export const loginSchema = z.object({
   body: z.object({
-    email: z
-      .string({ required_error: 'Email is required' })
-      .email('Invalid email format')
-      .toLowerCase()
-      .trim(),
+    email: emailField(),
 
     password: z
       .string({ required_error: 'Password is required' })
@@ -43,21 +57,13 @@ export const loginSchema = z.object({
 });
 
 /**
- * Refresh Token Schema
- * Accepts token from request body or cookies
+ * POST /auth/refresh-token
+ * Accepts token from request body OR cookies (either is fine).
  */
 export const refreshTokenSchema = z
   .object({
-    body: z
-      .object({
-        refreshToken: z.string().optional(),
-      })
-      .optional(),
-    cookies: z
-      .object({
-        refreshToken: z.string().optional(),
-      })
-      .optional(),
+    body: z.object({ refreshToken: z.string().optional() }).optional(),
+    cookies: z.object({ refreshToken: z.string().optional() }).optional(),
   })
   .refine(
     (data) => {
@@ -74,10 +80,12 @@ export const refreshTokenSchema = z
     }
   );
 
+// Profile Schemas
+
 /**
- * Update Profile Schema
- * Allows updating profile fields only. No auth or RBAC fields.
- * Phone format: E.164 international format (e.g., +919876543210)
+ * PATCH /auth/profile
+ * All fields optional, but at least one must be present.
+ * Phone: E.164 format (e.g. +919876543210).
  */
 export const updateProfileSchema = z.object({
   body: z
@@ -114,11 +122,60 @@ export const updateProfileSchema = z.object({
         .trim()
         .optional(),
     })
-    .refine(
-      (profile) => {
-        const keys = Object.keys(profile);
-        return keys.length > 0;
-      },
-      { message: 'At least one profile field must be provided' }
-    ),
+    .refine((profile) => Object.keys(profile).length > 0, {
+      message: 'At least one profile field must be provided',
+    }),
+});
+
+// OTP Schemas
+
+/**
+ * POST /auth/verify-email/send
+ * Public endpoint - user identifies themselves by email.
+ */
+export const sendEmailVerificationSchema = z.object({
+  body: z.object({
+    email: emailField(),
+  }),
+});
+
+/**
+ * POST /auth/verify-email/confirm
+ * Public endpoint - email + OTP required.
+ */
+export const verifyEmailOTPSchema = z.object({
+  body: z.object({
+    email: emailField(),
+    otp: otpField,
+  }),
+});
+
+/**
+ * POST /auth/reset-password/send
+ * Public endpoint - user identifies themselves by email.
+ */
+export const sendPasswordResetSchema = z.object({
+  body: z.object({
+    email: emailField(),
+  }),
+});
+
+/**
+ * POST /auth/reset-password/confirm
+ * Public endpoint - email + OTP + new password required.
+ * Same password policy as registration.
+ */
+export const resetPasswordSchema = z.object({
+  body: z.object({
+    email: emailField(),
+    otp: otpField,
+    newPassword: z
+      .string({ required_error: 'New password is required' })
+      .min(8, 'Password must be at least 8 characters')
+      .max(100, 'Password must not exceed 100 characters')
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+        'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+      ),
+  }),
 });

@@ -74,6 +74,15 @@ export const AUDIT_ACTIONS = {
   APPLICATION_SUBMITTED: 'APPLICATION_SUBMITTED',
   APPLICATION_WITHDRAWN: 'APPLICATION_WITHDRAWN',
   APPLICATION_STATUS_CHANGED: 'APPLICATION_STATUS_CHANGED',
+  APPLICATION_REVIEWED: 'APPLICATION_REVIEWED',
+  SECTION_VERIFIED: 'SECTION_VERIFIED',
+  FEE_EXEMPTED: 'FEE_EXEMPTED',
+  ROLE_PROMOTED: 'ROLE_PROMOTED',
+  JOB_CREATED: 'JOB_CREATED',
+  JOB_UPDATED: 'JOB_UPDATED',
+  JOB_DELETED: 'JOB_DELETED',
+  JOB_PUBLISHED: 'JOB_PUBLISHED',
+  JOB_CLOSED: 'JOB_CLOSED',
 };
 
 /* ---------------- RESOURCE TYPES ---------------- */
@@ -98,10 +107,10 @@ export const TOKEN_TYPES = {
 /* ---------------- APPLICATION ENUMS ---------------- */
 
 export const PAYMENT_STATUS = {
-  PENDING: 'pending',
-  PAID: 'paid',
-  FAILED: 'failed',
-  EXEMPTED: 'exempted',
+  PENDING: 'pending', // Initial state/Order created
+  PAID: 'paid', // Successful payment
+  FAILED: 'failed', // Payment failed
+  EXEMPTED: 'exempted', // Fee exempted (e.g., for specific categories)
 };
 
 export const APPLICATION_STATUS = {
@@ -127,8 +136,6 @@ export const PAGINATION = {
 export const JOB_DESIGNATION = {
   ASSISTANT_PROFESSOR_GRADE_II: 'Assistant Professor Grade-II',
   ASSISTANT_PROFESSOR_GRADE_I: 'Assistant Professor Grade-I',
-  ASSOCIATE_PROFESSOR: 'Associate Professor',
-  PROFESSOR: 'Professor',
 };
 
 export const JOB_DESIGNATIONS = Object.values(JOB_DESIGNATION);
