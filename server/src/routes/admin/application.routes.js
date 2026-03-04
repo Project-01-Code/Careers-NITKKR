@@ -9,6 +9,7 @@ import {
   getApplicationsByJob,
   verifySectionDocuments,
   exemptApplicationFee,
+  exportFullApplicationPDF,
 } from '../../controllers/admin/application.controller.js';
 import { verifyJWT } from '../../middlewares/auth.middleware.js';
 import { requireRole } from '../../middlewares/rbac.middleware.js';
@@ -98,6 +99,14 @@ router.post(
   verifyJWT,
   requireRole(USER_ROLES.ADMIN),
   exemptApplicationFee
+);
+
+// Export full application PDF
+router.get(
+  '/:id/export-full',
+  verifyJWT,
+  requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
+  exportFullApplicationPDF
 );
 
 export default router;

@@ -1,6 +1,31 @@
 import { SECTION_SCHEMAS } from '../validators/sections.validator.js';
 
 /**
+ * Credit point caps per activity as per NIT recruitment rules.
+ * Activities 5-22 have specific maximum allowed points.
+ */
+const CREDIT_POINT_CAPS = {
+  5: 15, // Refereed Journal papers
+  6: 10, // Conference papers
+  7: 10, // PH.D. Guidance
+  8: 10, // Patents
+  9: 10, // Books
+  10: 10, // Book Chapters
+  11: 10, // Organized Programs
+  12: 10, // Sponsored Projects
+  13: 10, // Consultancy Projects
+  14: 10, // Theory courses
+  15: 10, // Lab courses
+  16: 10, // New Lab development
+  17: 10, // PG Thesis guidance
+  18: 10, // UG Projects
+  19: 10, // Outreach activities
+  20: 10, // Administrative assignments
+  21: 10, // Departmental activities
+  22: 10, // Workshop/FDP/STTP
+};
+
+/**
  * Formats Zod flat error map into an array of { field, message } objects.
  * This ensures compatibility with the standardized API error structure.
  *
@@ -31,6 +56,22 @@ export function validateSectionData(sectionType, data, customFields) {
     if (!result.success) {
       return formatZodErrors(result.error);
     }
+
+    // Additional business logic for credit points (caps enforcement)
+    if (sectionType === 'credit_points' && data.manualActivities) {
+      const capsErrors = [];
+      data.manualActivities.forEach((activity, index) => {
+        const cap = CREDIT_POINT_CAPS[activity.activityId];
+        if (cap !== undefined && activity.claimedPoints > cap) {
+          capsErrors.push({
+            field: `manualActivities.${index}.claimedPoints`,
+            message: `Claimed points for Activity ${activity.activityId} cannot exceed the cap of ${cap}`,
+          });
+        }
+      });
+      if (capsErrors.length > 0) return capsErrors;
+    }
+
     return [];
   }
 
@@ -229,11 +270,43 @@ export function validateFinalPDF(file) {
 }
 
 /**
- * Placeholder for malware scanning logic.
- *
- * @returns {Promise<boolean>} Always returns true (stub).
+ * Scans a file buffer for malware using ClamAV.
+ * This is a critical security gate for all document uploads.
+ * 
+ * @param {Buffer} fileBuffer - The buffer of the file to scan.
+ * @returns {Promise<boolean>} Resolves to true if clean, false if infected.
  */
-export async function scanForMalware() {
-  // Implementation for ClamAV or similar service would go here.
-  return true;
+export async function scanForMalware(fileBuffer) {
+  // If ClamAV is not enabled (e.g., local dev), log and return true.
+  if (process.env.ENABLE_MALWARE_SCAN !== 'true') {
+    console.warn('[Security] Malware scan bypassed (ENABLE_MALWARE_SCAN is not true)');
+    return true;
+  }
+
+  try {
+    // Dynamically import node-clam to prevent startup crashes if not installed
+    const NodeClam = (await import('node-clam')).default;
+    const clam = await new NodeClam().init({
+      clamdscan: {
+        host: process.env.CLAMAV_HOST || '127.0.0.1',
+        port: process.env.CLAMAV_PORT || 3310,
+        timeout: 60000,
+      }
+    });
+
+    const { isInfected, viruses } = await clam.scanBuffer(fileBuffer);
+
+    if (isInfected) {
+      console.error('[Security] Virus detected:', viruses.join(', '));
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    // In production, we should handle this based on risk profile.
+    // Here we log the error and permit the file to avoid a complete service outage
+    // if the ClamAV service is temporarily down (Fail-Open).
+    console.error('[Security Error] Malware scanning service failed:', error.message);
+    return true;
+  }
 }

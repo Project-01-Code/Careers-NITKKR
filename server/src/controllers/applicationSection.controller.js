@@ -125,22 +125,31 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
 
   // Upload to Cloudinary
   const appNo = application.applicationNumber;
-  const uploaded = await uploadToCloudinary(file.buffer, {
-    publicId: `nit_kkr_careers/applications/${appNo}/${sectionType}/${appNo}_${sectionType}.pdf`,
-    resourceType: 'raw',
-    format: 'pdf',
-  });
+  let uploaded;
+  try {
+    uploaded = await uploadToCloudinary(file.buffer, {
+      publicId: `nit_kkr_careers/applications/${appNo}/${sectionType}/${appNo}_${sectionType}.pdf`,
+      resourceType: 'raw',
+      format: 'pdf',
+    });
 
-  // Update section
-  const existingSectionData = existingSection?.toObject() || {};
-  application.sections.set(sectionType, {
-    ...existingSectionData,
-    pdfUrl: uploaded.url,
-    cloudinaryId: uploaded.publicId,
-    savedAt: new Date(),
-  });
+    // Update section
+    const existingSectionData = existingSection?.toObject() || {};
+    application.sections.set(sectionType, {
+      ...existingSectionData,
+      pdfUrl: uploaded.url,
+      cloudinaryId: uploaded.publicId,
+      savedAt: new Date(),
+    });
 
-  await application.save();
+    await application.save();
+  } catch (error) {
+    // Rollback: Delete from Cloudinary if DB save fails
+    if (uploaded?.publicId) {
+      await deleteFromCloudinary(uploaded.publicId, 'raw').catch(() => { });
+    }
+    throw error;
+  }
 
   res
     .status(HTTP_STATUS.OK)
@@ -278,22 +287,31 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
 
   // Upload to Cloudinary as image
   const appNo = application.applicationNumber;
-  const uploaded = await uploadToCloudinary(file.buffer, {
-    publicId: `nit_kkr_careers/applications/${appNo}/${sectionType}/${appNo}_${sectionType}`,
-    resourceType: 'image',
-    format: 'jpg',
-  });
+  let uploaded;
+  try {
+    uploaded = await uploadToCloudinary(file.buffer, {
+      publicId: `nit_kkr_careers/applications/${appNo}/${sectionType}/${appNo}_${sectionType}`,
+      resourceType: 'image',
+      format: 'jpg',
+    });
 
-  const existingSectionData = existingSection?.toObject() || {};
-  application.sections.set(sectionType, {
-    ...existingSectionData,
-    imageUrl: uploaded.url,
-    cloudinaryId: uploaded.publicId,
-    savedAt: new Date(),
-    isComplete: true,
-  });
+    const existingSectionData = existingSection?.toObject() || {};
+    application.sections.set(sectionType, {
+      ...existingSectionData,
+      imageUrl: uploaded.url,
+      cloudinaryId: uploaded.publicId,
+      savedAt: new Date(),
+      isComplete: true,
+    });
 
-  await application.save();
+    await application.save();
+  } catch (error) {
+    // Rollback
+    if (uploaded?.publicId) {
+      await deleteFromCloudinary(uploaded.publicId, 'image').catch(() => { });
+    }
+    throw error;
+  }
 
   res
     .status(HTTP_STATUS.OK)
@@ -376,22 +394,31 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
 
   // Upload to Cloudinary
   const appNo = application.applicationNumber;
-  const uploaded = await uploadToCloudinary(file.buffer, {
-    publicId: `nit_kkr_careers/applications/${appNo}/documents/${appNo}_documents.pdf`,
-    resourceType: 'raw',
-    format: 'pdf',
-  });
+  let uploaded;
+  try {
+    uploaded = await uploadToCloudinary(file.buffer, {
+      publicId: `nit_kkr_careers/applications/${appNo}/documents/${appNo}_documents.pdf`,
+      resourceType: 'raw',
+      format: 'pdf',
+    });
 
-  const existingSectionData = existingSection?.toObject() || {};
-  application.sections.set('final_documents', {
-    ...existingSectionData,
-    pdfUrl: uploaded.url,
-    cloudinaryId: uploaded.publicId,
-    savedAt: new Date(),
-    isComplete: true,
-  });
+    const existingSectionData = existingSection?.toObject() || {};
+    application.sections.set('final_documents', {
+      ...existingSectionData,
+      pdfUrl: uploaded.url,
+      cloudinaryId: uploaded.publicId,
+      savedAt: new Date(),
+      isComplete: true,
+    });
 
-  await application.save();
+    await application.save();
+  } catch (error) {
+    // Rollback
+    if (uploaded?.publicId) {
+      await deleteFromCloudinary(uploaded.publicId, 'raw').catch(() => { });
+    }
+    throw error;
+  }
 
   res
     .status(HTTP_STATUS.OK)

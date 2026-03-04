@@ -284,8 +284,7 @@ const logoutUser = asyncHandler(async (req, res) => {
  * tokens, and issues a fresh pair.
  */
 const refreshAccessToken = asyncHandler(async (req, res) => {
-  const incomingRefreshToken =
-    req.cookies.refreshToken || req.body.refreshToken;
+  const incomingRefreshToken = req.cookies.refreshToken;
 
   if (!incomingRefreshToken) {
     throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Refresh token required.');
@@ -320,7 +319,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(
           HTTP_STATUS.OK,
-          { accessToken, refreshToken: newRefreshToken },
+          { accessToken },
           'Access token refreshed.'
         )
       );

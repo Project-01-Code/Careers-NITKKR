@@ -74,34 +74,51 @@ export const submitApplication = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
+    // Update application - re-verify DRAFT status inside transaction to prevent race conditions
+    const updatedApplication = await mongoose.model('Application').findOneAndUpdate(
+      { _id: application._id, status: APPLICATION_STATUS.DRAFT },
+      {
+        $set: {
+          status: APPLICATION_STATUS.SUBMITTED,
+          submittedAt: new Date(),
+          isLocked: true,
+          lockedAt: new Date(),
+        },
+        $push: {
+          statusHistory: {
+            status: APPLICATION_STATUS.SUBMITTED,
+            changedBy: req.user._id,
+            changedAt: new Date(),
+            remarks: 'Application submitted by applicant',
+          },
+        },
+      },
+      { session, new: true }
+    );
+
+    if (!updatedApplication) {
+      throw new ApiError(
+        HTTP_STATUS.CONFLICT,
+        'Application submission failed. It might have already been submitted or is no longer a draft.'
+      );
+    }
+
+    // Use the updated application for audit logging
     const oldStatus = application.status;
-
-    // Update application
-    application.status = APPLICATION_STATUS.SUBMITTED;
-    application.submittedAt = new Date();
-    application.isLocked = true;
-    application.lockedAt = new Date();
-
-    // Add to status history
-    application.statusHistory.push({
-      status: APPLICATION_STATUS.SUBMITTED,
-      changedBy: req.user._id,
-      changedAt: new Date(),
-      remarks: 'Application submitted by applicant',
-    });
-
-    await application.save({ session });
 
     // Audit log - awaited so a failure here aborts the transaction
     await logAction({
       userId: req.user._id,
       action: AUDIT_ACTIONS.APPLICATION_SUBMITTED,
       resourceType: RESOURCE_TYPES.APPLICATION,
-      resourceId: application._id,
+      resourceId: updatedApplication._id,
       req,
       changes: {
         before: { status: oldStatus, isLocked: false },
-        after: { status: APPLICATION_STATUS.SUBMITTED, isLocked: true },
+        after: {
+          status: APPLICATION_STATUS.SUBMITTED,
+          isLocked: true,
+        },
       },
     });
 
@@ -109,17 +126,17 @@ export const submitApplication = asyncHandler(async (req, res) => {
 
     // Send submission confirmation email (fire-and-forget)
     sendApplicationConfirmation(req.user.email, {
-      applicationNumber: application.applicationNumber,
-      jobTitle: application.jobSnapshot.title,
-    }).catch(() => {});
+      applicationNumber: updatedApplication.applicationNumber,
+      jobTitle: updatedApplication.jobSnapshot.title,
+    }).catch(() => { });
 
     res.status(HTTP_STATUS.OK).json(
       new ApiResponse(
         HTTP_STATUS.OK,
         {
-          applicationNumber: application.applicationNumber,
-          submittedAt: application.submittedAt,
-          status: application.status,
+          applicationNumber: updatedApplication.applicationNumber,
+          submittedAt: updatedApplication.submittedAt,
+          status: updatedApplication.status,
         },
         'Application submitted successfully'
       )

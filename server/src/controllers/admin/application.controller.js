@@ -13,6 +13,8 @@ import {
   HTTP_STATUS,
   PAGINATION,
 } from '../../constants.js';
+import { generateFullApplicationPDF } from '../../services/adminExport.service.js';
+import { sendApplicationStatusUpdate } from '../../services/email.service.js';
 
 /**
  * @route   GET /api/v1/admin/applications
@@ -193,6 +195,14 @@ export const updateApplicationStatus = asyncHandler(async (req, res) => {
     req,
   });
 
+  // Notify applicant (fire-and-forget)
+  const populatedApp = await application.populate('userId', 'email');
+  sendApplicationStatusUpdate(populatedApp.userId.email, {
+    applicationNumber: application.applicationNumber,
+    status: application.status,
+    remarks: remarks || `Status changed to ${status}`,
+  }).catch(() => { });
+
   res
     .status(HTTP_STATUS.OK)
     .json(
@@ -330,6 +340,20 @@ export const bulkUpdateStatus = asyncHandler(async (req, res) => {
     },
     req,
   });
+
+  // Notify applicants in bulk (fire-and-forget)
+  Application.find({ _id: { $in: applicationIds } })
+    .populate('userId', 'email')
+    .then((apps) => {
+      apps.forEach((app) => {
+        sendApplicationStatusUpdate(app.userId.email, {
+          applicationNumber: app.applicationNumber,
+          status: status,
+          remarks: remarks || `Bulk status update to ${status}`,
+        }).catch(() => { });
+      });
+    })
+    .catch(() => { });
 
   res.status(HTTP_STATUS.OK).json(
     new ApiResponse(
@@ -603,4 +627,31 @@ export const exemptApplicationFee = asyncHandler(async (req, res) => {
         'Application fee has been exempted successfully'
       )
     );
+});
+
+/**
+ * @route   GET /api/v1/admin/applications/:id/export-full
+ * @desc    Export a complete application report as PDF for review
+ * @access  Admin, Reviewer
+ */
+export const exportFullApplicationPDF = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const application = await Application.findById(id)
+    .populate('userId', 'email profile')
+    .populate('reviewedBy', 'email profile');
+
+  if (!application) {
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
+  }
+
+  // Generate PDF buffer
+  const pdfBuffer = await generateFullApplicationPDF(application);
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename=application-${application.applicationNumber}-full.pdf`
+  );
+  res.send(pdfBuffer);
 });
