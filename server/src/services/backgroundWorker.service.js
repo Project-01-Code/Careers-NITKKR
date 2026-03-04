@@ -62,8 +62,6 @@ export const closeExpiredJobs = async () => {
  */
 export const cleanupOrphanFiles = async () => {
   try {
-    console.log('[CRON] Starting Cloudinary orphan cleanup...');
-
     // 1. Get all cloudinaryIds from applications
     const applications = await Application.find({}, 'sections');
     const dbCloudinaryIds = new Set();
@@ -102,9 +100,11 @@ export const cleanupOrphanFiles = async () => {
       nextCursor = response.next_cursor;
     } while (nextCursor);
 
-    console.log(
-      `[CRON] Orphan cleanup completed. Deleted ${deletedCount} files.`
-    );
+    if (deletedCount > 0) {
+      console.log(
+        `[CRON] Orphan cleanup completed. Deleted ${deletedCount} files.`
+      );
+    }
   } catch (error) {
     console.error('[CRON ERROR] Cloudinary cleanup failed:', error);
   }
