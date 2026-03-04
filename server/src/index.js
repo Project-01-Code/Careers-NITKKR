@@ -113,6 +113,9 @@ const startServer = async () => {
     await connectDB();
 
     // Start background services
+    // NOTE: Background workers are currently running in the main server process.
+    // If scaling to multiple server instances horizontally, extract these into a separate
+    // worker service (or use Redis/BullMQ) to avoid duplicate execution and database locks.
     startBackgroundWorker();
 
     // Create HTTP server

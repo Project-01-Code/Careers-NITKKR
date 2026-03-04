@@ -349,11 +349,13 @@ export const bulkUpdateStatus = asyncHandler(async (req, res) => {
         sendApplicationStatusUpdate(app.userId.email, {
           applicationNumber: app.applicationNumber,
           status: status,
-          remarks: remarks || `Bulk status update to ${status}`,
-        }).catch(() => { });
+          remarks:
+            remarks ||
+            `Your application status has been reviewed and updated to ${status}.`,
+        }).catch(() => {});
       });
     })
-    .catch(() => { });
+    .catch(() => {});
 
   res.status(HTTP_STATUS.OK).json(
     new ApiResponse(
