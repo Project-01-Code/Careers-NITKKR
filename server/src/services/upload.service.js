@@ -12,20 +12,24 @@ import cloudinary from '../config/cloudinary.config.js';
  *
  * @param {Buffer} buffer          - Raw file buffer from multer memoryStorage.
  * @param {Object} options         - Cloudinary upload options.
- * @param {string} options.publicId - Full public_id (including folder path).
+ * @param {string} [options.folder]     - Cloudinary folder path.
+ * @param {string} options.publicId - Filename/public_id (excluding folder if folder param used).
  * @param {string} [options.resourceType='raw'] - 'raw', 'image', or 'video'.
  * @param {string} [options.format] - Force output format (e.g. 'pdf', 'jpg').
  * @returns {Promise<{url: string, publicId: string}>}
  */
 export const uploadToCloudinary = (buffer, options) => {
-  const { publicId, resourceType = 'raw', format } = options;
+  const { folder, publicId, resourceType = 'raw', format } = options;
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
+        folder,
         public_id: publicId,
         resource_type: resourceType,
         ...(format && { format }),
+        overwrite: true,
+        invalidate: true,
       },
       (error, result) => {
         if (error) reject(error);

@@ -128,7 +128,8 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
   let uploaded;
   try {
     uploaded = await uploadToCloudinary(file.buffer, {
-      publicId: `nit_kkr_careers/applications/${appNo}/${sectionType}/${appNo}_${sectionType}.pdf`,
+      folder: `nit_kkr_careers/applications/${appNo}/${sectionType}`,
+      publicId: `${appNo}_${sectionType}`,
       resourceType: 'raw',
       format: 'pdf',
     });
@@ -146,7 +147,7 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
   } catch (error) {
     // Rollback: Delete from Cloudinary if DB save fails
     if (uploaded?.publicId) {
-      await deleteFromCloudinary(uploaded.publicId, 'raw').catch(() => { });
+      await deleteFromCloudinary(uploaded.publicId, 'raw').catch(() => {});
     }
     throw error;
   }
@@ -290,7 +291,8 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
   let uploaded;
   try {
     uploaded = await uploadToCloudinary(file.buffer, {
-      publicId: `nit_kkr_careers/applications/${appNo}/${sectionType}/${appNo}_${sectionType}`,
+      folder: `nit_kkr_careers/applications/${appNo}/${sectionType}`,
+      publicId: `${appNo}_${sectionType}`,
       resourceType: 'image',
       format: 'jpg',
     });
@@ -308,7 +310,7 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
   } catch (error) {
     // Rollback
     if (uploaded?.publicId) {
-      await deleteFromCloudinary(uploaded.publicId, 'image').catch(() => { });
+      await deleteFromCloudinary(uploaded.publicId, 'image').catch(() => {});
     }
     throw error;
   }
@@ -397,7 +399,8 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
   let uploaded;
   try {
     uploaded = await uploadToCloudinary(file.buffer, {
-      publicId: `nit_kkr_careers/applications/${appNo}/documents/${appNo}_documents.pdf`,
+      folder: `nit_kkr_careers/applications/${appNo}/documents`,
+      publicId: `${appNo}_documents`,
       resourceType: 'raw',
       format: 'pdf',
     });
@@ -415,7 +418,7 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
   } catch (error) {
     // Rollback
     if (uploaded?.publicId) {
-      await deleteFromCloudinary(uploaded.publicId, 'raw').catch(() => { });
+      await deleteFromCloudinary(uploaded.publicId, 'raw').catch(() => {});
     }
     throw error;
   }
