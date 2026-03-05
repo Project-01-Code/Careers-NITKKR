@@ -175,8 +175,8 @@ const PersonalDetails = ({ onNext, onBack }) => {
       ...d,
       specialization: d.specialization.filter(s => s.trim()),
     };
-    await updateSection('personalDetails', cleanData);
-    if (onNext) onNext();
+    const saved = await updateSection('personalDetails', cleanData);
+    if (saved && onNext) onNext();
   };
 
   const ic = (f) => `w-full px-3 py-2.5 rounded-lg border ${errors[f] ? 'border-red-400 bg-red-50/30' : 'border-gray-300'} focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all`;

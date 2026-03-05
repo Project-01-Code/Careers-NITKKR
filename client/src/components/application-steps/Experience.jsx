@@ -61,8 +61,8 @@ const Experience = ({ onNext, onBack }) => {
       (!e.isPresentEmployer && !e.toDate)
     );
     if (bad) { toast.error('Please complete all required fields in each entry'); return; }
-    await updateSection('experience', { items: filled });
-    if (onNext) onNext();
+    const saved = await updateSection('experience', { items: filled });
+    if (saved && onNext) onNext();
   };
 
   const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';

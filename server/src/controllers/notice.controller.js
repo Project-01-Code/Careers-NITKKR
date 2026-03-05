@@ -1,9 +1,9 @@
+import fs from 'fs/promises';
 import { Notice } from '../models/notice.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { HTTP_STATUS } from '../constants.js';
-import { scanForMalware } from '../services/sectionValidation.service.js';
 import {
   uploadToCloudinary,
   deleteFromCloudinary,
@@ -21,9 +21,11 @@ export const createNotice = asyncHandler(async (req, res) => {
   let cloudinaryId = null;
 
   if (req.file) {
-    const isClean = await scanForMalware(req.file.buffer);
-    if (!isClean) {
-      throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'File failed security scan');
+    let buffer;
+    try {
+      buffer = await fs.readFile(req.file.path);
+    } finally {
+      await fs.unlink(req.file.path).catch(() => {});
     }
 
     const baseName = req.file.originalname.replace(/\.pdf$/i, '');
@@ -134,9 +136,11 @@ export const updateNotice = asyncHandler(async (req, res) => {
   if (!notice) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Notice not found');
 
   if (req.file) {
-    const isClean = await scanForMalware(req.file.buffer);
-    if (!isClean) {
-      throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'File failed security scan');
+    let buffer;
+    try {
+      buffer = await fs.readFile(req.file.path);
+    } finally {
+      await fs.unlink(req.file.path).catch(() => {});
     }
 
     // Delete old PDF from Cloudinary (non-throwing)

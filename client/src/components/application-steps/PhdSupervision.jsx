@@ -31,8 +31,8 @@ const PhdSupervision = ({ onNext, onBack }) => {
     const filled = list.filter(e => e.scholarName?.trim() || e.researchTopic?.trim());
     const bad = filled.some(e => !e.scholarName?.trim() || e.scholarName.trim().length < 2 || !e.researchTopic?.trim() || e.researchTopic.trim().length < 5 || !e.universityInstitute?.trim() || !e.supervisors?.trim() || !e.status || !/^\d{4}$/.test(e.year));
     if (bad) { toast.error('Please complete all required fields for started PhD entries'); return; }
-    await updateSection('phdSupervision', { items: filled });
-    if (onNext) onNext();
+    const saved = await updateSection();
+    if (saved && onNext) onNext();
   };
 
   const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';

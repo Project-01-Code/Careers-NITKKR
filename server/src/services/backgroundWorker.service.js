@@ -3,6 +3,7 @@ import { Application } from '../models/application.model.js';
 import { JOB_STATUS, AUDIT_ACTIONS, RESOURCE_TYPES } from '../constants.js';
 import { logAction } from '../utils/auditLogger.js';
 import { deleteFromCloudinary } from './upload.service.js';
+import { cleanupTempFiles } from '../utils/cleanupTempFiles.js';
 import cloudinary from '../config/cloudinary.config.js';
 
 /**
@@ -122,7 +123,12 @@ export const startBackgroundWorker = () => {
   // Cloudinary cleanup: Daily (86400000 ms)
   setInterval(cleanupOrphanFiles, 86400000);
 
+  // Temp upload dir cleanup: every 6 hours
+  const sixHoursMs = 6 * 60 * 60 * 1000;
+  setInterval(cleanupTempFiles, sixHoursMs);
+
   // Initial runs
   closeExpiredJobs();
   cleanupOrphanFiles();
+  cleanupTempFiles();
 };

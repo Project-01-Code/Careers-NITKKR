@@ -31,8 +31,8 @@ const SubjectsTaught = ({ onNext, onBack }) => {
     const filled = list.filter(e => e.subjectName?.trim() || e.category);
     const bad = filled.some(e => !e.category || !e.subjectName?.trim() || e.subjectName.trim().length < 2);
     if (bad) { toast.error('Please fill level and subject name for started entries'); return; }
-    await updateSection('subjectsTaught', { items: filled });
-    if (onNext) onNext();
+    const saved = await updateSection();
+    if (saved && onNext) onNext();
   };
 
   const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';
