@@ -16,6 +16,8 @@ const AdminApplications = () => {
   const jobId = searchParams.get('jobId') || '';
   const search = searchParams.get('search') || '';
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -32,6 +34,7 @@ const AdminApplications = () => {
   useEffect(() => {
     const fetchApplications = async () => {
       setLoading(true);
+      setSelectedIds([]);
       try {
         const res = await api.get('/admin/applications', {
           params: { page, status, jobId, search, limit: 15 }
@@ -70,6 +73,43 @@ const AdminApplications = () => {
       link.remove();
     } catch (err) {
       toast.error('Export failed');
+    }
+  };
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) setSelectedIds(applications.map(app => app._id));
+    else setSelectedIds([]);
+  };
+
+  const handleSelectOne = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkStatusUpdate = async (newStatus) => {
+    if (!selectedIds.length) return;
+    const remarks = prompt(`Enter remarks for bulk update to ${newStatus.toUpperCase()}:`, "Batch status update");
+    if (remarks === null) return;
+
+    setBulkUpdating(true);
+    try {
+      await api.post('/admin/applications/bulk-status', {
+        applicationIds: selectedIds,
+        status: newStatus,
+        remarks
+      });
+      toast.success(`Updated ${selectedIds.length} applications to ${newStatus}`);
+      setSelectedIds([]);
+      // Refresh data
+      const res = await api.get('/admin/applications', {
+        params: { page, status, jobId, search, limit: 15 }
+      });
+      setApplications(res.data.data.applications);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Bulk update failed');
+    } finally {
+      setBulkUpdating(false);
     }
   };
 
@@ -126,6 +166,37 @@ const AdminApplications = () => {
           </select>
         </div>
 
+        {/* Bulk Action Bar */}
+        {selectedIds.length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-secondary text-white p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl shadow-secondary/20"
+          >
+            <div className="flex items-center gap-4">
+              <span className="bg-primary px-3 py-1 rounded-full text-xs font-bold">
+                {selectedIds.length} Selected
+              </span>
+              <p className="text-sm font-medium">Bulk Actions:</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {['submitted', 'under_review', 'shortlisted', 'rejected', 'selected'].filter(s => s !== status).map(s => (
+                <button
+                  key={s}
+                  disabled={bulkUpdating}
+                  onClick={() => handleBulkStatusUpdate(s)}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold transition-all capitalize disabled:opacity-50"
+                >
+                  Set {s.replace('_', ' ')}
+                </button>
+              ))}
+              <button onClick={() => setSelectedIds([])} className="px-3 py-1.5 bg-red-500/20 text-red-100 hover:bg-red-500 hover:text-white rounded-lg text-xs font-bold transition-all ml-2">
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {/* Table */}
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           {loading ? (
@@ -142,6 +213,14 @@ const AdminApplications = () => {
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50/50 border-b border-gray-100">
                   <tr>
+                    <th className="p-4 w-10">
+                      <input 
+                        type="checkbox" 
+                        onChange={handleSelectAll}
+                        checked={selectedIds.length === applications.length && applications.length > 0}
+                        className="rounded border-gray-300 text-primary shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition duration-150 ease-in-out" 
+                      />
+                    </th>
                     <th className="p-4 font-semibold text-gray-600">Application</th>
                     <th className="p-4 font-semibold text-gray-600">Applicant</th>
                     <th className="p-4 font-semibold text-gray-600">Job Posting</th>
@@ -156,8 +235,16 @@ const AdminApplications = () => {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: idx * 0.03 }}
-                      className="hover:bg-gray-50/50 transition-colors"
+                      className={`hover:bg-gray-50/50 transition-colors ${selectedIds.includes(app._id) ? 'bg-primary/5' : ''}`}
                     >
+                      <td className="p-4">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedIds.includes(app._id)}
+                          onChange={() => handleSelectOne(app._id)}
+                          className="rounded border-gray-300 text-primary shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition duration-150 ease-in-out" 
+                        />
+                      </td>
                       <td className="p-4">
                         <div>
                           <p className="font-bold text-secondary">{app.applicationNumber}</p>

@@ -1,238 +1,197 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useApplication } from '../../context/ApplicationContext';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
-const ReviewSubmit = ({ onBack }) => {
-  const { formData, applicationId, validateAll, createPaymentOrder, submitApplication, paymentStatus } = useApplication();
+const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
+  const { formData, jobSnapshot, applicationId, applicationNumber } = useApplication();
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [validationErrors, setValidationErrors] = useState([]);
 
-  const handleProceedToPayment = async () => {
-    setIsSubmitting(true);
-    setValidationErrors([]);
+  const sections = jobSnapshot?.requiredSections || [];
 
+  const handleFinalSubmit = async () => {
+    setSubmitting(true);
     try {
-      // Step 1: Validate all sections
-      const validation = await validateAll();
-
-      if (!validation.canSubmit) {
-        const errors = validation.errors || [];
-        setValidationErrors(errors);
-        errors.slice(0, 3).forEach(err => {
-          const msg = typeof err === 'string' ? err : `${err.section}: ${err.message}`;
-          toast.error(msg, { duration: 4000 });
-        });
-        if (errors.length > 3) {
-          toast.error(`...and ${errors.length - 3} more errors. Please check all sections.`, { duration: 5000 });
+      if (jobSnapshot?.applicationFee?.isRequired && !formData.payment?.transactionId) {
+        const res = await api.post('/payments/create-order', { applicationId });
+        if (res.data.data?.url) {
+          window.location.href = res.data.data.url;
+          return;
         }
-        return;
       }
 
-      // Step 2: Check payment status
-      if (paymentStatus === 'paid' || paymentStatus === 'exempted') {
-        // Payment already done — submit directly
-        const result = await submitApplication();
-        if (result.success) {
-          navigate('/profile', { state: { refresh: true } });
-        }
-        return;
-      }
-
-      // Step 3: Create Stripe payment session
-      const paymentData = await createPaymentOrder();
-
-      if (paymentData?.url) {
-        // Redirect to Stripe Checkout
-        window.location.href = paymentData.url;
-      } else {
-        toast.error('Failed to create payment session. Please try again.');
-      }
+      await api.post(`/applications/${applicationId}/submit`);
+      toast.success('Application submitted successfully!');
+      navigate('/profile');
     } catch (error) {
-      console.error('Payment/submission error:', error);
-      toast.error('An error occurred. Please try again.');
+      toast.error(error.response?.data?.message || 'Submission failed');
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
-  // If payment already done, allow direct submission
-  const handleDirectSubmit = async () => {
-    setIsSubmitting(true);
-    const toastId = toast.loading('Submitting application...');
+  const SummarySection = ({ title, sectionKey, children }) => (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-6 shadow-sm">
+      <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+        <h3 className="font-bold text-secondary">{title}</h3>
+        <button 
+          onClick={() => onGoToSection(sectionKey)}
+          className="text-primary text-sm font-bold flex items-center gap-1 hover:underline"
+        >
+          <span className="material-symbols-outlined text-[18px]">edit</span> Edit
+        </button>
+      </div>
+      <div className="p-6">
+        {children}
+      </div>
+    </div>
+  );
 
-    try {
-      const result = await submitApplication();
-      if (result.success) {
-        toast.success('Application Submitted Successfully!', { id: toastId });
-        navigate('/profile', { state: { refresh: true } });
-      } else {
-        toast.error(result.message || 'Submission failed.', { id: toastId });
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error('An error occurred during submission.', { id: toastId });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const DataRow = ({ label, value }) => (
+    <div className="grid grid-cols-3 gap-4 pb-3 border-b border-gray-50 last:border-0 last:pb-0 mb-3 last:mb-0">
+      <span className="text-sm font-medium text-gray-500">{label}</span>
+      <span className="text-sm text-gray-900 col-span-2 text-wrap break-all">{value || 'Not provided'}</span>
+    </div>
+  );
 
-  const isPaid = paymentStatus === 'paid' || paymentStatus === 'exempted';
+  const isRequired = (type) => sections.some(s => s.sectionType === type);
 
-  // Review Screen
   return (
-    <div className="space-y-8 animate-fade-in pb-12">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-secondary mb-2">Review Application</h2>
-        <p className="text-gray-500 max-w-xl mx-auto">
-          Please verify your details below. If anything is incorrect, use the stepper or "Back" button to return and edit.
-        </p>
-      </div>
+    <div className="max-w-4xl mx-auto py-8">
+      <header className="mb-10 text-center">
+        <h1 className="text-3xl font-extrabold text-secondary mb-2">Review Your Application</h1>
+        <p className="text-gray-500">Please verify all information before final submission. Click "Edit" to make changes.</p>
+        <div className="mt-4 inline-block px-4 py-1 bg-primary/10 text-primary rounded-full text-sm font-bold">
+          App No: {applicationNumber || 'Draft'}
+        </div>
+      </header>
 
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-        {/* Personal Details Summary */}
-        <div className="p-6 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[20px]">person</span>
-            Personal Details
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-gray-500 mb-1">Full Name</p>
-              <p className="font-semibold text-gray-800">{formData?.personalDetails?.fullName || '-'}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 mb-1">Email</p>
-              <p className="font-semibold text-gray-800">{formData?.personalDetails?.email || '-'}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 mb-1">Phone</p>
-              <p className="font-semibold text-gray-800">{formData?.personalDetails?.phone || '-'}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 mb-1">DOB</p>
-              <p className="font-semibold text-gray-800">{formData?.personalDetails?.dateOfBirth || '-'}</p>
-            </div>
+      {/* Personal Details */}
+      <SummarySection title="Personal Details" sectionKey="personal">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12">
+          <DataRow label="Full Name" value={formData.personalDetails?.name} />
+          <DataRow label="Date of Birth" value={formData.personalDetails?.dob} />
+          <DataRow label="Gender" value={formData.personalDetails?.gender} />
+          <DataRow label="Category" value={formData.personalDetails?.category} />
+          <DataRow label="Mobile" value={formData.personalDetails?.mobile} />
+          <DataRow label="Nationality" value={formData.personalDetails?.nationality} />
+        </div>
+      </SummarySection>
+
+      {/* Education */}
+      {isRequired('education') && (
+        <SummarySection title="Education" sectionKey="education">
+           <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b border-gray-100">
+                  <th className="pb-2 font-medium">Exam</th>
+                  <th className="pb-2 font-medium">Subject</th>
+                  <th className="pb-2 font-medium">Board/Uni</th>
+                  <th className="pb-2 font-medium">Marks</th>
+                  <th className="pb-2 font-medium text-right">Year</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {(Array.isArray(formData.education) ? formData.education : []).map((item, i) => (
+                  <tr key={i} className="text-gray-900">
+                    <td className="py-3 font-medium">{item.examPassed}</td>
+                    <td className="py-3">{item.discipline}</td>
+                    <td className="py-3">{item.boardUniversity}</td>
+                    <td className="py-3">{item.marks}</td>
+                    <td className="py-3 text-right">{item.yearOfPassing}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-
-        {/* Counts Summary */}
-        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[20px]">list_alt</span>
-            Data Summary
-          </h3>
-          <div className="flex flex-wrap gap-4">
-            <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 flex items-center gap-3">
-              <span className="material-symbols-outlined text-gray-400">school</span>
-              <div><p className="text-xs text-gray-500">Degrees</p><p className="font-bold">{formData?.education?.length || 0}</p></div>
-            </div>
-            <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 flex items-center gap-3">
-              <span className="material-symbols-outlined text-gray-400">work</span>
-              <div><p className="text-xs text-gray-500">Experiences</p><p className="font-bold">{formData?.experience?.length || 0}</p></div>
-            </div>
-            <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 flex items-center gap-3">
-              <span className="material-symbols-outlined text-gray-400">menu_book</span>
-              <div><p className="text-xs text-gray-500">Publications</p><p className="font-bold">{formData?.publications?.length || 0}</p></div>
-            </div>
-            <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 flex items-center gap-3">
-              <span className="material-symbols-outlined text-gray-400">stars</span>
-              <div><p className="text-xs text-gray-500">Total Credits</p><p className="font-bold text-primary">{formData?.creditPoints?.total || 0}</p></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Payment Status */}
-        <div className="p-6 border-b border-gray-100">
-          <div className={`p-4 rounded-xl border flex items-start gap-3 ${isPaid ? 'bg-green-50 border-green-200 text-green-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
-            <span className="material-symbols-outlined">{isPaid ? 'check_circle' : 'payments'}</span>
-            <div>
-              <p className="font-medium">{isPaid ? 'Payment Complete' : 'Payment Pending'}</p>
-              <p className="text-sm opacity-80">
-                {isPaid
-                  ? 'Application fee has been paid. You can submit your application.'
-                  : 'Application fee of ₹1000 will be processed via Stripe secure checkout.'
-                }
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Declaration Status */}
-        <div className="p-6">
-          <div className={`p-4 rounded-xl border flex items-start gap-3 ${formData?.declaration ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-            <span className="material-symbols-outlined">{formData?.declaration ? 'check_circle' : 'cancel'}</span>
-            <div>
-              <p className="font-medium">{formData?.declaration ? 'Declaration Agreed' : 'Declaration Missing'}</p>
-              <p className="text-sm opacity-80">
-                {formData?.declaration
-                  ? 'You have agreed to the declaration.'
-                  : 'You must go back and agree to the declaration.'
-                }
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Validation Errors */}
-      {validationErrors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-          <h4 className="font-bold text-red-800 mb-3 flex items-center gap-2">
-            <span className="material-symbols-outlined">error</span>
-            Validation Errors
-          </h4>
-          <ul className="space-y-1">
-            {validationErrors.map((err, i) => (
-              <li key={i} className="text-sm text-red-700 flex items-start gap-2">
-                <span className="text-red-400 mt-0.5">•</span>
-                {typeof err === 'string' ? err : `${err.section}: ${err.message}`}
-              </li>
-            ))}
-          </ul>
-        </div>
+        </SummarySection>
       )}
 
-      <div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-4 pt-4 border-t border-gray-200 mt-8">
-        <button
-          onClick={onBack}
-          className="text-gray-600 hover:text-gray-900 font-medium px-6 py-3 transition-colors w-full sm:w-auto text-center"
-        >
-          Back to Edit
-        </button>
+      {/* Experience */}
+      {isRequired('experience') && (
+        <SummarySection title="Experience" sectionKey="experience">
+          <div className="space-y-4">
+            {(Array.isArray(formData.experience) ? formData.experience : []).map((item, i) => (
+              <div key={i} className="p-3 bg-gray-50 rounded-xl">
+                 <div className="flex justify-between items-start mb-1">
+                    <h4 className="font-bold text-gray-900">{item.designation}</h4>
+                    <span className="text-[10px] bg-white px-2 py-1 rounded border border-gray-200 uppercase font-bold text-gray-400">
+                      {item.appointmentType}
+                    </span>
+                 </div>
+                 <p className="text-sm text-gray-600">{item.employerNameAddress}</p>
+                 <p className="text-xs text-secondary font-medium mt-1">{item.fromDate} — {item.isPresentEmployer ? 'Present' : item.toDate}</p>
+              </div>
+            ))}
+          </div>
+        </SummarySection>
+      )}
 
-        {isPaid ? (
-          <button
-            onClick={handleDirectSubmit}
-            disabled={isSubmitting}
-            className="bg-green-600 hover:bg-green-700 text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-green-600/20 w-full sm:w-auto flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                Submit Application
-                <span className="material-symbols-outlined text-[18px]">send</span>
-              </>
-            )}
-          </button>
-        ) : (
-          <button
-            onClick={handleProceedToPayment}
-            disabled={isSubmitting}
-            className="bg-primary hover:bg-primary-dark text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-primary/20 w-full sm:w-auto flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                Proceed to Payment
-                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-              </>
-            )}
-          </button>
-        )}
+      {/* Referees */}
+      {isRequired('referees') && (
+         <SummarySection title="Referees" sectionKey="referees">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             {(Array.isArray(formData.referees) ? formData.referees : []).map((ref, i) => (
+               <div key={i} className="p-4 border border-gray-100 rounded-2xl bg-gray-50/50">
+                  <h4 className="font-bold text-secondary mb-3">Referee {i+1}</h4>
+                  <DataRow label="Name" value={ref.name} />
+                  <DataRow label="Designation" value={ref.designation} />
+                  <DataRow label="Email" value={ref.officialEmail} />
+               </div>
+             ))}
+           </div>
+         </SummarySection>
+      )}
+
+      {/* Documents */}
+      <SummarySection title="Supporting Documents" sectionKey="final_documents">
+        <div className="flex flex-wrap gap-3">
+          {Object.entries(formData.documents || {}).map(([key, doc]) => (
+            <div key={key} className="px-4 py-2 bg-green-50 text-green-700 rounded-xl text-sm font-bold flex items-center gap-2 border border-green-100">
+              <span className="material-symbols-outlined text-[18px]">check_circle</span>
+              {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+            </div>
+          ))}
+          {(!formData.documents || Object.keys(formData.documents).length === 0) && (
+            <p className="text-sm text-gray-400 italic">No documents uploaded yet.</p>
+          )}
+        </div>
+      </SummarySection>
+
+      {/* Final Action */}
+      <div className="mt-12 p-8 bg-secondary rounded-3xl text-white text-center shadow-2xl relative overflow-hidden">
+        <div className="relative z-10">
+          <h2 className="text-2xl font-bold mb-4">Ready to Submit?</h2>
+          <p className="text-white/70 mb-8 max-w-lg mx-auto">
+            Once submitted, you cannot edit your application. {jobSnapshot?.applicationFee?.isRequired ? 'You will be redirected to the payment gateway.' : 'This is a free application.'}
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={onBack}
+              className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all border border-white/20"
+            >
+              Go Back
+            </button>
+            <button
+              onClick={handleFinalSubmit}
+              disabled={submitting}
+              className="px-10 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-extrabold transition-all shadow-lg hover:shadow-primary/30 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {submitting ? (
+                 <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined">send</span>
+                  {jobSnapshot?.applicationFee?.isRequired ? 'Proceed to Payment' : 'Submit Application'}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

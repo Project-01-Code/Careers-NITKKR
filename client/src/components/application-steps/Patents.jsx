@@ -31,8 +31,8 @@ const Patents = ({ onNext, onBack }) => {
     const filled = list.filter(e => e.patentTitle?.trim() || e.inventors?.trim());
     const bad = filled.some(e => !e.patentTitle?.trim() || e.patentTitle.trim().length < 5 || !e.inventors?.trim() || !e.status || !/^\d{4}$/.test(e.year));
     if (bad) { toast.error('Please complete all required fields for started patent entries'); return; }
-    await updateSection('patents', { items: filled });
-    if (onNext) onNext();
+    const saved = await updateSection('patents', { items: filled });
+    if (saved && onNext) onNext();
   };
 
   const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';

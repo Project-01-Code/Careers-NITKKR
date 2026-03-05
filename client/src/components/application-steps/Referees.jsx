@@ -34,8 +34,8 @@ const Referees = ({ onNext, onBack }) => {
       !r.personalEmail?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.personalEmail)
     );
     if (bad) { toast.error('Please complete all fields for both referees'); return; }
-    await updateSection('referees', { items: list });
-    if (onNext) onNext();
+    const saved = await updateSection('referees', { items: list });
+    if (saved && onNext) onNext();
   };
 
   const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';
