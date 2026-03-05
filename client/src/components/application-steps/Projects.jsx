@@ -31,8 +31,8 @@ const Projects = ({ onNext, onBack }) => {
     const filled = list.filter(e => e.title?.trim() || e.sponsoringAgency?.trim());
     const bad = filled.some(e => !e.sponsoringAgency?.trim() || !e.title?.trim() || e.title.trim().length < 3 || !e.period?.trim() || !e.piCoPI?.trim() || !e.status);
     if (bad) { toast.error('Please complete all required fields for started project entries'); return; }
-    await updateSection('projects', { items: filled });
-    if (onNext) onNext();
+    const saved = await updateSection('projects', { items: filled });
+    if (saved && onNext) onNext();
   };
 
   const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';

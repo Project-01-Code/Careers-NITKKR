@@ -13,8 +13,11 @@ const SECTION_TYPE_MAP = {
   experience: 'experience',
   referees: 'referees',
   publications: 'publications_journal',
+  conferencePublications: 'publications_conference',
+  booksPublications: 'publications_books',
   patents: 'patents',
   projects: 'sponsored_projects',
+  consultancyProjects: 'consultancy_projects',
   phdSupervision: 'phd_supervision',
   subjectsTaught: 'subjects_taught',
   organizedPrograms: 'organized_programs',
@@ -30,8 +33,11 @@ const INITIAL_FORM_DATA = {
   experience: [],
   referees: [],
   publications: [],
+  conferencePublications: [],
+  booksPublications: [],
   patents: [],
   projects: [],
+  consultancyProjects: [],
   phdSupervision: [],
   subjectsTaught: [],
   organizedPrograms: [],
@@ -163,6 +169,35 @@ export const ApplicationProvider = ({ children }) => {
   }, [populateSectionsFromServer]);
 
   /**
+   * Validate a section after save.
+   * This is used on step transitions to catch server-side validation errors early.
+   */
+  const validateSection = useCallback(async (sectionName) => {
+    if (!applicationId) return true;
+
+    const serverSectionType = SECTION_TYPE_MAP[sectionName];
+    if (!serverSectionType) return true;
+
+    try {
+      const res = await api.post(
+        `/applications/${applicationId}/sections/${serverSectionType}/validate`
+      );
+      const payload = res.data?.data || {};
+      const errors = Array.isArray(payload.errors) ? payload.errors : [];
+      const nonPdfErrors = errors.filter((e) => e?.field !== 'pdf');
+
+      if (nonPdfErrors.length > 0) {
+        toast.error(nonPdfErrors[0]?.message || 'Section validation failed');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Section validation failed');
+      return false;
+    }
+  }, [applicationId]);
+
+  /**
    * Save a section's data to the server
    * Called when user clicks "Next" on a step
    */
@@ -201,7 +236,9 @@ export const ApplicationProvider = ({ children }) => {
         `/applications/${applicationId}/sections/${serverSectionType}`,
         { data: payload }
       );
-      return true;
+
+      const valid = await validateSection(sectionName);
+      return valid;
     } catch (err) {
       console.error(`Failed to save section ${sectionName}:`, err);
       toast.error(
@@ -211,7 +248,7 @@ export const ApplicationProvider = ({ children }) => {
     } finally {
       setSaving(false);
     }
-  }, [applicationId, jobSnapshot]);
+  }, [applicationId, jobSnapshot, validateSection]);
 
   /**
    * For backward compatibility — updateSection is used by step components
@@ -315,6 +352,7 @@ export const ApplicationProvider = ({ children }) => {
         updateSection,
         saveSection,
         validateAll,
+        validateSection,
         createPaymentOrder,
         submitApplication,
         resetApplication,

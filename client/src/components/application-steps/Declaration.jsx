@@ -25,8 +25,8 @@ const Declaration = ({ onNext, onBack }) => {
     if (!d.agreeToTerms) { toast.error('You must agree to the terms and conditions'); return; }
     if (!d.photoUploaded) { toast.error('Please confirm that you have uploaded your photograph'); return; }
     if (!d.detailsVerified) { toast.error('Please verify all details before proceeding'); return; }
-    await updateSection('declaration', d);
-    if (onNext) onNext();
+    const saved = await updateSection();
+    if (saved && onNext) onNext();
   };
 
   const checkItem = (field, label) => (

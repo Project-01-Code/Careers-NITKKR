@@ -29,8 +29,9 @@ const DocumentUpload = ({ onNext, onBack }) => {
   };
 
   const handleNext = () => {
-    updateSection('documents', docs);
-    if (onNext) onNext();
+    updateSection('documents', docs).then((saved) => {
+      if (saved && onNext) onNext();
+    });
   };
 
   return (
@@ -99,7 +100,7 @@ const DocumentUpload = ({ onNext, onBack }) => {
             value={docs.pgDegree}
             onChange={(fileObj) => handleChange('pgDegree', fileObj)}
             applicationId={applicationId}
-            sectionType="final_documents"
+            sectionType="education"
           />
 
           <PdfUpload
@@ -125,7 +126,7 @@ const DocumentUpload = ({ onNext, onBack }) => {
             value={docs.experienceCerts}
             onChange={(fileObj) => handleChange('experienceCerts', fileObj)}
             applicationId={applicationId}
-            sectionType="final_documents"
+            sectionType="experience"
           />
 
           <PdfUpload

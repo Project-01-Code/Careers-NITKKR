@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import AdminLayout from '../../layouts/AdminLayout';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import JobStatsModal from '../../components/admin/JobStatsModal';
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700',
@@ -19,6 +20,7 @@ const AdminJobs = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedStatsJob, setSelectedStatsJob] = useState(null);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -138,7 +140,7 @@ const AdminJobs = () => {
                     <th className="text-left py-3 px-4 font-semibold text-gray-600 hidden md:table-cell">Advert No.</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-600 hidden lg:table-cell">Deadline</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-600">Actions</th>
+                    <th className="text-right py-3 px-10 font-semibold text-gray-600">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -176,6 +178,20 @@ const AdminJobs = () => {
                           >
                             <span className="material-symbols-outlined text-lg">edit</span>
                           </Link>
+                          <Link
+                            to={`/admin/applicants?jobId=${job._id}`}
+                            className="p-1.5 hover:bg-secondary/5 rounded-lg transition-colors text-gray-500 hover:text-secondary"
+                            title="View Applications"
+                          >
+                            <span className="material-symbols-outlined text-lg">group</span>
+                          </Link>
+                          <button
+                            onClick={() => setSelectedStatsJob(job)}
+                            className="p-1.5 hover:bg-primary/5 rounded-lg transition-colors text-gray-500 hover:text-primary"
+                            title="Job Stats"
+                          >
+                            <span className="material-symbols-outlined text-lg">monitoring</span>
+                          </button>
                           {job.status === 'draft' && (
                             <button
                               onClick={() => handlePublish(job._id)}
@@ -230,6 +246,15 @@ const AdminJobs = () => {
               Next
             </button>
           </div>
+        )}
+
+        {/* Modal */}
+        {selectedStatsJob && (
+          <JobStatsModal 
+            jobId={selectedStatsJob._id} 
+            jobTitle={selectedStatsJob.title} 
+            onClose={() => setSelectedStatsJob(null)} 
+          />
         )}
       </div>
     </AdminLayout>

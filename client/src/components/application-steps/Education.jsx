@@ -40,8 +40,8 @@ const Education = ({ onNext, onBack }) => {
     const bad = filled.some(e => !e.examPassed || !e.discipline?.trim() || !e.boardUniversity?.trim() || !e.marks?.trim() || !e.classDivision?.trim() || !e.yearOfPassing?.trim());
     if (bad) { toast.error('Please complete all required fields in each entry'); return; }
     if (filled.some(e => !/^\d{4}$/.test(e.yearOfPassing))) { toast.error('Year must be in YYYY format'); return; }
-    await updateSection('education', { items: filled });
-    if (onNext) onNext();
+    const saved = await updateSection('education', { items: filled });
+    if (saved && onNext) onNext();
   };
 
   const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';
