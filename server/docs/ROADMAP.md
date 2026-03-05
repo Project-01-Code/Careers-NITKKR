@@ -21,6 +21,10 @@ These features have been implemented, tested, and are ready for production use.
 - **Cloudinary Orphan Cleanup**: Daily scheduled task to identify and remove unreferenced application files (scoped to `applications/` folder only).
 - **Admin PDF Export**: Functionality for administrators to export comprehensive application reports.
 - **Notification System (v1)**: Automated email alerts for applicant status updates (Shortlisted/Rejected).
+- **Seed Script Data Alignment**: Fully aligned database seeding with Postman collections for comprehensive testing of all application sections.
+- **Image Upload Stabilization**: Robust validation for image file types and sizes with proper state management for previews and error handling.
+- **Malware Scanning**: Full ClamAV integration for document uploads, equipped with fail-open logic to safely bypass scanning during AV downtime.
+- **Background Worker Scaling**: Dedicated workers for automated job closing and cron jobs cleanup.
 
 ---
 
@@ -28,13 +32,7 @@ These features have been implemented, tested, and are ready for production use.
 
 These features exist in the codebase but are not yet fully functional and require additional setup.
 
-- **Malware Scanning**: `scanForMalware` is currently a stub returning `true`. Full ClamAV integration is commented out pending:
-  - Installation of `node-clam` npm package (`npm install node-clam`).
-  - A running ClamAV daemon (recommended via Docker: `clamav/clamav:latest` on port 3310).
-  - Setting `ENABLE_MALWARE_SCAN=true`, `CLAMAV_HOST`, and `CLAMAV_PORT` in `.env`.
-  - **Note**: Fail-open vulnerability has been fixed in the commented-out implementation (returns `false` on scanner error).
-
-- **Background Worker Scaling**: Cron jobs (`closeExpiredJobs`, `cleanupOrphanFiles`) run inside the main server process via `setInterval`. Safe for single-server deployments. If scaling horizontally, must be extracted to a dedicated worker or use Redis/BullMQ to prevent duplicate execution.
+*(Currently all priority security hardening tasks and features are implemented.)*
 
 ---
 
@@ -53,4 +51,4 @@ The following items are prioritized for future development phases.
 - [ ] **Notification Delivery Tracking**: Email outbox pattern — persist email state to DB for retry and audit trail.
 - [ ] **Administrative Dashboard**: Visual analytics for application trends and audit trail visualization.
 - [ ] **Direct File Scanning**: Replace `node-clam` TCP scanning with ClamAV Unix socket for higher performance.
-- [ ] **Background Worker Extraction**: Migrate cron jobs to a dedicated worker process or BullMQ queue for horizontal scaling.
+- [ ] **Background Worker Extraction**: Migrate cron jobs to BullMQ queue for robust horizontal scaling.
