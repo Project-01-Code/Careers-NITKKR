@@ -27,10 +27,10 @@ export const createNotice = asyncHandler(async (req, res) => {
     }
 
     const baseName = req.file.originalname.replace(/\.pdf$/i, '');
-    const publicId = `nit_kkr_careers/notices/notice_${Date.now()}_${baseName}.pdf`;
 
     const uploaded = await uploadToCloudinary(req.file.buffer, {
-      publicId,
+      folder: 'nit_kkr_careers/notices',
+      publicId: `notice_${Date.now()}_${baseName}`,
       resourceType: 'raw',
       format: 'pdf',
     });
@@ -144,10 +144,10 @@ export const updateNotice = asyncHandler(async (req, res) => {
 
     // Upload new PDF
     const baseName = req.file.originalname.replace(/\.pdf$/i, '');
-    const publicId = `nit_kkr_careers/notices/notice_${Date.now()}_${baseName}.pdf`;
 
     const uploaded = await uploadToCloudinary(req.file.buffer, {
-      publicId,
+      folder: 'nit_kkr_careers/notices',
+      publicId: `notice_${Date.now()}_${baseName}`,
       resourceType: 'raw',
       format: 'pdf',
     });
