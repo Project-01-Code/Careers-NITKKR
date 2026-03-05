@@ -269,56 +269,5 @@ export function validateFinalPDF(file) {
   return errors;
 }
 
-/**
- * Scans a file buffer for malware using ClamAV.
- * This is a critical security gate for all document uploads.
- *
- * @param {Buffer} fileBuffer - The buffer of the file to scan.
- * @returns {Promise<boolean>} Resolves to true if clean, false if infected.
- */
-export async function scanForMalware() {
-  // Currently stubbed to bypass malware scanning until fully configured.
-  return true;
-}
-
-/*
-// Original implementation:
-// TODO: Ensure node-clam is installed before re-enabling this malware scan in production.
-export async function _scanForMalwareOriginal(fileBuffer) {
-  // If ClamAV is not enabled (e.g., local dev), log and return true.
-  if (process.env.ENABLE_MALWARE_SCAN !== 'true') {
-    console.warn(
-      '[Security] Malware scan bypassed (ENABLE_MALWARE_SCAN is not true)'
-    );
-    return true;
-  }
-
-  try {
-    // Dynamically import node-clam to prevent startup crashes if not installed
-    const NodeClam = (await import('node-clam')).default;
-    const clam = await new NodeClam().init({
-      clamdscan: {
-        host: process.env.CLAMAV_HOST || '127.0.0.1',
-        port: process.env.CLAMAV_PORT || 3310,
-        timeout: 60000,
-      },
-    });
-
-    const { isInfected, viruses } = await clam.scanBuffer(fileBuffer);
-
-    if (isInfected) {
-      console.error('[Security] Virus detected:', viruses.join(', '));
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    // Fail Closed: If the scanning service crashes, do NOT permit the file.
-    console.error(
-      '[Security Error] Malware scanning service failed:',
-      error.message
-    );
-    return false;
-  }
-}
-*/
+// Malware scanning is handled by malwareScanner.service.js and malwareScan.middleware.js
+// (ClamAV scan runs after Multer, before Cloudinary upload).

@@ -11,8 +11,11 @@ import Experience from '../components/application-steps/Experience';
 import ReviewSubmit from '../components/application-steps/ReviewSubmit';
 import Referees from '../components/application-steps/Referees';
 import Publications from '../components/application-steps/Publications';
+import ConferencePublications from '../components/application-steps/ConferencePublications';
+import BooksPublications from '../components/application-steps/BooksPublications';
 import Patents from '../components/application-steps/Patents';
 import Projects from '../components/application-steps/Projects';
+import ConsultancyProjects from '../components/application-steps/ConsultancyProjects';
 import PhdSupervision from '../components/application-steps/PhdSupervision';
 import SubjectsTaught from '../components/application-steps/SubjectsTaught';
 import OrganizedPrograms from '../components/application-steps/OrganizedPrograms';
@@ -40,17 +43,20 @@ const ApplicationForm = () => {
     { id: 2, title: "Education", component: Education },
     { id: 3, title: "Experience", component: Experience },
     { id: 4, title: "Referees", component: Referees },
-    { id: 5, title: "Publications", component: Publications },
-    { id: 6, title: "Patents", component: Patents },
-    { id: 7, title: "Projects", component: Projects },
-    { id: 8, title: "PhD Supervision", component: PhdSupervision },
-    { id: 9, title: "Subjects Taught", component: SubjectsTaught },
-    { id: 10, title: "Organized Programs", component: OrganizedPrograms },
-    { id: 11, title: "Credit Points", component: CreditPoints },
-    { id: 12, title: "Other Info", component: OtherInfo },
-    { id: 13, title: "Documents", component: DocumentUpload },
-    { id: 14, title: "Declaration", component: Declaration },
-    { id: 15, title: "Review & Submit", component: ReviewSubmit }
+    { id: 5, title: "Journal Publications", component: Publications },
+    { id: 6, title: "Conference Publications", component: ConferencePublications },
+    { id: 7, title: "Books & Monographs", component: BooksPublications },
+    { id: 8, title: "Patents", component: Patents },
+    { id: 9, title: "Sponsored Projects", component: Projects },
+    { id: 10, title: "Consultancy Projects", component: ConsultancyProjects },
+    { id: 11, title: "PhD Supervision", component: PhdSupervision },
+    { id: 12, title: "Subjects Taught", component: SubjectsTaught },
+    { id: 13, title: "Organized Programs", component: OrganizedPrograms },
+    { id: 14, title: "Credit Points", component: CreditPoints },
+    { id: 15, title: "Other Info", component: OtherInfo },
+    { id: 16, title: "Documents", component: DocumentUpload },
+    { id: 17, title: "Declaration", component: Declaration },
+    { id: 18, title: "Review & Submit", component: ReviewSubmit }
   ];
 
   const handleNext = () => {

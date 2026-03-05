@@ -32,8 +32,8 @@ const OrganizedPrograms = ({ onNext, onBack }) => {
     // Validate toDate >= fromDate
     const dateCheck = filled.some(e => e.fromDate && e.toDate && new Date(e.toDate) < new Date(e.fromDate));
     if (dateCheck) { toast.error('To Date must be on or after From Date'); return; }
-    await updateSection('organizedPrograms', { items: filled });
-    if (onNext) onNext();
+    const saved = await updateSection();
+    if (saved && onNext) onNext();
   };
 
   const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';

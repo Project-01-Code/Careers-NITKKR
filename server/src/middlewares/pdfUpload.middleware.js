@@ -1,6 +1,30 @@
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { ApiError } from '../utils/apiError.js';
 import { HTTP_STATUS } from '../constants.js';
+
+const UPLOAD_TMP_DIR =
+  process.env.UPLOAD_TMP_DIR || path.join(process.cwd(), 'tmp', 'uploads');
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024; // 10MB
+
+function ensureUploadDir() {
+  if (!fs.existsSync(UPLOAD_TMP_DIR)) {
+    fs.mkdirSync(UPLOAD_TMP_DIR, { recursive: true });
+  }
+  return UPLOAD_TMP_DIR;
+}
+
+const pdfDiskStorage = multer.diskStorage({
+  destination(_req, _file, cb) {
+    ensureUploadDir();
+    cb(null, UPLOAD_TMP_DIR);
+  },
+  filename(_req, file, cb) {
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    cb(null, `${unique}-${(file.originalname || 'file').slice(-50)}`);
+  },
+});
 
 // File filter —-accepts only PDF MIME type
 const pdfFileFilter = (req, file, cb) => {
@@ -15,22 +39,19 @@ const pdfFileFilter = (req, file, cb) => {
 };
 
 /**
- * Memory storage multer for ALL PDF uploads in the system.
- *
- * Keeps the file buffer in-memory so controllers can run magic-byte
- * checks, malware scanning, and size validation BEFORE deciding whether
- * to upload to Cloudinary.
+ * Disk storage multer for ALL PDF uploads that require malware scanning.
+ * Files are written to tmp/uploads, then scanned, then uploaded to Cloudinary, then temp deleted.
  *
  * Used for:
- *   POST /api/v1/applications/:id/sections/:sectionType/pdf   (section PDFs)
+ *   POST /api/v1/applications/:id/sections/:sectionType/pdf
  *   POST /api/v1/applications/:id/sections/final_documents/pdf
- *   POST /api/v1/notices                                       (notice PDFs)
+ *   POST /api/v1/notices
  *   PATCH /api/v1/notices/:id
  */
 export const uploadPDFToMemory = multer({
-  storage: multer.memoryStorage(),
+  storage: pdfDiskStorage,
   fileFilter: pdfFileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB outer gate; tighter limits enforced per-section in controller
+    fileSize: MAX_FILE_SIZE,
   },
 });

@@ -45,8 +45,8 @@ const OtherInfo = ({ onNext, onBack }) => {
       preferredSubjects: (info.preferredSubjects || []).filter(s => s.trim()),
       labInnovations: (info.labInnovations || []).filter(s => s.trim()),
     };
-    await updateSection('otherInfo', clean);
-    if (onNext) onNext();
+    const saved = await updateSection();
+    if (saved && onNext) onNext();
   };
 
   const ic = 'w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all';

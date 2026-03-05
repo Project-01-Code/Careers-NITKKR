@@ -32,8 +32,8 @@ const Publications = ({ onNext, onBack }) => {
     const bad = filled.some(e => !e.journalType || !e.paperTitle?.trim() || !e.authors?.trim() || !e.journalName?.trim() || !e.volume?.trim() || !e.year?.trim() || !e.pages?.trim());
     if (bad) { toast.error('Please complete all required fields for started publications'); return; }
     if (filled.some(e => !/^\d{4}$/.test(e.year))) { toast.error('Year must be YYYY'); return; }
-    await updateSection('publications', { items: filled });
-    if (onNext) onNext();
+    const saved = await updateSection('publications', { items: filled });
+    if (saved && onNext) onNext();
   };
 
   const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';

@@ -17,6 +17,7 @@ import AdminUserManagement from './pages/admin/AdminUserManagement';
 import ApplicationReview from './pages/admin/ApplicationReview';
 import ProtectedRoute from './components/ProtectedRoute';
 import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentCancel from './pages/PaymentCancel';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import Help from './pages/Help';
@@ -75,7 +76,7 @@ function App() {
           path="/applications/:id/payment-cancel"
           element={
             <ProtectedRoute>
-              <Navigate to="/profile" replace />
+              <PaymentCancel />
             </ProtectedRoute>
           }
         />
