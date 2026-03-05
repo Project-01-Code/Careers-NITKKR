@@ -1,12 +1,29 @@
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { ApiError } from '../utils/apiError.js';
 import { HTTP_STATUS } from '../constants.js';
 
-/**
- * Multer memory storage configuration for image uploads.
- * We validate before streaming to Cloudinary (same pattern as PDF uploads).
- */
-const memoryStorage = multer.memoryStorage();
+const UPLOAD_TMP_DIR =
+  process.env.UPLOAD_TMP_DIR || path.join(process.cwd(), 'tmp', 'uploads');
+
+function ensureUploadDir() {
+  if (!fs.existsSync(UPLOAD_TMP_DIR)) {
+    fs.mkdirSync(UPLOAD_TMP_DIR, { recursive: true });
+  }
+  return UPLOAD_TMP_DIR;
+}
+
+const imageDiskStorage = multer.diskStorage({
+  destination(_req, _file, cb) {
+    ensureUploadDir();
+    cb(null, UPLOAD_TMP_DIR);
+  },
+  filename(_req, file, cb) {
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    cb(null, `${unique}-${(file.originalname || 'image').slice(-50)}`);
+  },
+});
 
 /** Shared JPEG-only file filter */
 const jpegFilter = (req, file, cb) => {
@@ -24,11 +41,11 @@ const jpegFilter = (req, file, cb) => {
 };
 
 /**
- * Photo upload middleware — accepts JPEG ≤ 200KB
+ * Photo upload middleware — accepts JPEG ≤ 200KB (disk storage for malware scan)
  * Used for: POST /api/v1/applications/:id/sections/photo/image
  */
 export const uploadPhoto = multer({
-  storage: memoryStorage,
+  storage: imageDiskStorage,
   fileFilter: jpegFilter,
   limits: {
     fileSize: 200 * 1024, // 200KB
@@ -37,11 +54,11 @@ export const uploadPhoto = multer({
 });
 
 /**
- * Signature upload middleware — accepts JPEG ≤ 50KB
+ * Signature upload middleware — accepts JPEG ≤ 50KB (disk storage for malware scan)
  * Used for: POST /api/v1/applications/:id/sections/signature/image
  */
 export const uploadSignature = multer({
-  storage: memoryStorage,
+  storage: imageDiskStorage,
   fileFilter: jpegFilter,
   limits: {
     fileSize: 50 * 1024, // 50KB

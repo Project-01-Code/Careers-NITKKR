@@ -1,3 +1,4 @@
+import fs from 'fs/promises';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
@@ -6,7 +7,6 @@ import {
   validatePDFUpload,
   validateFinalPDF,
   validateImageUpload,
-  scanForMalware,
 } from '../services/sectionValidation.service.js';
 import {
   calculateAutoCredits,
@@ -103,20 +103,23 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
     );
   }
 
-  // Validate PDF
-  const pdfErrors = validatePDFUpload(file, sectionConfig);
+  let buffer;
+  try {
+    buffer = await fs.readFile(file.path);
+  } finally {
+    await fs.unlink(file.path).catch(() => {});
+  }
+
+  const fileWithBuffer = { ...file, buffer };
+
+  // Validate PDF (magic bytes use buffer)
+  const pdfErrors = validatePDFUpload(fileWithBuffer, sectionConfig);
   if (pdfErrors.length > 0) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
       'PDF validation failed',
       pdfErrors
     );
-  }
-
-  // Scan for malware (stub)
-  const isClean = await scanForMalware(file.buffer);
-  if (!isClean) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'File failed security scan');
   }
 
   // Delete old PDF if exists
@@ -127,7 +130,7 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
   const appNo = application.applicationNumber;
   let uploaded;
   try {
-    uploaded = await uploadToCloudinary(file.buffer, {
+    uploaded = await uploadToCloudinary(buffer, {
       publicId: `nit_kkr_careers/applications/${appNo}/${sectionType}/${appNo}_${sectionType}.pdf`,
       resourceType: 'raw',
       format: 'pdf',
@@ -265,20 +268,23 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
     );
   }
 
+  let buffer;
+  try {
+    buffer = await fs.readFile(file.path);
+  } finally {
+    await fs.unlink(file.path).catch(() => {});
+  }
+
+  const fileWithBuffer = { ...file, buffer };
+
   // Validate image (magic bytes + MIME + size)
-  const imageErrors = validateImageUpload(file, sectionType);
+  const imageErrors = validateImageUpload(fileWithBuffer, sectionType);
   if (imageErrors.length > 0) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
       'Image validation failed',
       imageErrors
     );
-  }
-
-  // Scan for malware
-  const isClean = await scanForMalware(file.buffer);
-  if (!isClean) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'File failed security scan');
   }
 
   // Delete previous image from Cloudinary if it exists (non-throwing)
@@ -289,7 +295,7 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
   const appNo = application.applicationNumber;
   let uploaded;
   try {
-    uploaded = await uploadToCloudinary(file.buffer, {
+    uploaded = await uploadToCloudinary(buffer, {
       publicId: `nit_kkr_careers/applications/${appNo}/${sectionType}/${appNo}_${sectionType}`,
       resourceType: 'image',
       format: 'jpg',
@@ -374,7 +380,16 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
   const application = req.application;
   const file = req.file;
 
-  const pdfErrors = validateFinalPDF(file);
+  let buffer;
+  try {
+    buffer = await fs.readFile(file.path);
+  } finally {
+    await fs.unlink(file.path).catch(() => {});
+  }
+
+  const fileWithBuffer = { ...file, buffer };
+
+  const pdfErrors = validateFinalPDF(fileWithBuffer);
   if (pdfErrors.length > 0) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
@@ -383,11 +398,6 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
     );
   }
 
-  // Scan for malware (stub - replace with ClamAV or equivalent in production)
-  const isClean = await scanForMalware(file.buffer);
-  if (!isClean) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'File failed security scan');
-  }
   // Delete existing doc if present (non-throwing)
   const existingSection = application.sections.get('final_documents');
   await deleteFromCloudinary(existingSection?.cloudinaryId, 'raw');
@@ -396,7 +406,7 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
   const appNo = application.applicationNumber;
   let uploaded;
   try {
-    uploaded = await uploadToCloudinary(file.buffer, {
+    uploaded = await uploadToCloudinary(buffer, {
       publicId: `nit_kkr_careers/applications/${appNo}/documents/${appNo}_documents.pdf`,
       resourceType: 'raw',
       format: 'pdf',
