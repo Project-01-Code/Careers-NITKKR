@@ -34,8 +34,10 @@ const emptyForm = {
 };
 
 const designations = [
-  'Professor', 'Associate Professor', 'Assistant Professor Grade-I', 'Assistant Professor Grade-II',
+  'Assistant Professor Grade-I', 'Assistant Professor Grade-II',
 ];
+
+const degreeLevels = ['PhD', 'Masters', 'Bachelors', 'Diploma'];
 
 const payLevels = ['10', '11', '12', '13A2', '14A'];
 const categoryOptions = ['GEN', 'SC', 'ST', 'OBC', 'EWS', 'PwD'];
@@ -145,6 +147,40 @@ const AdminJobForm = () => {
     setForm((prev) => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }));
   };
 
+  const handleDegreeChange = (index, field, value) => {
+    setForm((prev) => {
+      const degrees = [...prev.eligibilityCriteria.requiredDegrees];
+      degrees[index] = { ...degrees[index], [field]: value };
+      return {
+        ...prev,
+        eligibilityCriteria: { ...prev.eligibilityCriteria, requiredDegrees: degrees },
+      };
+    });
+  };
+
+  const addDegree = () => {
+    setForm((prev) => ({
+      ...prev,
+      eligibilityCriteria: {
+        ...prev.eligibilityCriteria,
+        requiredDegrees: [
+          ...prev.eligibilityCriteria.requiredDegrees,
+          { level: 'PhD', field: '', isMandatory: true },
+        ],
+      },
+    }));
+  };
+
+  const removeDegree = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      eligibilityCriteria: {
+        ...prev.eligibilityCriteria,
+        requiredDegrees: prev.eligibilityCriteria.requiredDegrees.filter((_, i) => i !== index),
+      },
+    }));
+  };
+
   const handleSectionToggle = (sectionType) => {
     setForm((prev) => {
       const exists = prev.requiredSections.find((s) => s.sectionType === sectionType);
@@ -166,8 +202,13 @@ const AdminJobForm = () => {
       const payload = {
         ...form,
         positions: Number(form.positions),
+        grade: form.grade || undefined,
         qualifications: form.qualifications.filter(Boolean),
         responsibilities: form.responsibilities.filter(Boolean),
+        eligibilityCriteria: {
+          ...form.eligibilityCriteria,
+          requiredDegrees: form.eligibilityCriteria.requiredDegrees.filter((d) => d.field.trim()),
+        },
         applicationStartDate: form.applicationStartDate ? new Date(form.applicationStartDate).toISOString() : undefined,
         applicationEndDate: form.applicationEndDate ? new Date(form.applicationEndDate).toISOString() : undefined,
       };
@@ -320,6 +361,55 @@ const AdminJobForm = () => {
               <div>
                 <Label>Min Experience (years)</Label>
                 <input type="number" name="minExperience" value={form.eligibilityCriteria.minExperience} onChange={handleEligibilityChange} className={inputClass} />
+              </div>
+            </div>
+
+            {/* Required Degrees */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <Label required>Required Degrees</Label>
+                <button type="button" onClick={addDegree} className="text-primary text-sm font-medium hover:underline flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">add</span> Add Degree
+                </button>
+              </div>
+              <div className="space-y-3">
+                {form.eligibilityCriteria.requiredDegrees.map((degree, i) => (
+                  <div key={i} className="flex flex-col md:flex-row gap-3 p-4 bg-gray-50 rounded-xl relative group">
+                    <div className="flex-1">
+                      <Label>Degree Level</Label>
+                      <select
+                        value={degree.level}
+                        onChange={(e) => handleDegreeChange(i, 'level', e.target.value)}
+                        className={inputClass}
+                      >
+                        {degreeLevels.map((l) => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex-[2]">
+                      <Label>Field/Subject</Label>
+                      <input
+                        value={degree.field}
+                        onChange={(e) => handleDegreeChange(i, 'field', e.target.value)}
+                        className={inputClass}
+                        placeholder="e.g. Computer Science & Engineering"
+                      />
+                    </div>
+                    <div className="flex items-end pb-1">
+                      <button
+                        type="button"
+                        onClick={() => removeDegree(i)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <span className="material-symbols-outlined">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {form.eligibilityCriteria.requiredDegrees.length === 0 && (
+                  <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl">
+                    <p className="text-sm text-gray-500">No degrees specified. At least one is required.</p>
+                  </div>
+                )}
               </div>
             </div>
           </Section>
