@@ -100,9 +100,16 @@ const Profile = () => {
   const handleWithdraw = async (appId) => {
     const reason = window.prompt('Please provide a reason for withdrawal (optional):');
     if (reason === null) return; // User cancelled
+    
+    const confirmMessage = reason 
+      ? `Are you sure you want to withdraw this application?\n\nReason: ${reason}`
+      : 'Are you sure you want to withdraw this application?';
+    
+    if (!window.confirm(confirmMessage)) return;
+    
     try {
       await api.post(`/applications/${appId}/withdraw`, { reason });
-      toast.success('Application withdrawn');
+      toast.success('Application withdrawn successfully');
       fetchApplications(); // Refresh list
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to withdraw application');

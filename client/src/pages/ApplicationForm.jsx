@@ -28,7 +28,7 @@ const ApplicationForm = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
-  const { initApplication, loading } = useApplication();
+  const { initApplication, loading, validateSection } = useApplication();
   
   useEffect(() => {
     if (jobId) {
@@ -59,8 +59,18 @@ const ApplicationForm = () => {
     { id: 18, title: "Review & Submit", component: ReviewSubmit }
   ];
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < steps.length) {
+      // Validate current section before proceeding
+      const currentStepComponent = steps[currentStep - 1].component.name;
+      const sectionKey = currentStepComponent
+        .replace('Details', '')
+        .replace('Publications', 'publications')
+        .toLowerCase();
+      
+      const isValid = await validateSection(sectionKey);
+      if (!isValid) return;
+      
       setCurrentStep(curr => curr + 1);
       window.scrollTo(0, 0);
     }

@@ -1,7 +1,8 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -23,6 +24,18 @@ const processQueue = (error, token = null) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Network error handling
+    if (!navigator.onLine) {
+      toast.error('No internet connection. Please check your network and try again.');
+      return Promise.reject(error);
+    }
+
+    // Server unavailable
+    if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+      toast.error('Unable to connect to server. Please try again later.');
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config;
 
     if (
