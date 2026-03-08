@@ -283,11 +283,11 @@ const JobDetail = () => {
                 <div className="mb-6 pt-4 border-t border-gray-100">
                   <p className="text-xs font-bold text-gray-500 uppercase mb-3">Application Fee</p>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    {job.applicationFee.general > 0 && <FeeItem label="General" amount={job.applicationFee.general} />}
-                    {job.applicationFee.obc > 0 && <FeeItem label="OBC" amount={job.applicationFee.obc} />}
-                    {job.applicationFee.ews > 0 && <FeeItem label="EWS" amount={job.applicationFee.ews} />}
-                    <FeeItem label="SC/ST" amount={job.applicationFee.sc_st || 0} />
-                    <FeeItem label="PwD" amount={job.applicationFee.pwd || 0} />
+                    {job.categories.includes('GEN') && <FeeItem label="General" amount={job.applicationFee.general || 0} />}
+                    {job.categories.includes('OBC') && <FeeItem label="OBC" amount={job.applicationFee.obc || 0} />}
+                    {job.categories.includes('EWS') && <FeeItem label="EWS" amount={job.applicationFee.ews || 0} />}
+                    {(job.categories.includes('SC') || job.categories.includes('ST')) && <FeeItem label="SC/ST" amount={job.applicationFee.sc_st || 0} />}
+                    {job.categories.includes('PwD') && <FeeItem label="PwD" amount={job.applicationFee.pwd || 0} />}
                   </div>
                 </div>
               )}
