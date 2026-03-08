@@ -113,7 +113,15 @@ const ApplicationForm = () => {
           <div className="w-full lg:w-1/4 xl:w-1/5 shrink-0">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto custom-scrollbar">
                <h3 className="font-bold text-gray-900 mb-6 sticky top-0 bg-white z-10 py-2 border-b border-gray-50">Progress</h3>
-               <Stepper steps={steps.map(s => s.title)} currentStep={currentStep} />
+               <Stepper 
+                 steps={steps.map(s => s.title)} 
+                 currentStep={currentStep} 
+                 maxReachedStep={steps.length}
+                 onStepClick={(step) => {
+                   setCurrentStep(step);
+                   window.scrollTo(0, 0);
+                 }}
+               />
             </div>
           </div>
 
