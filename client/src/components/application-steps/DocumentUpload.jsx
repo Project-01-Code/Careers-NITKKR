@@ -77,12 +77,21 @@ const DocumentUpload = ({ onNext, onBack }) => {
           </h3>
 
           <PdfUpload
-            label="Government ID Proof"
-            description="Aadhar, PAN, Passport, or Voter ID. Max 5MB."
-            value={docs.idProof}
-            onChange={(fileObj) => handleChange('idProof', fileObj)}
+            label="UG Degree Certificate"
+            description="Bachelor's degree certificate. Max 5MB."
+            value={docs.ugDegree}
+            onChange={(fileObj) => handleChange('ugDegree', fileObj)}
             applicationId={applicationId}
-            sectionType="final_documents"
+            sectionType="education"
+          />
+
+          <PdfUpload
+            label="PG Degree Certificate"
+            description="Master's degree certificate. Max 5MB."
+            value={docs.pgDegree}
+            onChange={(fileObj) => handleChange('pgDegree', fileObj)}
+            applicationId={applicationId}
+            sectionType="education"
           />
 
           <PdfUpload
@@ -95,12 +104,12 @@ const DocumentUpload = ({ onNext, onBack }) => {
           />
 
           <PdfUpload
-            label="UG & PG Degree Certificates"
-            description="Merged PDF containing Bachelors and Masters degrees. Max 5MB."
-            value={docs.pgDegree}
-            onChange={(fileObj) => handleChange('pgDegree', fileObj)}
+            label="Government ID Proof"
+            description="Aadhar, PAN, Passport, or Voter ID. Max 5MB."
+            value={docs.idProof}
+            onChange={(fileObj) => handleChange('idProof', fileObj)}
             applicationId={applicationId}
-            sectionType="education"
+            sectionType="final_documents"
           />
 
           <PdfUpload

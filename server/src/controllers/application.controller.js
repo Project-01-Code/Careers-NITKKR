@@ -141,7 +141,7 @@ export const deleteApplication = asyncHandler(async (req, res) => {
       { session }
     );
 
-    await Application.findByIdAndDelete(id).session(session);
+    await Application.findByIdAndDelete(id, { session });
 
     await session.commitTransaction();
 

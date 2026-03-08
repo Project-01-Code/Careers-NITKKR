@@ -314,6 +314,18 @@ const AdminApplications = () => {
             </button>
           </div>
         )}
+        
+        {/* Bulk Operations Loading Overlay */}
+        {bulkUpdating && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl shadow-xl max-w-sm mx-4">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm font-medium">Updating {selectedIds.length} application{selectedIds.length > 1 ? 's' : ''}...</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
