@@ -30,7 +30,7 @@ export const createNotice = asyncHandler(async (req, res) => {
 
     const baseName = req.file.originalname.replace(/\.pdf$/i, '');
 
-    const uploaded = await uploadToCloudinary(req.file.buffer, {
+    const uploaded = await uploadToCloudinary(buffer, {
       folder: 'nit_kkr_careers/notices',
       publicId: `notice_${Date.now()}_${baseName}`,
       resourceType: 'raw',
@@ -149,7 +149,7 @@ export const updateNotice = asyncHandler(async (req, res) => {
     // Upload new PDF
     const baseName = req.file.originalname.replace(/\.pdf$/i, '');
 
-    const uploaded = await uploadToCloudinary(req.file.buffer, {
+    const uploaded = await uploadToCloudinary(buffer, {
       folder: 'nit_kkr_careers/notices',
       publicId: `notice_${Date.now()}_${baseName}`,
       resourceType: 'raw',
