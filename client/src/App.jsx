@@ -6,7 +6,7 @@ import JobDetail from './pages/JobDetail';
 import ApplicationForm from './pages/ApplicationForm';
 import Notices from './pages/Notices';
 import Login from './pages/Login';
-import Signup from './pages/Signup';
+import Register from './pages/Register';
 import Profile from './pages/Profile';
 import AdminJobs from './pages/admin/AdminJobs';
 import AdminJobForm from './pages/admin/AdminJobForm';
@@ -36,7 +36,7 @@ function App() {
 
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Protected Routes — Authenticated Users */}

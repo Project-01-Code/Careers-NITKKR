@@ -3,34 +3,65 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import MainLayout from '../layouts/MainLayout';
 
-const Signup = () => {
+const Register = () => {
+  const [step, setStep] = useState('email'); // 'email' or 'otp'
   const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { signup } = useAuth();
+  const { signup, sendSignupOtp } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSendOtp = async (e) => {
     e.preventDefault();
-    if (!email || !password || !confirmPassword) {
-      toast.error('Please fill in all fields');
+    if (!email) {
+      toast.error('Please enter your email address');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await sendSignupOtp(email);
+      toast.success('Verification code sent to your email!');
+      setStep('otp');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send verification code');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (!otp) {
+      toast.error('Please enter the verification code');
+      return;
+    }
+    if (!password || !confirmPassword) {
+      toast.error('Please fill in password fields');
       return;
     }
     if (password !== confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    if (password.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    if (password.length > 100) {
+      toast.error('Password must not exceed 100 characters');
+      return;
+    }
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+      toast.error('Password must contain at least one uppercase letter, one lowercase letter, and one number');
       return;
     }
     setSubmitting(true);
     try {
-      await signup(email, password);
+      await signup(email, password, otp);
       toast.success('Account created successfully! Please sign in.');
       navigate('/login');
     } catch (err) {
@@ -47,7 +78,7 @@ const Signup = () => {
   };
 
   return (
-    <MainLayout>
+
       <section className="min-h-[calc(100vh-80px)] flex items-center justify-center py-12 px-4">
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute top-1/3 -right-20 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
@@ -63,84 +94,127 @@ const Signup = () => {
           <div className="glass-card rounded-3xl p-8 md:p-10">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg shadow-primary/30">
-                N
+              <div className="w-14 h-14 rounded-2xl  flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg shadow-primary/30">
+                <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg">
+              <img src="https://nitkkr.ac.in/wp-content/uploads/2021/09/logoforppt.png" alt="NIT Kurukshetra Logo" className="w-full h-full object-contain" />
+            </div>
               </div>
               <h1 className="text-2xl font-bold text-secondary">Create Account</h1>
               <p className="text-gray-500 text-sm mt-1">Register to apply for positions at NIT Kurukshetra</p>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Email Address</label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">mail</span>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
-                    required
-                  />
+            {step === 'email' ? (
+              <form onSubmit={handleSendOtp} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Email Address</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">mail</span>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Password</label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">lock</span>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min 6 characters"
-                    className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
-                    required
-                  />
-                  <button
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full bg-gradient-to-r from-primary to-primary-dark text-white py-3 rounded-xl font-semibold transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Sending Code...
+                    </>
+                  ) : (
+                    'Verify Email'
+                  )}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleRegister} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Verification Code</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Enter 6-digit code sent to your email"
+                      className="w-full px-4 py-3 text-center tracking-widest text-lg rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Password</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">lock</span>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Min 8 characters"
+                      className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-xl">
+                        {showPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Confirm Password</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">lock</span>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter password"
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full bg-gradient-to-r from-primary to-primary-dark text-white py-3 rounded-xl font-semibold transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Creating Account...
+                    </>
+                  ) : (
+                    'Create Account'
+                  )}
+                </button>
+                <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-xl">
-                      {showPassword ? 'visibility_off' : 'visibility'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Confirm Password</label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">lock</span>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter password"
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
-                    required
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full bg-gradient-to-r from-primary to-primary-dark text-white py-3 rounded-xl font-semibold transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
-              >
-                {submitting ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Creating Account...
-                  </>
-                ) : (
-                  'Create Account'
-                )}
-              </button>
-            </form>
+                    onClick={() => setStep('email')}
+                    disabled={submitting}
+                    className="w-full text-sm text-primary hover:underline disabled:opacity-50 mt-2"
+                >
+                    Change Email
+                </button>
+              </form>
+            )}
 
             {/* Info */}
             <div className="mt-6 bg-primary/5 rounded-xl p-3 border border-primary/10">
@@ -162,8 +236,7 @@ const Signup = () => {
           </div>
         </motion.div>
       </section>
-    </MainLayout>
   );
 };
 
-export default Signup;
+export default Register;

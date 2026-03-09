@@ -34,8 +34,13 @@ export const AuthProvider = ({ children }) => {
     return res.data;
   }, []);
 
-  const signup = useCallback(async (email, password) => {
-    const res = await api.post('/auth/register', { email, password });
+  const signup = useCallback(async (email, password, otp) => {
+    const res = await api.post('/auth/register', { email, password, otp });
+    return res.data;
+  }, []);
+
+  const sendSignupOtp = useCallback(async (email) => {
+    const res = await api.post('/auth/register/send-otp', { email });
     return res.data;
   }, []);
 
@@ -67,7 +72,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, login, signup, logout, updateProfile, refreshUser, loading, isAdmin }}
+      value={{ user, login, signup, logout, updateProfile, refreshUser, loading, isAdmin, sendSignupOtp }}
     >
       {children}
     </AuthContext.Provider>

@@ -147,10 +147,10 @@ const Navbar = () => {
                 Log In
               </Link>
               <Link
-                to="/signup"
-                className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-full text-sm font-medium transition-all shadow-lg hover:shadow-primary/30 transform hover:-translate-y-0.5"
+                to="/register"
+                className="bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary-dark transition-all hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5"
               >
-                Sign Up
+                Register
               </Link>
             </>
           )}
@@ -186,12 +186,12 @@ const Navbar = () => {
                 </Link>
               ))}
               {!user && (
-                <div className="pt-2 border-t border-gray-100 space-y-2">
-                  <Link to="/login" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-secondary hover:text-primary">
-                    Log In
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <Link to="/login" onClick={() => setMobileOpen(false)} className="block  text-primary border border-primary text-center py-2 rounded-lg text-sm font-medium">
+                    Sign In
                   </Link>
-                  <Link to="/signup" onClick={() => setMobileOpen(false)} className="block bg-primary text-white text-center py-2 rounded-lg text-sm font-medium">
-                    Sign Up
+                  <Link to="/register" onClick={() => setMobileOpen(false)} className="block bg-primary text-white text-center py-2 rounded-lg text-sm font-medium">
+                    Register
                   </Link>
                 </div>
               )}

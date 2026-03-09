@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import MainLayout from '../layouts/MainLayout';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -39,7 +38,7 @@ const Login = () => {
   };
 
   return (
-    <MainLayout>
+
       <section className="min-h-[calc(100vh-80px)] flex items-center justify-center py-12 px-4">
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute top-1/4 -left-20 w-72 h-72 bg-primary/5 rounded-full blur-3xl" />
@@ -130,15 +129,14 @@ const Login = () => {
             <div className="mt-8 text-center">
               <p className="text-sm text-gray-500">
                 Don't have an account?{' '}
-                <Link to="/signup" className="text-primary font-semibold hover:underline">
-                  Create one
+                <Link to="/register" className="text-primary font-semibold hover:underline">
+                  Sign Up
                 </Link>
               </p>
             </div>
           </div>
         </motion.div>
       </section>
-    </MainLayout>
   );
 };
 
