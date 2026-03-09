@@ -38,8 +38,11 @@ const Stepper = ({ steps, currentStep, maxReachedStep, completedSteps, onStepCli
                 )}
               </button>
               
-              <div className="flex flex-col pt-1">
-                <span className={`text-sm font-semibold transition-colors
+              <div 
+                className={`flex flex-col pt-1 ${isReachable ? 'cursor-pointer' : ''}`}
+                onClick={() => isReachable && onStepClick?.(stepNumber)}
+              >
+                <span className={`text-sm font-semibold transition-colors hover:text-primary
                   ${isActive ? 'text-primary' : isReachable ? 'text-gray-900' : 'text-gray-400'}
                 `}>
                   {label}
