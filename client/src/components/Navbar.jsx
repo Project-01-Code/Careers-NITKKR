@@ -41,7 +41,7 @@ const Navbar = () => {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 group">
           <div className="w-10 h-10">
-            <img src="https://nitkkr.ac.in/wp-content/uploads/2023/09/cropped-nitlogo-1-e1711375918194.png" alt="Logo" />
+            <img src="https://nitkkr.ac.in/wp-content/uploads/2021/09/logoforppt.png" alt="NIT Kurukshetra Logo" />
           </div>
           <div className="flex flex-col">
             <span className={`font-bold text-lg leading-tight transition-colors ${scrolled ? 'text-secondary' : 'text-gray-900'}`}>

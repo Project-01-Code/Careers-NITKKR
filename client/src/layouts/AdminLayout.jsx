@@ -20,7 +20,7 @@ const AdminLayout = ({ children }) => {
     { path: '/admin/jobs', label: 'Jobs', icon: 'work' },
     { path: '/admin/notices', label: 'Notices', icon: 'campaign' },
     { path: '/admin/applicants', label: 'Applicants', icon: 'groups' },
-    { path: '/admin/users', label: 'User Management', icon: 'person_settings', roles: ['admin', 'super_admin'] },
+    { path: '/admin/users', label: 'User Management', icon: 'manage_accounts', roles: ['admin', 'super_admin'] },
   ];
 
   const filteredNavItems = navItems.filter(item => {
@@ -39,8 +39,8 @@ const AdminLayout = ({ children }) => {
         {/* Logo */}
         <div className="p-6 border-b border-white/10">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-bold text-xl shadow-lg">
-              N
+            <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg">
+              <img src="https://nitkkr.ac.in/wp-content/uploads/2021/09/logoforppt.png" alt="NIT Kurukshetra Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <span className="font-bold text-base block leading-tight">NIT KKR</span>
