@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import AdminLayout from '../../layouts/AdminLayout';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 
 const AdminApplications = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,6 +43,7 @@ const AdminApplications = () => {
         const data = res.data.data;
         setApplications(data.applications || (Array.isArray(data) ? data : []));
         setTotalPages(data.pagination?.totalPages || data.totalPages || 1);
+      // eslint-disable-next-line no-unused-vars
       } catch (err) {
         toast.error('Failed to load applications');
       } finally {
@@ -72,6 +74,7 @@ const AdminApplications = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+    // eslint-disable-next-line no-unused-vars
     } catch (err) {
       toast.error('Export failed');
     }

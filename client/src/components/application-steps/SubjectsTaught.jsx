@@ -13,6 +13,7 @@ const SubjectsTaught = ({ onNext, onBack }) => {
 
   useEffect(() => {
     const saved = formData?.subjectsTaught;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved?.items?.length) setList(saved.items);
     else if (Array.isArray(saved) && saved.length) setList(saved);
     else setList([{ ...EMPTY_ROW }]);

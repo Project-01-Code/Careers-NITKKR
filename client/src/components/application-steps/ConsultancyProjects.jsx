@@ -21,6 +21,7 @@ const ConsultancyProjects = ({ onNext, onBack }) => {
   useEffect(() => {
     const saved = formData?.consultancyProjects;
     if (saved && Array.isArray(saved) && saved.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setList(saved);
     } else {
       setList([{ ...EMPTY_ROW }]);

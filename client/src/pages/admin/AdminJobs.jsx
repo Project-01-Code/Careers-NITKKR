@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import AdminLayout from '../../layouts/AdminLayout';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import JobStatsModal from '../../components/admin/JobStatsModal';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700',
@@ -74,6 +75,7 @@ const AdminJobs = () => {
     })();
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchJobs(); }, [
     statusFilter,
     search,
