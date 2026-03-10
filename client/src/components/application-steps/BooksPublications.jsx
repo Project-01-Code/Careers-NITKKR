@@ -20,6 +20,7 @@ const BooksPublications = ({ onNext, onBack }) => {
   useEffect(() => {
     const saved = formData?.booksPublications;
     if (saved && Array.isArray(saved) && saved.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setList(saved);
     } else {
       setList([{ ...EMPTY_ROW }]);

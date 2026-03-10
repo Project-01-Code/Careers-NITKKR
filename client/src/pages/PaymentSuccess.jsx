@@ -8,6 +8,7 @@ import MainLayout from '../layouts/MainLayout';
 const PaymentSuccess = () => {
     const { id: applicationId } = useParams();
     const [searchParams] = useSearchParams();
+    // eslint-disable-next-line no-unused-vars
     const sessionId = searchParams.get('session_id');
     const navigate = useNavigate();
     const { submitApplication, loadApplication } = useApplication();
@@ -78,6 +79,7 @@ const PaymentSuccess = () => {
         if (applicationId) {
             handlePaymentSuccess();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [applicationId]);
 
     const getIcon = () => {

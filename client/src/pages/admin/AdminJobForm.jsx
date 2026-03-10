@@ -91,6 +91,7 @@ const AdminJobForm = () => {
           eligibilityCriteria: { ...emptyForm.eligibilityCriteria, ...(job.eligibilityCriteria || {}) },
           requiredSections: job.requiredSections?.length ? job.requiredSections : emptyForm.requiredSections,
         });
+      // eslint-disable-next-line no-unused-vars
       } catch (err) {
         toast.error('Failed to load job');
         navigate('/admin/jobs');
