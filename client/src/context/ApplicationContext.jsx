@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -58,6 +58,9 @@ export const ApplicationProvider = ({ children }) => {
   const [paymentStatus, setPaymentStatus] = useState('pending');
   const [applicationStatus, setApplicationStatus] = useState('draft');
 
+  // Ref to track in-flight initialization to prevent double-creation race conditions
+  const initRef = useRef(false);
+
   /**
    * Populate formData from server sections Map
    */
@@ -92,6 +95,10 @@ export const ApplicationProvider = ({ children }) => {
    * Tries to fetch an existing draft first, creates a new one if none found.
    */
   const initApplication = useCallback(async (currentJobId) => {
+    // Prevent double initialization if already in progress or already loaded for this job
+    if (initRef.current || (applicationId && jobId === currentJobId)) return null;
+
+    initRef.current = true;
     setJobId(currentJobId);
     setLoading(true);
     try {
@@ -135,9 +142,10 @@ export const ApplicationProvider = ({ children }) => {
       toast.error(msg);
       return null;
     } finally {
+      initRef.current = false;
       setLoading(false);
     }
-  }, [populateSectionsFromServer]);
+  }, [populateSectionsFromServer, applicationId, jobId]);
 
   /**
    * Load a specific application by ID (for resuming from profile)

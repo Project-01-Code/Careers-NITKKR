@@ -41,7 +41,7 @@ const Navbar = () => {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 group">
           <div className="w-10 h-10">
-            <img src="https://nitkkr.ac.in/wp-content/uploads/2023/09/cropped-nitlogo-1-e1711375918194.png" alt="Logo" />
+            <img src="https://nitkkr.ac.in/wp-content/uploads/2021/09/logoforppt.png" alt="NIT Kurukshetra Logo" />
           </div>
           <div className="flex flex-col">
             <span className={`font-bold text-lg leading-tight transition-colors ${scrolled ? 'text-secondary' : 'text-gray-900'}`}>
@@ -77,9 +77,6 @@ const Navbar = () => {
               >
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:shadow-primary/30 transition-shadow relative">
                   {user.profile?.firstName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'}
-                  {!user.isEmailVerified && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-400 border-2 border-white rounded-full" title="Email not verified" />
-                  )}
                 </div>
                 <span className={`hidden sm:block text-sm font-medium transition-colors ${scrolled ? 'text-secondary' : 'text-gray-800'}`}>
                   {user.profile?.firstName || user.email?.split('@')[0]}
@@ -109,12 +106,7 @@ const Navbar = () => {
                         My Profile
                       </Link>
 
-                      {!user.isEmailVerified && (
-                        <Link to="/verify-email" className="flex items-center gap-3 px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 transition-colors">
-                          <span className="material-symbols-outlined text-lg">mark_email_unread</span>
-                          Verify Email
-                        </Link>
-                      )}
+
 
                       {isAdmin && (
                         <Link to="/admin/jobs" className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">
@@ -147,10 +139,10 @@ const Navbar = () => {
                 Log In
               </Link>
               <Link
-                to="/signup"
-                className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-full text-sm font-medium transition-all shadow-lg hover:shadow-primary/30 transform hover:-translate-y-0.5"
+                to="/register"
+                className="bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary-dark transition-all hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5"
               >
-                Sign Up
+                Register
               </Link>
             </>
           )}
@@ -186,12 +178,12 @@ const Navbar = () => {
                 </Link>
               ))}
               {!user && (
-                <div className="pt-2 border-t border-gray-100 space-y-2">
-                  <Link to="/login" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-secondary hover:text-primary">
-                    Log In
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <Link to="/login" onClick={() => setMobileOpen(false)} className="block  text-primary border border-primary text-center py-2 rounded-lg text-sm font-medium">
+                    Sign In
                   </Link>
-                  <Link to="/signup" onClick={() => setMobileOpen(false)} className="block bg-primary text-white text-center py-2 rounded-lg text-sm font-medium">
-                    Sign Up
+                  <Link to="/register" onClick={() => setMobileOpen(false)} className="block bg-primary text-white text-center py-2 rounded-lg text-sm font-medium">
+                    Register
                   </Link>
                 </div>
               )}

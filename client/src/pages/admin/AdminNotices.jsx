@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AdminLayout from '../../layouts/AdminLayout';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 const AdminNotices = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = parseInt(searchParams.get('page') || '1');
+  
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -20,20 +24,34 @@ const AdminNotices = () => {
   });
   const [file, setFile] = useState(null);
 
+  const [totalPages, setTotalPages] = useState(1);
+
   const fetchNotices = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/notices', { params: { limit: 50 } });
+      const res = await api.get('/notices', { params: { page, limit: 10 } });
       const data = res.data.data;
-      setNotices(data.notices || data || []);
+      
+      const list = data.notices || (Array.isArray(data) ? data : []);
+      const total = data.totalPages || data.pagination?.totalPages || 1;
+      
+      setNotices(list);
+      setTotalPages(total);
     } catch {
       setNotices([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchNotices(); }, []);
+  useEffect(() => { fetchNotices(); }, [page]);
+
+  const setPage = (p) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('page', p.toString());
+    setSearchParams(newParams);
+  };
 
   const resetForm = () => {
     setForm({ heading: '', advtNo: '', category: '', externalLink: '' });
@@ -290,6 +308,29 @@ const AdminNotices = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 pb-6">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm disabled:opacity-40 hover:border-primary hover:text-primary transition-colors bg-white shadow-sm"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-500 bg-white px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm disabled:opacity-40 hover:border-primary hover:text-primary transition-colors bg-white shadow-sm"
+            >
+              Next
+            </button>
           </div>
         )}
       </div>

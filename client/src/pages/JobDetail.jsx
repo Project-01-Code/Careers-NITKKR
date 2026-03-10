@@ -300,16 +300,6 @@ const JobDetail = () => {
                 >
                   Login to Apply
                 </Link>
-              ) : !user.isEmailVerified ? (
-                <div>
-                  <Link
-                    to="/verify-email"
-                    className="block w-full text-center bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-semibold transition-all shadow-lg"
-                  >
-                    Verify Email to Apply
-                  </Link>
-                  <p className="text-xs text-amber-600 text-center mt-2">Email verification is required before applying.</p>
-                </div>
               ) : (
                 <Link
                   to={`/application/${job._id}`}
