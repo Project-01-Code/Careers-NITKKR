@@ -1,6 +1,5 @@
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/apiResponse.js';
-import { ApiError } from '../utils/apiError.js';
 import { Application } from '../models/application.model.js';
 import { User } from '../models/user.model.js';
 import { createApplication as createApplicationService } from '../services/application.service.js';
@@ -16,13 +15,6 @@ import mongoose from 'mongoose';
  */
 export const createApplication = asyncHandler(async (req, res) => {
   const { jobId } = req.body;
-
-  if (!req.user.isEmailVerified) {
-    throw new ApiError(
-      HTTP_STATUS.FORBIDDEN,
-      'Please verify your email before creating an application'
-    );
-  }
 
   const application = await createApplicationService(req.user._id, jobId);
 

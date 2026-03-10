@@ -5,7 +5,7 @@ import MainLayout from '../layouts/MainLayout';
 const faqData = [
     {
         question: 'How do I apply for a faculty position?',
-        answer: 'Browse available positions on the Jobs page, click on a position to view details, and click "Apply Now". You\'ll need to create an account and verify your email before applying. The application form has multiple sections including personal details, education, experience, publications, and document uploads.',
+        answer: 'Browse available positions on the Jobs page, click on a position to view details, and click "Apply Now". You\'ll need to create an account by verifying your email via OTP. once registered, the application form has multiple sections including personal details, education, experience, publications, and document uploads.',
     },
     {
         question: 'What documents do I need to upload?',
@@ -32,8 +32,8 @@ const faqData = [
         answer: 'Click the "Forgot Password?" link on the Login page, enter your registered email address, and you\'ll receive a 6-digit OTP. Enter the OTP along with your new password to reset it.',
     },
     {
-        question: 'How can I verify my email?',
-        answer: 'After logging in, navigate to the Email Verification page (/verify-email). Click "Send Verification Code" and enter the 6-digit OTP sent to your registered email.',
+        question: 'How do I verify my email?',
+        answer: 'Email verification is now integrated into the registration process. When you sign up, an OTP is sent to your email. You must enter this OTP to complete your registration and set your password.',
     },
     {
         question: 'Who can I contact for technical support?',

@@ -37,10 +37,11 @@ const AdminApplications = () => {
       setSelectedIds([]);
       try {
         const res = await api.get('/admin/applications', {
-          params: { page, status, jobId, search, limit: 15 }
+          params: { page, status, jobId, search, limit: 10 }
         });
-        setApplications(res.data.data.applications);
-        setTotalPages(res.data.data.pagination.totalPages);
+        const data = res.data.data;
+        setApplications(data.applications || (Array.isArray(data) ? data : []));
+        setTotalPages(data.pagination?.totalPages || data.totalPages || 1);
       } catch (err) {
         toast.error('Failed to load applications');
       } finally {
@@ -103,9 +104,11 @@ const AdminApplications = () => {
       setSelectedIds([]);
       // Refresh data
       const res = await api.get('/admin/applications', {
-        params: { page, status, jobId, search, limit: 15 }
+        params: { page, status, jobId, search, limit: 10 }
       });
-      setApplications(res.data.data.applications);
+      const data = res.data.data;
+      setApplications(data.applications || (Array.isArray(data) ? data : []));
+      setTotalPages(data.pagination?.totalPages || data.totalPages || 1);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Bulk update failed');
     } finally {
@@ -131,39 +134,65 @@ const AdminApplications = () => {
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 flex flex-wrap gap-4 items-center shadow-sm">
-          <div className="flex-1 min-w-[200px] relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+        <div className="bg-white p-5 rounded-3xl border border-gray-100 flex flex-wrap lg:flex-nowrap gap-4 items-center shadow-sm">
+          <div className="flex-grow min-w-[280px] relative">
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
             <input
               type="text"
-              placeholder="Search ID, Name or Email..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+              placeholder="Search by ID, Applicant Name or Email..."
+              className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm transition-all"
               value={search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
             />
           </div>
-          <select
-            className="px-4 py-2 rounded-xl border border-gray-100 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-            value={jobId}
-            onChange={(e) => handleFilterChange('jobId', e.target.value)}
-          >
-            <option value="">All Jobs</option>
-            {jobs.map(j => (
-              <option key={j._id} value={j._id}>{j.title}</option>
-            ))}
-          </select>
-          <select
-            className="px-4 py-2 rounded-xl border border-gray-100 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-            value={status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
-          >
-            <option value="">All Status</option>
-            <option value="submitted">Submitted</option>
-            <option value="reviewed">Reviewed</option>
-            <option value="shortlisted">Shortlisted</option>
-            <option value="rejected">Rejected</option>
-            <option value="selected">Selected</option>
-          </select>
+
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <div className="relative flex-grow sm:flex-grow-0 min-w-[160px]">
+              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg">work</span>
+              <select
+                className="w-full pl-11 pr-10 py-3 rounded-2xl border border-gray-100 bg-white text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm"
+                value={jobId}
+                onChange={(e) => handleFilterChange('jobId', e.target.value)}
+              >
+                <option value="">All Job Postings</option>
+                {jobs.map(j => (
+                  <option key={j._id} value={j._id}>{j.title}</option>
+                ))}
+              </select>
+              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+            </div>
+
+            <div className="relative flex-grow sm:flex-grow-0 min-w-[140px]">
+              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg">flag</span>
+              <select
+                className="w-full pl-11 pr-10 py-3 rounded-2xl border border-gray-100 bg-white text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm"
+                value={status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+              >
+                <option value="">All Statuses</option>
+                <option value="submitted">Submitted</option>
+                <option value="reviewed">Reviewed</option>
+                <option value="shortlisted">Shortlisted</option>
+                <option value="rejected">Rejected</option>
+                <option value="selected">Selected</option>
+              </select>
+              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+            </div>
+
+            {(search || jobId || status) && (
+              <button 
+                onClick={() => {
+                  handleFilterChange('search', '');
+                  handleFilterChange('jobId', '');
+                  handleFilterChange('status', '');
+                }}
+                className="p-3 rounded-2xl bg-primary/5 text-primary hover:bg-primary/10 transition-all flex items-center justify-center"
+                title="Reset Filters"
+              >
+                <span className="material-symbols-outlined text-lg">restart_alt</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Bulk Action Bar */}

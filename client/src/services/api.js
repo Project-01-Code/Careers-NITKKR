@@ -42,8 +42,7 @@ api.interceptors.response.use(
       error.response?.status === 401 &&
       !originalRequest._retry &&
       !originalRequest.url.includes('/auth/login') &&
-      !originalRequest.url.includes('/auth/refresh-token') &&
-      !originalRequest.url.includes('/auth/profile')
+      !originalRequest.url.includes('/auth/refresh-token')
     ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -60,8 +59,15 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError);
-        // Redirect to login on refresh failure
-        window.location.href = '/login';
+        // Only redirect to login if the user was trying to access a protected resource 
+        // and is not already on an auth page, to prevent infinite loops on mount.
+        if (
+          !originalRequest.url.includes('/auth/profile') &&
+          !window.location.pathname.includes('/login') &&
+          !window.location.pathname.includes('/register')
+        ) {
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

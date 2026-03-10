@@ -138,11 +138,10 @@ function extractPayload(data) {
     : [];
 
   const totalPages =
-    typeof unwrapped.totalPages === "number"
-      ? unwrapped.totalPages
-      : typeof unwrapped.total_pages === "number"
-      ? unwrapped.total_pages
-      : 1;
+    unwrapped.pagination?.totalPages ||
+    unwrapped.totalPages ||
+    unwrapped.total_pages ||
+    1;
 
   return { jobs, totalPages };
 }
@@ -158,6 +157,11 @@ const Jobs = () => {
   const advertisementNo = searchParams.get("advertisementNo") || "";
   const designation   = searchParams.get("designation")     || "All";
   const department    = searchParams.get("department")      || "All";
+  const payLevel      = searchParams.get("payLevel")        || "All";
+  const recruitmentType = searchParams.get("recruitmentType") || "All";
+  const category      = searchParams.get("category")       || "All";
+  const sortBy        = searchParams.get("sortBy")          || "createdAt";
+  const sortOrder     = searchParams.get("sortOrder")       || "desc";
 
   // FIX #4 — validate page: reject NaN, negative, non-integer values
   const rawPage = parseInt(searchParams.get("page"), 10);
@@ -238,11 +242,13 @@ const Jobs = () => {
   // Falls back to a static list if endpoint is unavailable.
   // ─────────────────────────────────────────────────────────────
   const STATIC_DESIGNATIONS = [
-    "Professor",
-    "Associate Professor",
     "Assistant Professor Grade-I",
     "Assistant Professor Grade-II",
   ];
+
+  const STATIC_PAY_LEVELS = ["10", "11", "12", "13A2", "14A"];
+  const STATIC_RECRUITMENT_TYPES = ["external", "internal"];
+  const STATIC_CATEGORIES = ["GEN", "SC", "ST", "OBC", "EWS", "PwD"];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -326,6 +332,12 @@ const Jobs = () => {
         // FIX #6 — comment documents what the backend must receive
         // Change `department` to `departmentSlug` or `departmentCode` if needed
         if (department !== "All")   params.department      = department;
+        if (payLevel !== "All")     params.payLevel        = payLevel;
+        if (recruitmentType !== "All") params.recruitmentType = recruitmentType;
+        if (category !== "All")      params.category       = category;
+        
+        params.sortBy = sortBy;
+        params.sortOrder = sortOrder;
 
         const res = await api.get("/jobs", {
           params,
@@ -361,6 +373,11 @@ const Jobs = () => {
     advertisementNo,
     designation,
     department,
+    payLevel,
+    recruitmentType,
+    category,
+    sortBy,
+    sortOrder,
     page,
     fetchTick,
     pushFilters,
@@ -396,6 +413,21 @@ const Jobs = () => {
 
   const handleDepartment = (e) =>
     pushFilters({ department: e.target.value, page: "" });
+
+  const handlePayLevel = (e) =>
+    pushFilters({ payLevel: e.target.value, page: "" });
+
+  const handleRecruitmentType = (e) =>
+    pushFilters({ recruitmentType: e.target.value, page: "" });
+
+  const handleCategory = (e) =>
+    pushFilters({ category: e.target.value, page: "" });
+
+  const handleSortBy = (e) =>
+    pushFilters({ sortBy: e.target.value, page: "" });
+
+  const handleSortOrder = (e) =>
+    pushFilters({ sortOrder: e.target.value, page: "" });
 
   const changePage = (p) =>
     pushFilters({ page: p > 1 ? String(p) : "" });
@@ -524,6 +556,74 @@ const Jobs = () => {
           </div>
         </form>
 
+        {/* ── Advanced Filters & Sorting ─────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-4 mb-8 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-gray-400 text-sm">filter_list</span>
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">More Filters:</span>
+          </div>
+
+          {/* Pay Level */}
+          <select
+            value={payLevel}
+            onChange={handlePayLevel}
+            className="text-sm px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white cursor-pointer"
+          >
+            <option value="All">All Pay Levels</option>
+            {STATIC_PAY_LEVELS.map((pl) => (
+              <option key={pl} value={pl}>Level {pl}</option>
+            ))}
+          </select>
+
+          {/* Recruitment Type */}
+          <select
+            value={recruitmentType}
+            onChange={handleRecruitmentType}
+            className="text-sm px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white cursor-pointer"
+          >
+            <option value="All">All Types</option>
+            {STATIC_RECRUITMENT_TYPES.map((rt) => (
+              <option key={rt} value={rt} className="capitalize">{rt}</option>
+            ))}
+          </select>
+
+          {/* Category */}
+          <select
+            value={category}
+            onChange={handleCategory}
+            className="text-sm px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white cursor-pointer"
+          >
+            <option value="All">All Categories</option>
+            {STATIC_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+
+          <div className="h-6 w-px bg-gray-200 mx-2 hidden lg:block" />
+
+          {/* Sorting */}
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sort by:</span>
+            <select
+              value={sortBy}
+              onChange={handleSortBy}
+              className="text-sm px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white cursor-pointer"
+            >
+              <option value="createdAt">Posted Date</option>
+              <option value="applicationEndDate">Deadline</option>
+              <option value="payLevel">Pay Level</option>
+            </select>
+            <select
+              value={sortOrder}
+              onChange={handleSortOrder}
+              className="text-sm px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white cursor-pointer"
+            >
+              <option value="desc">Newest/Highest First</option>
+              <option value="asc">Oldest/Lowest First</option>
+            </select>
+          </div>
+        </div>
+
         {/* ── Job List ─────────────────────────────────────────── */}
 
         {/* FIX #7 — Skeleton cards while loading */}
@@ -580,38 +680,25 @@ const Jobs = () => {
           </JobListErrorBoundary>
         )}
 
-        {/* ── Pagination ─────────────────────────────────────────── */}
-        {/* FIX #8 — pageNumbers from useMemo, not recalculated inline */}
+        {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-2 mt-10">
+          <div className="flex justify-center items-center gap-4 mt-12 mb-10">
             <button
               onClick={() => changePage(page - 1)}
               disabled={page === 1}
-              className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium disabled:opacity-40 hover:border-primary hover:text-primary transition-colors"
+              className="p-2.5 rounded-xl border border-gray-200 disabled:opacity-30 hover:border-primary hover:text-primary transition-all bg-white shadow-sm flex items-center justify-center"
             >
-              Previous
+              <span className="material-symbols-outlined">chevron_left</span>
             </button>
-
-            {pageNumbers.map((p) => (
-              <button
-                key={p}
-                onClick={() => changePage(p)}
-                className={`w-10 h-10 rounded-lg text-sm font-medium transition-all ${
-                  p === page
-                    ? "bg-primary text-white shadow-lg shadow-primary/25"
-                    : "border border-gray-200 hover:border-primary hover:text-primary"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-
+            <span className="text-sm font-bold text-gray-500 bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+              Page {page} of {totalPages}
+            </span>
             <button
               onClick={() => changePage(page + 1)}
               disabled={page === totalPages}
-              className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium disabled:opacity-40 hover:border-primary hover:text-primary transition-colors"
+              className="p-2.5 rounded-xl border border-gray-200 disabled:opacity-30 hover:border-primary hover:text-primary transition-all bg-white shadow-sm flex items-center justify-center"
             >
-              Next
+              <span className="material-symbols-outlined">chevron_right</span>
             </button>
           </div>
         )}

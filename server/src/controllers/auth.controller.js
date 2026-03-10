@@ -50,7 +50,7 @@ const createAndStoreOTP = async (email, type) => {
   const otp = String(
     Math.floor(
       10 ** (OTP_CONFIG.LENGTH - 1) +
-        Math.random() * 9 * 10 ** (OTP_CONFIG.LENGTH - 1)
+      Math.random() * 9 * 10 ** (OTP_CONFIG.LENGTH - 1)
     )
   );
 
@@ -150,7 +150,7 @@ const sendRegistrationOTP = asyncHandler(async (req, res) => {
   }
 
   const otp = await createAndStoreOTP(email, TOKEN_TYPES.EMAIL_VERIFICATION);
-  sendVerificationOTP(email, otp).catch(() => {});
+  sendVerificationOTP(email, otp).catch(() => { });
 
   return res
     .status(HTTP_STATUS.OK)
@@ -374,15 +374,13 @@ const registerUser = asyncHandler(async (req, res) => {
     email,
     password,
     role: USER_ROLES.APPLICANT,
-    isEmailVerified: true,
-    emailVerifiedAt: new Date(),
     profile: {},
   });
 
   await VerificationToken.deleteOne({ _id: tokenDoc._id });
 
   const createdUser = await User.findById(user._id).select(USER_PUBLIC_FIELDS);
-  
+
   if (!createdUser) {
     throw new ApiError(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
@@ -410,8 +408,6 @@ const registerUser = asyncHandler(async (req, res) => {
     );
 });
 
-
-
 /**
  * POST /auth/reset-password/send
  *
@@ -436,7 +432,7 @@ const sendPasswordResetOTPHandler = asyncHandler(async (req, res) => {
   }
 
   const otp = await createAndStoreOTP(email, TOKEN_TYPES.PASSWORD_RESET);
-  sendPasswordResetOTP(email, otp).catch(() => {});
+  sendPasswordResetOTP(email, otp).catch(() => { });
 
   return res
     .status(HTTP_STATUS.OK)
