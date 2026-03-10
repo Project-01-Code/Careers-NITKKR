@@ -36,6 +36,7 @@ const ApplicationForm = () => {
     } else {
       navigate('/jobs');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
   const steps = [

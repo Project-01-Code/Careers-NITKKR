@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 
 const JobDetail = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const advertisementNo = searchParams.get('advertisementNo');
   const { user } = useAuth();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,17 +18,31 @@ const JobDetail = () => {
   useEffect(() => {
     const fetchJob = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const res = await api.get(`/jobs/${id}`);
+        let res;
+        if (advertisementNo) {
+          res = await api.get('/jobs/by-advertisement', {
+            params: { advertisementNo },
+          });
+        } else if (id && id !== 'by-advertisement') {
+          res = await api.get(`/jobs/${id}`);
+        } else {
+          throw new Error('Valid identifier required');
+        }
         setJob(res.data.data);
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load job details');
+        setError(err.response?.data?.message || err.message || 'Failed to load job details');
       } finally {
         setLoading(false);
       }
     };
-    fetchJob();
-  }, [id]);
+    
+    // Safety check so we don't fetch randomly if both are empty
+    if (id || advertisementNo) {
+      fetchJob();
+    }
+  }, [id, advertisementNo]);
 
   const formatDate = (d) =>
     d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';

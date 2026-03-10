@@ -198,12 +198,12 @@ const PersonalDetails = ({ onNext, onBack }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               {label('Post Applied For', true)}
-              <input value={d.postAppliedFor} onChange={e => set('postAppliedFor', e.target.value)} className={ic('postAppliedFor')} placeholder="e.g. Assistant Professor Grade-II" />
+              <input value={d.postAppliedFor} disabled className={`${ic('postAppliedFor')} bg-gray-100 cursor-not-allowed`} placeholder="e.g. Assistant Professor Grade-II" />
               {err('postAppliedFor')}
             </div>
             <div className="space-y-1">
               {label('Department / Discipline', true)}
-              <input value={d.departmentDiscipline} onChange={e => set('departmentDiscipline', e.target.value)} className={ic('departmentDiscipline')} placeholder="e.g. Computer Science" />
+              <input value={d.departmentDiscipline} disabled className={`${ic('departmentDiscipline')} bg-gray-100 cursor-not-allowed`} placeholder="e.g. Computer Science" />
               {err('departmentDiscipline')}
             </div>
           </div>
