@@ -175,10 +175,10 @@
 
 ### 🟡 P1 - Important (4 items)
 
-#### 2.3 Search by Advertisement Number — NOT IMPLEMENTED
+#### 2.3 Search by Advertisement Number — ✅ IMPLEMENTED
 **Backend Endpoint:** `GET /jobs/by-advertisement?advertisementNo=NITKKR/FAC/2026/CSE/001`  
-**Frontend:** Not called anywhere  
-**Recommendation:** OPTIONAL (Nice-to-have polish)  
+**Frontend:** Handled by `JobDetail.jsx` via `/jobs/by-advertisement?advertisementNo=...` matching route.  
+**Recommendation:** DONE
 
 #### 2.4 Per-Section Server-Side Validation on "Next" — PARTIALLY DONE
 **Current:** Only bulk validate-all is called  
@@ -226,7 +226,7 @@
 | # | Task | Status | Actual Effort |
 |----|------|--------|---------------|
 | 3.1 | Per-section server validation on Next | ❌ NOT DONE | Would add UX richness |
-| 3.2 | Search by advertisement number | ❌ NOT DONE | Unused endpoint |
+| 3.2 | Search by advertisement number | ✅ DONE | Routed to JobDetail.jsx |
 | 3.3 | Payment cancel page with retry | ❌ NOT DONE | Currently basic redirect |
 | 3.4 | Enhance Home page dynamic stats | ⏳ PARTIAL | Notices done, jobs/depts pending |
 
@@ -250,7 +250,7 @@
 ### Unused Backend Endpoints
 | Endpoint | Reason | Priority |
 |----------|--------|----------|
-| GET /jobs/by-advertisement | Advertisment number lookup not implemented | P1 |
+| GET /jobs/by-advertisement | Added to JobDetail route mapping | P1 (DONE) |
 | POST /applications/:id/sections/:sectionType/validate (per-section) | Only bulk validate-all used | P1 |
 | POST /applications/:id/sections/education/pdf | Using final_documents instead | P0 (optimization) |
 | POST /applications/:id/sections/experience/pdf | Using final_documents instead | P0 (optimization) |
@@ -283,7 +283,7 @@ The authentication flow has successfully transitioned to an incorporated OTP ver
 1. **Add payment-retry logic** (1 day)
 2. **Add job count to Home page** (0.5 days)
 3. **Add per-section validation on "Next" button** (1.5 days)
-4. **Add advertisement number search** (0.5 days)
+4. ~~**Add advertisement number search** (0.5 days)~~ ✅ Done
 
 **Ready for Production?** YES with 1 mandatory fix (PaymentCancel)  
 **Ready for QA Testing?** YES, all main flows complete  

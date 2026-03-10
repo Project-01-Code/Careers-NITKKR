@@ -30,6 +30,7 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/jobs" element={<Jobs />} />
+        <Route path="/jobs/by-advertisement" element={<JobDetail />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/notices" element={<Notices />} />
         <Route path="/help" element={<Help />} />
