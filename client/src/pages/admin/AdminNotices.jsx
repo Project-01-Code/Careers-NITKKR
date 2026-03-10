@@ -182,10 +182,11 @@ const AdminNotices = () => {
                   >
                     <option value="">Select Category</option>
                     <option value="Faculty Recruitment">Faculty Recruitment</option>
-                    <option value="Non-Teaching">Non-Teaching</option>
-                    <option value="Research">Research</option>
-                    <option value="Exam">Exam</option>
-                    <option value="General">General</option>
+                    <option value="Non-Teaching Positions">Non-Teaching Positions</option>
+                    <option value="Project & Research Staff">Project & Research Staff</option>
+                    <option value="Guest & Adjunct Faculty">Guest & Adjunct Faculty</option>
+                    <option value="Results & Shortlisting">Results & Shortlisting</option>
+                    <option value="Important Notifications">Important Notifications</option>
                   </select>
                 </div>
                 <div>

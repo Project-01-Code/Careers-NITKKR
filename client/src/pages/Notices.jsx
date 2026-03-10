@@ -4,7 +4,15 @@ import api from '../services/api';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 
-const CATEGORIES = ['All', 'Faculty Recruitment', 'Non-Teaching', 'Research', 'Exam', 'General'];
+const CATEGORIES = [
+  'All',
+  'Faculty Recruitment',
+  'Non-Teaching Positions',
+  'Project & Research Staff',
+  'Guest & Adjunct Faculty',
+  'Results & Shortlisting',
+  'Important Notifications',
+];
 
 const Notices = () => {
   const [notices, setNotices] = useState([]);
@@ -63,11 +71,10 @@ const Notices = () => {
             <button
               key={cat}
               onClick={() => { setCategory(cat); setPage(1); }}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                category === cat
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${category === cat
                   ? 'bg-primary text-white shadow-lg shadow-primary/25'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+                }`}
             >
               {cat}
             </button>
