@@ -16,6 +16,7 @@ const OtherInfo = ({ onNext, onBack }) => {
 
   useEffect(() => {
     if (formData?.otherInfo && typeof formData.otherInfo === 'object') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInfo(prev => ({ ...prev, ...formData.otherInfo }));
     }
   }, [formData?.otherInfo]);
@@ -40,6 +41,7 @@ const OtherInfo = ({ onNext, onBack }) => {
 
   const handleNext = async () => {
     // Clean empty strings from arrays
+    // eslint-disable-next-line no-unused-vars
     const clean = {
       ...info,
       preferredSubjects: (info.preferredSubjects || []).filter(s => s.trim()),

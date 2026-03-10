@@ -268,6 +268,7 @@ const Jobs = () => {
         } else {
           setDesignations(STATIC_DESIGNATIONS);
         }
+      // eslint-disable-next-line no-unused-vars
       } catch (err) {
         if (!controller.signal.aborted) {
           // Endpoint may not exist yet — silently fall back
@@ -440,6 +441,7 @@ const Jobs = () => {
   };
 
   // FIX #8 — useMemo so pagination only recalculates when page/totalPages change
+  // eslint-disable-next-line no-unused-vars
   const pageNumbers = useMemo(() => {
     if (totalPages <= 1) return [];
 

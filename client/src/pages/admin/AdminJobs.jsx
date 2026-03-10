@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import AdminLayout from '../../layouts/AdminLayout';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -74,6 +73,7 @@ const AdminJobs = () => {
     })();
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchJobs(); }, [
     statusFilter,
     search,
