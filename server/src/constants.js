@@ -117,6 +117,7 @@ export const APPLICATION_STATUS = {
   DRAFT: 'draft',
   SUBMITTED: 'submitted',
   UNDER_REVIEW: 'under_review',
+  REVIEWED: 'reviewed', // Added to sink with frontend dropdowns/badges
   SHORTLISTED: 'shortlisted',
   REJECTED: 'rejected',
   SELECTED: 'selected',

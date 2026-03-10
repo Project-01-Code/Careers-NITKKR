@@ -73,9 +73,12 @@ export const getAllApplications = asyncHandler(async (req, res) => {
   const limitNum = Math.min(parseInt(limit, 10), PAGINATION.MAX_LIMIT);
   const skip = (pageNum - 1) * limitNum;
 
-  // Sorting
-  const sortOptions = {};
-  sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+  // Sorting — whitelist allowed fields to prevent arbitrary key injection
+  const ALLOWED_SORT_FIELDS = [
+    'createdAt', 'submittedAt', 'applicationNumber', 'status', 'paymentStatus',
+  ];
+  const safeSortBy = ALLOWED_SORT_FIELDS.includes(sortBy) ? sortBy : 'createdAt';
+  const sortOptions = { [safeSortBy]: sortOrder === 'asc' ? 1 : -1 };
 
   // Execute query
   const [applications, total] = await Promise.all([
@@ -352,10 +355,10 @@ export const bulkUpdateStatus = asyncHandler(async (req, res) => {
           remarks:
             remarks ||
             `Your application status has been reviewed and updated to ${status}.`,
-        }).catch(() => {});
+        }).catch(() => { });
       });
     })
-    .catch(() => {});
+    .catch(() => { });
 
   res.status(HTTP_STATUS.OK).json(
     new ApiResponse(
@@ -387,11 +390,17 @@ export const exportApplications = asyncHandler(async (req, res) => {
     if (dateTo) query.submittedAt.$lte = new Date(dateTo);
   }
 
+  const EXPORT_ROW_LIMIT = 5000;
+
   const applications = await Application.find(query)
     .populate('userId', 'email profile')
     .populate('jobId', 'title advertisementNo')
     .sort({ createdAt: -1 })
+    .limit(EXPORT_ROW_LIMIT + 1)   // fetch one extra to detect truncation
     .lean();
+
+  const truncated = applications.length > EXPORT_ROW_LIMIT;
+  if (truncated) applications.pop(); // remove the extra sentinel row
 
   // Build CSV rows
   const headers = [
@@ -416,13 +425,15 @@ export const exportApplications = asyncHandler(async (req, res) => {
     new Date(app.createdAt).toISOString(),
   ]);
 
-  // Escape CSV fields
+  // Escape CSV fields — also guard against spreadsheet formula injection
   const escapeCSV = (field) => {
-    const str = String(field);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}"`;
+    const str = String(field ?? '');
+    // Prefix formula-injection triggers with a single quote so Excel treats them as text
+    const safe = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+    if (safe.includes(',') || safe.includes('"') || safe.includes('\n')) {
+      return `"${safe.replace(/"/g, '""')}"`;
     }
-    return str;
+    return safe;
   };
 
   const csv = [
@@ -430,11 +441,15 @@ export const exportApplications = asyncHandler(async (req, res) => {
     ...rows.map((row) => row.map(escapeCSV).join(',')),
   ].join('\n');
 
-  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader(
     'Content-Disposition',
-    `attachment; filename=applications_${Date.now()}.csv`
+    `attachment; filename="applications_${Date.now()}.csv"`
   );
+  if (truncated) {
+    res.setHeader('X-Export-Truncated', 'true');
+    res.setHeader('X-Export-Row-Limit', String(EXPORT_ROW_LIMIT));
+  }
   res.send(csv);
 });
 
