@@ -222,6 +222,8 @@ const AdminJobForm = () => {
       delete payload.status;
       delete payload.publishDate;
       delete payload.closedAt;
+      delete payload.id;
+      delete payload.isActive;
 
       if (isEditing) {
         await api.patch(`/admin/jobs/${id}`, payload);

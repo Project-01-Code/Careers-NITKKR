@@ -65,7 +65,7 @@ const JobStatsModal = ({ jobId, jobTitle, onClose }) => {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-primary/60 uppercase tracking-wider">Total Applications</p>
-                      <h3 className="text-3xl font-black text-secondary">{stats.totalApplications || 0}</h3>
+                      <h3 className="text-3xl font-black text-secondary">{stats.applications?.total ?? 0}</h3>
                     </div>
                   </div>
                 </div>
@@ -75,13 +75,13 @@ const JobStatsModal = ({ jobId, jobTitle, onClose }) => {
                   <div>
                     <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">By Status</h4>
                     <div className="space-y-3">
-                      {Object.entries(stats.byStatus || {}).map(([status, count]) => (
+                      {Object.entries(stats.applications?.byStatus || {}).map(([status, count]) => (
                         <div key={status} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 italic transition-all hover:border-primary/20">
                           <span className="text-sm font-bold text-secondary capitalize">{status.replace('_', ' ')}</span>
                           <span className="px-3 py-1 bg-white rounded-lg text-xs font-black text-primary border border-gray-100 shadow-sm">{count}</span>
                         </div>
                       ))}
-                      {(!stats.byStatus || Object.keys(stats.byStatus).length === 0) && (
+                      {(!stats.applications?.byStatus || Object.keys(stats.applications.byStatus).length === 0) && (
                         <p className="text-sm text-gray-400 italic">No applications yet.</p>
                       )}
                     </div>
@@ -91,7 +91,7 @@ const JobStatsModal = ({ jobId, jobTitle, onClose }) => {
                   <div>
                     <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Payments</h4>
                     <div className="space-y-3">
-                      {Object.entries(stats.byPayment || {}).map(([status, count]) => (
+                      {Object.entries(stats.applications?.byPayment || {}).map(([status, count]) => (
                         <div key={status} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 transition-all hover:border-primary/20">
                           <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${
@@ -103,7 +103,7 @@ const JobStatsModal = ({ jobId, jobTitle, onClose }) => {
                           <span className="px-3 py-1 bg-white rounded-lg text-xs font-black text-primary border border-gray-100 shadow-sm">{count}</span>
                         </div>
                       ))}
-                      {(!stats.byPayment || Object.keys(stats.byPayment).length === 0) && (
+                      {(!stats.applications?.byPayment || Object.keys(stats.applications.byPayment).length === 0) && (
                         <p className="text-sm text-gray-400 italic">No payment info.</p>
                       )}
                     </div>
