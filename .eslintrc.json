@@ -1,6 +1,7 @@
 {
   "extends": ["eslint:recommended", "prettier"],
   "root": true,
+  "ignorePatterns": ["client/dist/**"],
   "overrides": [
     {
       "files": ["server/**/*.js"],
@@ -16,13 +17,28 @@
     {
       "files": ["client/**/*.{js,jsx}"],
       "env": {
-        "browser": true
+        "browser": true,
+        "es2022": true
+      },
+      "parserOptions": {
+        "ecmaVersion": "latest",
+        "sourceType": "module",
+        "ecmaFeatures": {
+          "jsx": true
+        }
       },
       "extends": ["plugin:react/recommended", "plugin:react-hooks/recommended"],
       "settings": {
         "react": {
           "version": "detect"
         }
+      },
+      "rules": {
+        "react/react-in-jsx-scope": "off",
+        "react/prop-types": "off",
+        "react/no-unescaped-entities": "off",
+        "react/jsx-no-undef": "off",
+        "no-unused-vars": ["warn", { "varsIgnorePattern": "^[A-Z_]", "argsIgnorePattern": "^_" }]
       }
     }
   ]

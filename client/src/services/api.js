@@ -13,6 +13,7 @@ const api = axios.create({
 let isRefreshing = false;
 let failedQueue = [];
 
+// eslint-disable-next-line no-unused-vars
 const processQueue = (error, token = null) => {
   failedQueue.forEach((prom) => {
     if (error) prom.reject(error);

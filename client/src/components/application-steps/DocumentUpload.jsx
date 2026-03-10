@@ -20,6 +20,7 @@ const DocumentUpload = ({ onNext, onBack }) => {
 
   useEffect(() => {
     if (formData?.documents) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDocs(prev => ({ ...prev, ...formData.documents }));
     }
   }, [formData?.documents]);

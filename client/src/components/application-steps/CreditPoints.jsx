@@ -15,6 +15,7 @@ const CreditPoints = ({ onNext, onBack }) => {
   const [totalCreditsClaimed, setTotalCreditsClaimed] = useState(0);
   const [totalCreditsAllowed, setTotalCreditsAllowed] = useState(0);
   const [serverSummary, setServerSummary] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
