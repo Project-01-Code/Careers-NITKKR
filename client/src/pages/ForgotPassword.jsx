@@ -43,6 +43,14 @@ const ForgotPassword = () => {
             toast.error('Password must be at least 8 characters');
             return;
         }
+        if (newPassword.length > 100) {
+            toast.error('Password must not exceed 100 characters');
+            return;
+        }
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+            toast.error('Password must contain at least one uppercase letter, one lowercase letter, and one number');
+            return;
+        }
         if (newPassword !== confirmPassword) {
             toast.error('Passwords do not match');
             return;

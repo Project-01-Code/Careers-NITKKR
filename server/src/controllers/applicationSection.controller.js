@@ -130,7 +130,7 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
   const appNo = application.applicationNumber;
   let uploaded;
   try {
-    uploaded = await uploadToCloudinary(file.buffer, {
+    uploaded = await uploadToCloudinary(buffer, {
       folder: `nit_kkr_careers/applications/${appNo}/${sectionType}`,
       publicId: `${appNo}_${sectionType}`,
       resourceType: 'raw',
@@ -296,7 +296,7 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
   const appNo = application.applicationNumber;
   let uploaded;
   try {
-    uploaded = await uploadToCloudinary(file.buffer, {
+    uploaded = await uploadToCloudinary(buffer, {
       folder: `nit_kkr_careers/applications/${appNo}/${sectionType}`,
       publicId: `${appNo}_${sectionType}`,
       resourceType: 'image',
@@ -408,7 +408,7 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
   const appNo = application.applicationNumber;
   let uploaded;
   try {
-    uploaded = await uploadToCloudinary(file.buffer, {
+    uploaded = await uploadToCloudinary(buffer, {
       folder: `nit_kkr_careers/applications/${appNo}/documents`,
       publicId: `${appNo}_documents`,
       resourceType: 'raw',

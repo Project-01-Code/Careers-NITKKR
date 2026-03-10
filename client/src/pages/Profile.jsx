@@ -23,20 +23,24 @@ const Profile = () => {
   // Real applications data
   const [myApplications, setMyApplications] = useState([]);
   const [loadingApps, setLoadingApps] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Fetch user's applications from the server
   const fetchApplications = useCallback(async () => {
     setLoadingApps(true);
     try {
-      const res = await api.get('/applications');
-      setMyApplications(res.data.data?.applications || []);
+      const res = await api.get('/applications', { params: { page, limit: 10 } });
+      const data = res.data.data;
+      setMyApplications(data.applications || data || []);
+      setTotalPages(data.totalPages || data.pagination?.totalPages || 1);
     } catch (err) {
       console.error('Failed to fetch applications:', err);
       toast.error('Failed to load applications');
     } finally {
       setLoadingApps(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     if (user?.profile) {
@@ -251,49 +255,67 @@ const Profile = () => {
                         </Link>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {myApplications.map((app) => (
-                          <div key={app._id} className="border border-gray-200 rounded-xl p-5 hover:border-primary/30 transition-colors bg-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-3 flex-wrap">
-                                <h3 className="font-bold text-gray-800 text-lg">
-                                  {app.jobSnapshot?.title || app.jobId?.title || 'Application'}
-                                </h3>
-                                {getStatusBadge(app.status)}
+                      <>
+                        <div className="space-y-4">
+                          {myApplications.map((app) => (
+                            <div key={app._id} className="border border-gray-200 rounded-xl p-5 hover:border-primary/30 transition-colors bg-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <h3 className="font-bold text-gray-800 text-lg">
+                                    {app.jobSnapshot?.title || app.jobId?.title || 'Application'}
+                                  </h3>
+                                  {getStatusBadge(app.status)}
+                                </div>
+                                <p className="text-sm text-gray-500">
+                                  {app.jobSnapshot?.department || 'Department'} • Ref: {app.applicationNumber}
+                                </p>
+                                <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                  {app.submittedAt
+                                    ? `Submitted: ${new Date(app.submittedAt).toLocaleDateString()}`
+                                    : `Last updated: ${new Date(app.updatedAt).toLocaleDateString()}`
+                                  }
+                                </p>
                               </div>
-                              <p className="text-sm text-gray-500">
-                                {app.jobSnapshot?.department || 'Department'} • Ref: {app.applicationNumber}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[14px]">schedule</span>
-                                {app.submittedAt
-                                  ? `Submitted: ${new Date(app.submittedAt).toLocaleDateString()}`
-                                  : `Last updated: ${new Date(app.updatedAt).toLocaleDateString()}`
-                                }
-                              </p>
-                            </div>
 
-                            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                              {app.status === 'draft' && (
-                                <>
-                                  <button
-                                    onClick={() => handleResume(app)}
-                                    className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-medium text-sm hover:bg-primary hover:text-white transition-colors flex items-center gap-1.5"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">edit</span>
-                                    Resume
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(app._id)}
-                                    className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                                    Delete
-                                  </button>
-                                </>
-                              )}
-                              {app.status === 'submitted' && (
-                                <>
+                              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                                {app.status === 'draft' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleResume(app)}
+                                      className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-medium text-sm hover:bg-primary hover:text-white transition-colors flex items-center gap-1.5"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                                      Resume
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(app._id)}
+                                      className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                                      Delete
+                                    </button>
+                                  </>
+                                )}
+                                {app.status === 'submitted' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleDownloadReceipt(app._id)}
+                                      className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">download</span>
+                                      Receipt
+                                    </button>
+                                    <button
+                                      onClick={() => handleWithdraw(app._id)}
+                                      className="bg-orange-50 text-orange-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-orange-100 transition-colors flex items-center gap-1.5"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">undo</span>
+                                      Withdraw
+                                    </button>
+                                  </>
+                                )}
+                                {['under_review', 'shortlisted', 'selected', 'rejected'].includes(app.status) && (
                                   <button
                                     onClick={() => handleDownloadReceipt(app._id)}
                                     className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
@@ -301,31 +323,36 @@ const Profile = () => {
                                     <span className="material-symbols-outlined text-[16px]">download</span>
                                     Receipt
                                   </button>
-                                  <button
-                                    onClick={() => handleWithdraw(app._id)}
-                                    className="bg-orange-50 text-orange-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-orange-100 transition-colors flex items-center gap-1.5"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">undo</span>
-                                    Withdraw
-                                  </button>
-                                </>
-                              )}
-                              {['under_review', 'shortlisted', 'selected', 'rejected'].includes(app.status) && (
-                                <button
-                                  onClick={() => handleDownloadReceipt(app._id)}
-                                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
-                                >
-                                  <span className="material-symbols-outlined text-[16px]">download</span>
-                                  Receipt
-                                </button>
-                              )}
-                              {app.status === 'withdrawn' && (
-                                <span className="text-sm text-gray-400 italic px-4 py-2">Withdrawn</span>
-                              )}
+                                )}
+                                {app.status === 'withdrawn' && (
+                                  <span className="text-sm text-gray-400 italic px-4 py-2">Withdrawn</span>
+                                )}
+                              </div>
                             </div>
+                          ))}
+                        </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                          <div className="flex justify-center items-center gap-2 mt-8">
+                            <button
+                              onClick={() => setPage(p => Math.max(1, p - 1))}
+                              disabled={page === 1}
+                              className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium disabled:opacity-40 hover:border-primary hover:text-primary transition-colors"
+                            >
+                              Previous
+                            </button>
+                            <span className="text-sm text-gray-500">Page {page} of {totalPages}</span>
+                            <button
+                              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                              disabled={page === totalPages}
+                              className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium disabled:opacity-40 hover:border-primary hover:text-primary transition-colors"
+                            >
+                              Next
+                            </button>
                           </div>
-                        ))}
-                      </div>
+                        )}
+                      </>
                     )}
                   </motion.div>
                 )}

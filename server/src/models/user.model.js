@@ -59,14 +59,6 @@ const userSchema = new Schema(
         ref: 'Application',
       },
     ],
-    isEmailVerified: {
-      type: Boolean,
-      default: false,
-    },
-    emailVerifiedAt: {
-      type: Date,
-      default: null,
-    },
   },
   {
     timestamps: true,

@@ -141,7 +141,8 @@ const AdminUserManagement = () => {
           </div>
 
           <div className="space-y-8">
-            {/* Promote Section */}
+            {/* Promote Section – visible only for super_admin */}
+            {currentUser?.role === 'super_admin' && (
             <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
@@ -170,13 +171,14 @@ const AdminUserManagement = () => {
                     </p>
                 </div>
                 <button
-                  disabled={promoting || !promoUserId || currentUser?.role !== 'super_admin'}
+                  disabled={promoting || !promoUserId}
                   className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-xs hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50"
                 >
                   {promoting ? 'PROMOTING...' : 'PROMOTE USER'}
                 </button>
               </form>
             </div>
+            )}
 
             {/* Session History */}
             {createdRecently.length > 0 && (
