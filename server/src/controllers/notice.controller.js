@@ -10,6 +10,36 @@ import {
 } from '../services/upload.service.js';
 
 /**
+ * Helper: read file into buffer and clean up the temp file.
+ * @param {string} filePath - path on disk
+ * @returns {Promise<Buffer>}
+ */
+async function readAndClean(filePath) {
+  const buffer = await fs.readFile(filePath);
+  await fs.unlink(filePath).catch((e) =>
+    console.warn('[notice.controller] temp-file cleanup failed:', e.message)
+  );
+  return buffer;
+}
+
+/**
+ * Helper: upload a PDF buffer to Cloudinary.
+ * @param {Buffer} buffer
+ * @param {string} originalName
+ * @returns {Promise<{pdfUrl: string, cloudinaryId: string}>}
+ */
+async function uploadPDF(buffer, originalName) {
+  const baseName = originalName.replace(/\.pdf$/i, '').slice(0, 60);
+  const uploaded = await uploadToCloudinary(buffer, {
+    folder: 'nit_kkr_careers/notices',
+    publicId: `notice_${Date.now()}_${baseName}`,
+    resourceType: 'raw',
+    format: 'pdf',
+  });
+  return { pdfUrl: uploaded.url, cloudinaryId: uploaded.publicId };
+}
+
+/**
  * @desc    Create a new notice (Admin only)
  * @route   POST /api/v1/notices
  * @access  Admin
@@ -21,23 +51,10 @@ export const createNotice = asyncHandler(async (req, res) => {
   let cloudinaryId = null;
 
   if (req.file) {
-    let buffer;
-    try {
-      buffer = await fs.readFile(req.file.path);
-    } finally {
-      await fs.unlink(req.file.path).catch(() => {});
-    }
-
-    const baseName = req.file.originalname.replace(/\.pdf$/i, '');
-
-    const uploaded = await uploadToCloudinary(buffer, {
-      folder: 'nit_kkr_careers/notices',
-      publicId: `notice_${Date.now()}_${baseName}`,
-      resourceType: 'raw',
-      format: 'pdf',
-    });
-    pdfUrl = uploaded.url;
-    cloudinaryId = uploaded.publicId;
+    const buffer = await readAndClean(req.file.path);
+    const result = await uploadPDF(buffer, req.file.originalname);
+    pdfUrl = result.pdfUrl;
+    cloudinaryId = result.cloudinaryId;
   }
 
   const notice = await Notice.create({
@@ -136,27 +153,14 @@ export const updateNotice = asyncHandler(async (req, res) => {
   if (!notice) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Notice not found');
 
   if (req.file) {
-    let buffer;
-    try {
-      buffer = await fs.readFile(req.file.path);
-    } finally {
-      await fs.unlink(req.file.path).catch(() => {});
-    }
+    const buffer = await readAndClean(req.file.path);
 
     // Delete old PDF from Cloudinary (non-throwing)
     await deleteFromCloudinary(notice.cloudinaryId, 'raw');
 
-    // Upload new PDF
-    const baseName = req.file.originalname.replace(/\.pdf$/i, '');
-
-    const uploaded = await uploadToCloudinary(buffer, {
-      folder: 'nit_kkr_careers/notices',
-      publicId: `notice_${Date.now()}_${baseName}`,
-      resourceType: 'raw',
-      format: 'pdf',
-    });
-    notice.pdfUrl = uploaded.url;
-    notice.cloudinaryId = uploaded.publicId;
+    const result = await uploadPDF(buffer, req.file.originalname);
+    notice.pdfUrl = result.pdfUrl;
+    notice.cloudinaryId = result.cloudinaryId;
   }
 
   if (heading !== undefined) notice.heading = heading;

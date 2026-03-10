@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
 import { User } from '../models/user.model.js';
@@ -18,9 +19,14 @@ import {
   TOKEN_TYPES,
 } from '../constants.js';
 
+// ---------------------------------------------------------------------------
 // Constants
+// ---------------------------------------------------------------------------
 
 const IS_DEV = process.env.NODE_ENV === 'development';
+
+/** Max concurrent device sessions per user (env-configurable). */
+const MAX_SESSIONS = parseInt(process.env.MAX_SESSIONS, 10) || 5;
 
 /** @type {import('express').CookieOptions} */
 const cookieOptions = {
@@ -30,21 +36,14 @@ const cookieOptions = {
 };
 
 /** Mongoose projection that strips sensitive fields from user documents. */
-const USER_PUBLIC_FIELDS = '-password -refreshToken -deletedAt';
+const USER_PUBLIC_FIELDS = '-password -sessions -deletedAt';
 
-// Helpers
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
 
 /**
- * Generates a numeric OTP and persists it to a VerificationToken document
- * (one active OTP per user per type). Hashing is handled transparently by
- * the model's pre-save hook — the controller never touches bcrypt.
- *
- * Uses a find-then-save pattern (instead of findOneAndUpdate) so that
- * Mongoose pre-save hooks fire correctly.
- *
- * @param {string} email - The user's email address.
- * @param {string} type   - Token type constant from TOKEN_TYPES.
- * @returns {Promise<string>} The plaintext OTP (for emailing / dev response).
+ * Generates a numeric OTP and persists it to a VerificationToken document.
  */
 const createAndStoreOTP = async (email, type) => {
   const otp = String(
@@ -58,32 +57,21 @@ const createAndStoreOTP = async (email, type) => {
     Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000
   );
 
-  // Find existing doc or build a new one, then save so the pre-save hook runs.
   let tokenDoc = await VerificationToken.findOne({ email, type });
 
   if (tokenDoc) {
-    tokenDoc.otp = otp; // plain - hook will hash on save
+    tokenDoc.otp = otp;
     tokenDoc.expiresAt = expiresAt;
   } else {
     tokenDoc = new VerificationToken({ email, type, otp, expiresAt });
   }
 
   await tokenDoc.save();
-
   return otp;
 };
 
 /**
  * Validates an OTP for a given user and token type.
- *
- * Performs explicit expiry check in addition to the TTL index (MongoDB's TTL
- * janitor runs with up to ~60 s lag, so stale documents can linger).
- *
- * @param {string} email - The user's email address.
- * @param {string} type   - Token type constant from TOKEN_TYPES.
- * @param {string} otp    - The plaintext OTP submitted by the user.
- * @returns {Promise<import('../models/verificationToken.model.js').VerificationTokenDoc>}
- * @throws {ApiError} On missing, expired, or incorrect OTP.
  */
 const validateOTP = async (email, type, otp) => {
   const tokenDoc = await VerificationToken.findOne({ email, type });
@@ -113,20 +101,34 @@ const validateOTP = async (email, type, otp) => {
 };
 
 /**
- * Generates an access/refresh token pair, persists the refresh token to the
- * user document, and returns both tokens.
+ * Generates a new access + refresh token pair and adds a session entry to the user.
+ * Enforces MAX_SESSIONS cap by evicting the oldest session when full.
  *
- * @param {string} userId - The user's MongoDB ObjectId.
- * @returns {Promise<{ accessToken: string, refreshToken: string }>}
- * @throws {ApiError} On any internal failure during token generation.
+ * @param {string} userId
+ * @param {string} [deviceInfo]  - User-Agent string from the request
+ * @returns {Promise<{accessToken: string, refreshToken: string}>}
  */
-const generateAccessAndRefreshTokens = async (userId) => {
+const generateTokensAndAddSession = async (userId, deviceInfo = '') => {
   try {
     const user = await User.findById(userId);
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
-    user.refreshToken = refreshToken;
+    // Hash the refresh token before storing
+    const tokenHash = await bcrypt.hash(refreshToken, 10);
+
+    const refreshExpiry = process.env.REFRESH_TOKEN_EXPIRY || '7d';
+    const expiresAt = new Date(
+      Date.now() + parseExpiry(refreshExpiry)
+    );
+
+    // Evict oldest sessions if at capacity
+    if (user.sessions.length >= MAX_SESSIONS) {
+      user.sessions.sort((a, b) => a.createdAt - b.createdAt);
+      user.sessions.splice(0, user.sessions.length - MAX_SESSIONS + 1);
+    }
+
+    user.sessions.push({ token: tokenHash, deviceInfo, createdAt: new Date(), expiresAt });
     await user.save({ validateBeforeSave: false });
 
     return { accessToken, refreshToken };
@@ -137,6 +139,22 @@ const generateAccessAndRefreshTokens = async (userId) => {
     );
   }
 };
+
+/**
+ * Convert an expiry string like "7d", "15m", "1h" into milliseconds.
+ */
+function parseExpiry(expiry) {
+  const num = parseInt(expiry, 10);
+  if (expiry.endsWith('d')) return num * 24 * 60 * 60 * 1000;
+  if (expiry.endsWith('h')) return num * 60 * 60 * 1000;
+  if (expiry.endsWith('m')) return num * 60 * 1000;
+  if (expiry.endsWith('s')) return num * 1000;
+  return num; // assume ms
+}
+
+// ---------------------------------------------------------------------------
+// Controllers
+// ---------------------------------------------------------------------------
 
 const sendRegistrationOTP = asyncHandler(async (req, res) => {
   const { email } = req.body;
@@ -166,11 +184,12 @@ const sendRegistrationOTP = asyncHandler(async (req, res) => {
 /**
  * POST /auth/login
  *
- * Validates credentials and issues an access/refresh token pair via both
- * cookies and the response body (supports cookie-less clients).
+ * Issues an access/refresh token pair and opens a new device session.
+ * Existing sessions on other devices remain active.
  */
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+  const deviceInfo = req.headers['user-agent'] || '';
 
   const user = await User.findOne({ email, deletedAt: null });
 
@@ -186,8 +205,9 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Invalid credentials.');
   }
 
-  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
-    user._id
+  const { accessToken, refreshToken } = await generateTokensAndAddSession(
+    user._id,
+    deviceInfo
   );
 
   const loggedInUser = await User.findById(user._id).select(USER_PUBLIC_FIELDS);
@@ -217,14 +237,25 @@ const loginUser = asyncHandler(async (req, res) => {
 /**
  * DELETE /auth/logout
  *
- * Clears the stored refresh token and removes auth cookies.
+ * Removes only the session matching the current device's refresh token.
+ * Other device sessions remain active.
  */
 const logoutUser = asyncHandler(async (req, res) => {
-  await User.findByIdAndUpdate(
-    req.user._id,
-    { $unset: { refreshToken: 1 } },
-    { new: true }
-  );
+  const incomingToken = req.cookies?.refreshToken;
+
+  if (incomingToken) {
+    const user = await User.findById(req.user._id);
+    if (user) {
+      // Remove the session whose token hash matches this device's token
+      const filtered = [];
+      for (const session of user.sessions) {
+        const matches = await bcrypt.compare(incomingToken, session.token);
+        if (!matches) filtered.push(session);
+      }
+      user.sessions = filtered;
+      await user.save({ validateBeforeSave: false });
+    }
+  }
 
   await logAction({
     userId: req.user._id,
@@ -243,13 +274,47 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 /**
+ * DELETE /auth/sessions
+ *
+ * Logs out from ALL devices by clearing the entire sessions array.
+ */
+const logoutAllDevices = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(
+    req.user._id,
+    { $set: { sessions: [] } },
+    { new: true }
+  );
+
+  await logAction({
+    userId: req.user._id,
+    action: AUDIT_ACTIONS.LOGOUT,
+    resourceType: RESOURCE_TYPES.USER,
+    resourceId: req.user._id,
+    changes: { reason: 'Logout all devices' },
+    req,
+  });
+
+  return res
+    .status(HTTP_STATUS.OK)
+    .clearCookie('accessToken', cookieOptions)
+    .clearCookie('refreshToken', cookieOptions)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        {},
+        'Logged out from all devices successfully.'
+      )
+    );
+});
+
+/**
  * POST /auth/refresh-token
  *
- * Validates the incoming refresh token (from cookie or body), rotates both
- * tokens, and issues a fresh pair.
+ * Validates the incoming refresh token against all active sessions,
+ * then rotates only the matching session's token (Token Rotation).
  */
 const refreshAccessToken = asyncHandler(async (req, res) => {
-  const incomingRefreshToken = req.cookies.refreshToken;
+  const incomingRefreshToken = req.cookies?.refreshToken;
 
   if (!incomingRefreshToken) {
     throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Refresh token required.');
@@ -267,15 +332,36 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Invalid refresh token.');
     }
 
-    if (incomingRefreshToken !== user.refreshToken) {
+    // Find the matching session by comparing hashes
+    let matchedIndex = -1;
+    for (let i = 0; i < user.sessions.length; i++) {
+      const session = user.sessions[i];
+      // Skip expired sessions
+      if (session.expiresAt < new Date()) continue;
+      const matches = await bcrypt.compare(incomingRefreshToken, session.token);
+      if (matches) {
+        matchedIndex = i;
+        break;
+      }
+    }
+
+    if (matchedIndex === -1) {
       throw new ApiError(
         HTTP_STATUS.UNAUTHORIZED,
         'Refresh token is expired or already used.'
       );
     }
 
-    const { accessToken, refreshToken: newRefreshToken } =
-      await generateAccessAndRefreshTokens(user._id);
+    // Rotate — generate new token pair and replace the matched session's token hash
+    const accessToken = user.generateAccessToken();
+    const newRefreshToken = user.generateRefreshToken();
+    const newTokenHash = await bcrypt.hash(newRefreshToken, 10);
+
+    const refreshExpiry = process.env.REFRESH_TOKEN_EXPIRY || '7d';
+    user.sessions[matchedIndex].token = newTokenHash;
+    user.sessions[matchedIndex].expiresAt = new Date(Date.now() + parseExpiry(refreshExpiry));
+
+    await user.save({ validateBeforeSave: false });
 
     return res
       .status(HTTP_STATUS.OK)
@@ -296,12 +382,12 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
 // Profile Handlers
+// ---------------------------------------------------------------------------
 
 /**
  * GET /auth/profile
- *
- * Returns the authenticated user's public profile (attached by verifyJWT).
  */
 const getProfile = asyncHandler(async (req, res) => {
   return res
@@ -312,10 +398,30 @@ const getProfile = asyncHandler(async (req, res) => {
 });
 
 /**
+ * POST /auth/sessions — list all active sessions for the current user
+ */
+const getActiveSessions = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  const now = new Date();
+
+  // Return only non-expired sessions, without the token hash
+  const sessions = (user.sessions || [])
+    .filter((s) => s.expiresAt > now)
+    .map((s) => ({
+      deviceInfo: s.deviceInfo,
+      createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
+    }));
+
+  return res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(HTTP_STATUS.OK, { sessions, count: sessions.length }, 'Active sessions fetched.')
+    );
+});
+
+/**
  * PATCH /auth/profile
- *
- * Merges validated body fields onto the user's profile sub-document and
- * persists the update.
  */
 const updateProfile = asyncHandler(async (req, res) => {
   const currentUser = await User.findById(req.user._id);
@@ -351,6 +457,10 @@ const updateProfile = asyncHandler(async (req, res) => {
     );
 });
 
+// ---------------------------------------------------------------------------
+// Registration & Password Handlers
+// ---------------------------------------------------------------------------
+
 const registerUser = asyncHandler(async (req, res) => {
   const { email, password, otp } = req.body;
 
@@ -362,14 +472,12 @@ const registerUser = asyncHandler(async (req, res) => {
     );
   }
 
-  // Validate OTP first
   const tokenDoc = await validateOTP(
     email,
     TOKEN_TYPES.EMAIL_VERIFICATION,
     otp
   );
 
-  // OTP is valid, create the user
   const user = await User.create({
     email,
     password,
@@ -410,9 +518,6 @@ const registerUser = asyncHandler(async (req, res) => {
 
 /**
  * POST /auth/reset-password/send
- *
- * Public endpoint. Always responds 200 regardless of whether the email exists
- * to prevent account enumeration. Returns the OTP in development mode only.
  */
 const sendPasswordResetOTPHandler = asyncHandler(async (req, res) => {
   const { email } = req.body;
@@ -447,9 +552,6 @@ const sendPasswordResetOTPHandler = asyncHandler(async (req, res) => {
 
 /**
  * POST /auth/reset-password/confirm
- *
- * Public endpoint. Validates the OTP then replaces the user's password.
- * The User model's pre-save hook handles bcrypt hashing.
  */
 const resetPasswordHandler = asyncHandler(async (req, res) => {
   const { email, otp, newPassword } = req.body;
@@ -461,7 +563,9 @@ const resetPasswordHandler = asyncHandler(async (req, res) => {
 
   const tokenDoc = await validateOTP(email, TOKEN_TYPES.PASSWORD_RESET, otp);
 
-  user.password = newPassword; // pre-save hook handles hashing
+  user.password = newPassword;
+  // Invalidate all sessions on password reset for security
+  user.sessions = [];
   await user.save({ validateBeforeSave: false });
 
   await VerificationToken.deleteOne({ _id: tokenDoc._id });
@@ -476,8 +580,10 @@ export {
   registerUser,
   loginUser,
   logoutUser,
+  logoutAllDevices,
   refreshAccessToken,
   getProfile,
+  getActiveSessions,
   updateProfile,
   sendPasswordResetOTPHandler,
   resetPasswordHandler,

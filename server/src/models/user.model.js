@@ -23,9 +23,19 @@ const userSchema = new Schema(
       default: USER_ROLES.APPLICANT,
       required: true,
     },
-    refreshToken: {
-      type: String,
-    },
+    /**
+     * Sessions — one entry per logged-in device.
+     * token is stored hashed (bcrypt) for security.
+     * Capped at MAX_SESSIONS (default 5) concurrent sessions.
+     */
+    sessions: [
+      {
+        token: { type: String, required: true },     // bcrypt hash of the refresh token
+        deviceInfo: { type: String, default: '' },   // User-Agent string
+        createdAt: { type: Date, default: Date.now },
+        expiresAt: { type: Date, required: true },
+      },
+    ],
     deletedAt: {
       type: Date,
       default: null,
@@ -111,12 +121,15 @@ userSchema.methods.generateRefreshToken = function () {
   );
 };
 
-// Transform JSON output
+// Transform JSON output — strip sensitive fields
 userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;
-  delete userObject.refreshToken;
   delete userObject.__v;
+  // Strip hashed tokens from each session — keep deviceInfo & createdAt for UI use
+  if (userObject.sessions) {
+    userObject.sessions = userObject.sessions.map(({ token: _t, ...safe }) => safe);
+  }
   return userObject;
 };
 

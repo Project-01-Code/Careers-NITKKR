@@ -137,6 +137,27 @@ const megaSeed = async () => {
           phone: '9000000009',
         },
       }),
+      // Additional Admins
+      User.create({
+        email: 'admin2@nitkkr.ac.in',
+        password: 'Password@123',
+        role: USER_ROLES.ADMIN,
+        profile: {
+          firstName: 'Registrar',
+          lastName: 'Admin',
+          phone: '9000000010',
+        },
+      }),
+      User.create({
+        email: 'admin3@nitkkr.ac.in',
+        password: 'Password@123',
+        role: USER_ROLES.ADMIN,
+        profile: {
+          firstName: 'Dean',
+          lastName: 'Admin',
+          phone: '9000000011',
+        },
+      }),
     ]);
 
     // ── Departments ───────────────────────────────────────────────
@@ -692,7 +713,7 @@ const megaSeed = async () => {
     divider('═');
 
     console.log('\n  COLLECTIONS\n');
-    row('Users', '9');
+    row('Users', '11');
     row('Departments', '7');
     row('Notices', '6  (5 active, 1 archived)');
     row(
@@ -718,6 +739,8 @@ const megaSeed = async () => {
     [
       ['SUPER_ADMIN', 'superadmin@nitkkr.ac.in'],
       ['ADMIN', 'admin@nitkkr.ac.in'],
+      ['ADMIN', 'admin2@nitkkr.ac.in'],
+      ['ADMIN', 'admin3@nitkkr.ac.in'],
       ['REVIEWER', 'reviewer@nitkkr.ac.in'],
       ['REVIEWER', 'reviewer2@nitkkr.ac.in'],
       ['REVIEWER', 'reviewer3@nitkkr.ac.in'],
