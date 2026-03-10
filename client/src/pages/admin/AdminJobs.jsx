@@ -20,6 +20,14 @@ const AdminJobs = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [designationFilter, setDesignationFilter] = useState('');
+  const [payLevelFilter, setPayLevelFilter] = useState('');
+  const [recruitmentTypeFilter, setRecruitmentTypeFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [departments, setDepartments] = useState([]);
   const [selectedStatsJob, setSelectedStatsJob] = useState(null);
 
   const fetchJobs = async () => {
@@ -28,18 +36,56 @@ const AdminJobs = () => {
       const params = { page, limit: 10 };
       if (statusFilter) params.status = statusFilter;
       if (search) params.search = search;
+      if (designationFilter) params.designation = designationFilter;
+      if (payLevelFilter) params.payLevel = payLevelFilter;
+      if (recruitmentTypeFilter) params.recruitmentType = recruitmentTypeFilter;
+      if (categoryFilter) params.category = categoryFilter;
+      if (departmentFilter) params.department = departmentFilter;
+
+      params.sortBy = sortBy;
+      params.sortOrder = sortOrder;
+
       const res = await api.get('/admin/jobs', { params });
       const data = res.data.data;
-      setJobs(data.jobs || data || []);
-      setTotalPages(data.totalPages || 1);
-    } catch {
+      
+      // Handle different possible backend response structures
+      const jobsList = data.jobs || (Array.isArray(data) ? data : []);
+      const total = data.totalPages || data.pagination?.totalPages || 1;
+      
+      setJobs(jobsList);
+      setTotalPages(total);
+    } catch (err) {
+      console.error('Failed to fetch jobs:', err);
       setJobs([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchJobs(); }, [statusFilter, search, page]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get('/departments');
+        setDepartments(res.data.data || []);
+      } catch (err) {
+        console.error('Failed to fetch departments:', err);
+      }
+    })();
+  }, []);
+
+  useEffect(() => { fetchJobs(); }, [
+    statusFilter,
+    search,
+    page,
+    designationFilter,
+    payLevelFilter,
+    recruitmentTypeFilter,
+    categoryFilter,
+    departmentFilter,
+    sortBy,
+    sortOrder
+  ]);
 
   const handlePublish = async (id) => {
     if (!confirm('Publish this job? It will be visible publicly.')) return;
@@ -95,28 +141,153 @@ const AdminJobs = () => {
           </Link>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-grow relative">
-            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">search</span>
-            <input
-              type="text"
-              placeholder="Search jobs..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
-            />
+        {/* Filters Section */}
+        <div className="bg-white px-4 py-3.5 rounded-3xl border border-gray-100 shadow-sm space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-center">
+            {/* Search */}
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+              <input
+                type="text"
+                placeholder="Search jobs..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="w-full pl-11 pr-4 py-2.25 rounded-2xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 text-sm transition-all shadow-sm"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">filter_list</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                className="w-full pl-11 pr-10 py-2.25 rounded-2xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white text-sm appearance-none cursor-pointer shadow-sm"
+              >
+                <option value="">All Statuses</option>
+                <option value="draft">Draft</option>
+                <option value="published">Published / Active</option>
+                <option value="closed">Closed / Expired</option>
+              </select>
+              <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+            </div>
+
+            {/* Sort Controls */}
+            <div className="flex items-center justify-between gap-2 bg-white px-4 py-2 rounded-2xl border border-gray-100 shadow-sm h-[42px]">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-gray-400 text-lg">sort</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="bg-transparent border-none focus:ring-0 text-[11px] font-bold text-gray-500 cursor-pointer uppercase tracking-widest"
+                >
+                  <option value="createdAt">Created Date</option>
+                  <option value="applicationEndDate">Deadline</option>
+                  <option value="payLevel">Pay Level</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => setSortOrder('asc')}
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${sortOrder === 'asc' ? 'bg-primary/10 text-primary' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-50'}`}
+                  title="Ascending"
+                >
+                  <span className="material-symbols-outlined text-base">north</span>
+                </button>
+                <button
+                  onClick={() => setSortOrder('desc')}
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${sortOrder === 'desc' ? 'bg-primary/10 text-primary' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-50'}`}
+                  title="Descending"
+                >
+                  <span className="material-symbols-outlined text-base">south</span>
+                </button>
+              </div>
+            </div>
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="w-full sm:w-44 px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-sm appearance-none cursor-pointer"
-          >
-            <option value="">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="published">Published</option>
-            <option value="closed">Closed</option>
-          </select>
+
+          <div className="h-px bg-gray-50/50" />
+
+          {/* Secondary Filters */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">
+              <span className="material-symbols-outlined text-sm">tune</span>
+              Advanced:
+            </div>
+
+            {[
+              {
+                value: designationFilter,
+                setter: setDesignationFilter,
+                placeholder: 'All Designations',
+                options: [
+                  { label: 'Professor', value: 'Professor' },
+                  { label: 'Associate Prof.', value: 'Associate Professor' },
+                  { label: 'Asst. Prof G-I', value: 'Assistant Professor Grade-I' },
+                  { label: 'Asst. Prof G-II', value: 'Assistant Professor Grade-II' }
+                ]
+              },
+              {
+                value: departmentFilter,
+                setter: setDepartmentFilter,
+                placeholder: 'All Departments',
+                options: departments.map(d => ({ label: d.name, value: d._id }))
+              },
+              {
+                value: payLevelFilter,
+                setter: setPayLevelFilter,
+                placeholder: 'All Pay Levels',
+                options: ["10", "11", "12", "13A2", "14A"].map(pl => ({ label: `Level ${pl}`, value: pl }))
+              },
+              {
+                value: recruitmentTypeFilter,
+                setter: setRecruitmentTypeFilter,
+                placeholder: 'All Types',
+                options: [{ label: 'External', value: 'external' }, { label: 'Internal', value: 'internal' }]
+              },
+              {
+                value: categoryFilter,
+                setter: setCategoryFilter,
+                placeholder: 'All Categories',
+                options: ["GEN", "SC", "ST", "OBC", "EWS", "PwD"].map(cat => ({ label: cat, value: cat }))
+              }
+            ].map((f, i) => (
+              <div key={i} className="relative min-w-[140px]">
+                <select
+                  value={f.value}
+                  onChange={(e) => { f.setter(e.target.value); setPage(1); }}
+                  className={`w-full pl-3 pr-8 py-2 rounded-xl border appearance-none text-[11px] font-medium transition-all cursor-pointer ${f.value ? 'bg-primary/5 border-primary/20 text-primary' : 'bg-white border-gray-100 text-gray-500 hover:border-gray-200'
+                    }`}
+                >
+                  <option value="">{f.placeholder}</option>
+                  {f.options.map((opt, idx) => (
+                    <option key={idx} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <span className={`material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-sm pointer-events-none ${f.value ? 'text-primary' : 'text-gray-400'}`}>
+                  expand_more
+                </span>
+              </div>
+            ))}
+
+            {(designationFilter || departmentFilter || payLevelFilter || recruitmentTypeFilter || categoryFilter || search || statusFilter) && (
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setStatusFilter('');
+                  setDesignationFilter('');
+                  setDepartmentFilter('');
+                  setPayLevelFilter('');
+                  setRecruitmentTypeFilter('');
+                  setCategoryFilter('');
+                  setPage(1);
+                }}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-primary hover:bg-primary/5 transition-all text-xs font-bold"
+              >
+                <span className="material-symbols-outlined text-sm">restart_alt</span>
+                Reset Filters
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Table */}
@@ -250,10 +421,10 @@ const AdminJobs = () => {
 
         {/* Modal */}
         {selectedStatsJob && (
-          <JobStatsModal 
-            jobId={selectedStatsJob._id} 
-            jobTitle={selectedStatsJob.title} 
-            onClose={() => setSelectedStatsJob(null)} 
+          <JobStatsModal
+            jobId={selectedStatsJob._id}
+            jobTitle={selectedStatsJob.title}
+            onClose={() => setSelectedStatsJob(null)}
           />
         )}
       </div>

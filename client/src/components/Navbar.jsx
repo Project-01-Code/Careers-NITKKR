@@ -77,9 +77,6 @@ const Navbar = () => {
               >
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:shadow-primary/30 transition-shadow relative">
                   {user.profile?.firstName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'}
-                  {!user.isEmailVerified && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-400 border-2 border-white rounded-full" title="Email not verified" />
-                  )}
                 </div>
                 <span className={`hidden sm:block text-sm font-medium transition-colors ${scrolled ? 'text-secondary' : 'text-gray-800'}`}>
                   {user.profile?.firstName || user.email?.split('@')[0]}
@@ -109,12 +106,7 @@ const Navbar = () => {
                         My Profile
                       </Link>
 
-                      {!user.isEmailVerified && (
-                        <Link to="/verify-email" className="flex items-center gap-3 px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 transition-colors">
-                          <span className="material-symbols-outlined text-lg">mark_email_unread</span>
-                          Verify Email
-                        </Link>
-                      )}
+
 
                       {isAdmin && (
                         <Link to="/admin/jobs" className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">

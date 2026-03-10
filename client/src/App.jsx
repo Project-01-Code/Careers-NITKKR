@@ -18,7 +18,7 @@ import ApplicationReview from './pages/admin/ApplicationReview';
 import ProtectedRoute from './components/ProtectedRoute';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
-import VerifyEmail from './pages/VerifyEmail';
+
 import ForgotPassword from './pages/ForgotPassword';
 import Help from './pages/Help';
 import NotFound from './pages/NotFound';
@@ -48,14 +48,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/verify-email"
-          element={
-            <ProtectedRoute>
-              <VerifyEmail />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/application/:jobId"
           element={
