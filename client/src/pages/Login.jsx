@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 
 
 const Login = () => {

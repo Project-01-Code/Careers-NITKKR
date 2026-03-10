@@ -3,6 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../../layouts/AdminLayout';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 
 const AdminNotices = () => {
   const [searchParams, setSearchParams] = useSearchParams();
