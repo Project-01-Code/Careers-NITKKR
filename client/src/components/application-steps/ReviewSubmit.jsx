@@ -4,6 +4,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
+// eslint-disable-next-line no-unused-vars
 const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
   const { formData, jobSnapshot, applicationId, applicationNumber } = useApplication();
   const [submitting, setSubmitting] = useState(false);
@@ -149,7 +150,7 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
       {/* Documents */}
       <SummarySection title="Supporting Documents" sectionKey="final_documents">
         <div className="flex flex-wrap gap-3">
-          {Object.entries(formData.documents || {}).map(([key, doc]) => (
+          {Object.entries(formData.documents || {}).map(([key]) => (
             <div key={key} className="px-4 py-2 bg-green-50 text-green-700 rounded-xl text-sm font-bold flex items-center gap-2 border border-green-100">
               <span className="material-symbols-outlined text-[18px]">check_circle</span>
               {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}

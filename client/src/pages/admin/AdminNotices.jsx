@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import AdminLayout from '../../layouts/AdminLayout';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 
 const AdminNotices = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = parseInt(searchParams.get('page') || '1');
-  
+
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -31,10 +32,10 @@ const AdminNotices = () => {
     try {
       const res = await api.get('/notices', { params: { page, limit: 10 } });
       const data = res.data.data;
-      
+
       const list = data.notices || (Array.isArray(data) ? data : []);
       const total = data.totalPages || data.pagination?.totalPages || 1;
-      
+
       setNotices(list);
       setTotalPages(total);
     } catch {
@@ -45,6 +46,7 @@ const AdminNotices = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchNotices(); }, [page]);
 
   const setPage = (p) => {
@@ -277,9 +279,8 @@ const AdminNotices = () => {
                         {formatDate(notice.createdAt)}
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                          notice.isActive !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                        }`}>
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${notice.isActive !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                          }`}>
                           {notice.isActive !== false ? 'Active' : 'Archived'}
                         </span>
                       </td>
