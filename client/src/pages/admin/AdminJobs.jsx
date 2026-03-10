@@ -4,6 +4,8 @@ import AdminLayout from '../../layouts/AdminLayout';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import JobStatsModal from '../../components/admin/JobStatsModal';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700',

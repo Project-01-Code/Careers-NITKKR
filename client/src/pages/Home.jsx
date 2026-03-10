@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import CategoryCard from '../components/CategoryCard';
 import api from '../services/api';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -39,7 +41,7 @@ const Home = () => {
       <section className="relative w-full h-[500px] flex items-center overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 hover:scale-105"
-          style={{ backgroundImage: 'url("https://nitkkr.ac.in/wp-content/uploads/2022/01/24131961_285405678647849_426967072086000359_o.jpg")' }}
+          style={{ backgroundImage: 'url("/hero-bg.jpg")' }}
         >
           <div className="absolute inset-0 bg-secondary/60 backdrop-blur-sm" />
         </div>

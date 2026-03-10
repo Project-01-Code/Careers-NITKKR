@@ -40,7 +40,7 @@ const AdminLayout = ({ children }) => {
         <div className="p-6 border-b border-white/10">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg">
-              <img src="https://nitkkr.ac.in/wp-content/uploads/2021/09/logoforppt.png" alt="NIT Kurukshetra Logo" className="w-full h-full object-contain" />
+              <img src="/logoforppt.png" alt="NIT Kurukshetra Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <span className="font-bold text-base block leading-tight">NIT KKR</span>

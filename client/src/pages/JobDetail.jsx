@@ -3,6 +3,8 @@ import { useParams, useSearchParams, Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 
 const JobDetail = () => {
   const { id } = useParams();

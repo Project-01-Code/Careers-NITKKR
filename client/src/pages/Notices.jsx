@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../layouts/MainLayout';
 import api from '../services/api';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 
 const CATEGORIES = ['All', 'Faculty Recruitment', 'Non-Teaching', 'Research', 'Exam', 'General'];
 
