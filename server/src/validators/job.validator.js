@@ -95,13 +95,13 @@ const requiredSectionSchema = z
     sectionType: z.enum(JOB_SECTION_TYPES),
     isMandatory: z.boolean().default(true),
     requiresPDF: z.boolean().default(false),
-    pdfLabel: z.string().min(1, 'PDF label cannot be empty').optional(),
+    pdfLabel: z.string().min(1, 'PDF label cannot be empty').nullish(),
     maxPDFSize: z
       .number()
       .positive('PDF size must be positive')
       .max(20, 'Max PDF size is 20MB')
       .optional(),
-    instructions: z.string().optional(),
+    instructions: z.string().nullish(),
   })
   .superRefine((section, ctx) => {
     if (section.requiresPDF && !section.pdfLabel) {

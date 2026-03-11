@@ -16,11 +16,11 @@ export const verifyJWT = asyncHandler(async (req, _, next) => {
 
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
-    // Exclude soft-deleted users
+    // Exclude soft-deleted users; also strip sessions array from req.user
     const user = await User.findOne({
       _id: decodedToken?._id,
       deletedAt: null,
-    }).select('-password -refreshToken -deletedAt');
+    }).select('-password -sessions -deletedAt');
 
     if (!user) {
       throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Invalid Access Token');

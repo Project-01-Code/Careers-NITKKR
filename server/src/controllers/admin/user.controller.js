@@ -84,30 +84,82 @@ export const createUser = asyncHandler(async (req, res) => {
  */
 export const promoteUser = asyncHandler(async (req, res) => {
   const { userId } = req.params;
+  const { targetRole } = req.body;
 
+  // 1. Validate Target Role
+  if (!Object.values(USER_ROLES).includes(targetRole)) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, `Invalid role: ${targetRole}`);
+  }
+
+  // 2. Prevent Assigning Super Admin Role
+  if (targetRole === USER_ROLES.SUPER_ADMIN) {
+    throw new ApiError(
+      HTTP_STATUS.FORBIDDEN,
+      'Promotion to Super Admin is not allowed'
+    );
+  }
+
+  // 3. Get User to Promote
   const user = await User.findById(userId);
   if (!user) {
-    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'User not found');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'User to promote not found');
   }
 
+  // 4. Hierarchy Checks
+  const requesterRole = req.user.role;
+
+  // Prevent modifying Super Admins
   if (user.role === USER_ROLES.SUPER_ADMIN) {
-    throw new ApiError(HTTP_STATUS.FORBIDDEN, 'Cannot modify Super Admin');
+    throw new ApiError(
+      HTTP_STATUS.FORBIDDEN,
+      'Cannot modify roles of a Super Admin'
+    );
   }
 
-  if (user.role === USER_ROLES.ADMIN) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'User is already an Admin');
+  // Block promotion to same role
+  if (user.role === targetRole) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      `User already has the role: ${targetRole}`
+    );
+  }
+
+  /**
+   * Hierarchy Enforcement:
+   * - super_admin -> admin, reviewer
+   * - admin       -> reviewer
+   */
+  if (requesterRole === USER_ROLES.ADMIN) {
+    if (targetRole !== USER_ROLES.REVIEWER) {
+      throw new ApiError(
+        HTTP_STATUS.FORBIDDEN,
+        'Admin can only promote users to Reviewer status'
+      );
+    }
+  } else if (requesterRole !== USER_ROLES.SUPER_ADMIN) {
+    // If we reach here and not super_admin (and rbac didn't catch it), reject
+    throw new ApiError(
+      HTTP_STATUS.FORBIDDEN,
+      'Insufficient permissions to promote users'
+    );
   }
 
   const oldRole = user.role;
-  user.role = USER_ROLES.ADMIN;
+  user.role = targetRole;
   await user.save({ validateBeforeSave: false });
 
+  // 5. Audit Log
   await logAction({
     userId: req.user._id,
     action: AUDIT_ACTIONS.ROLE_PROMOTED,
     resourceType: 'User',
     resourceId: user._id,
-    changes: { oldRole, newRole: USER_ROLES.ADMIN, promotedBy: req.user.email },
+    changes: {
+      oldRole,
+      newRole: targetRole,
+      promotedBy: req.user.email,
+      requesterRole,
+    },
     req,
   });
 
@@ -117,7 +169,110 @@ export const promoteUser = asyncHandler(async (req, res) => {
       new ApiResponse(
         HTTP_STATUS.OK,
         { _id: user._id, email: user.email, role: user.role },
-        'User promoted to Admin successfully'
+        `User promoted from ${oldRole} to ${targetRole} successfully`
+      )
+    );
+});
+
+/**
+ * @desc    Promote an existing user by email
+ * @route   PATCH /api/v1/admin/users/promote-by-email
+ * @access  Super Admin / Admin
+ */
+export const promoteUserByEmail = asyncHandler(async (req, res) => {
+  const { email, targetRole } = req.body;
+
+  if (!email || !targetRole) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'Email and target role are required'
+    );
+  }
+
+  // 1. Validate Target Role
+  if (!Object.values(USER_ROLES).includes(targetRole)) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, `Invalid role: ${targetRole}`);
+  }
+
+  // 2. Prevent Assigning Super Admin Role
+  if (targetRole === USER_ROLES.SUPER_ADMIN) {
+    throw new ApiError(
+      HTTP_STATUS.FORBIDDEN,
+      'Promotion to Super Admin is not allowed'
+    );
+  }
+
+  // 3. Get User to Promote
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'User with this email not found');
+  }
+
+  // 4. Hierarchy Checks
+  const requesterRole = req.user.role;
+
+  // Prevent modifying Super Admins
+  if (user.role === USER_ROLES.SUPER_ADMIN) {
+    throw new ApiError(
+      HTTP_STATUS.FORBIDDEN,
+      'Cannot modify roles of a Super Admin'
+    );
+  }
+
+  // Block promotion to same role
+  if (user.role === targetRole) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      `User already has the role: ${targetRole}`
+    );
+  }
+
+  /**
+   * Hierarchy Enforcement:
+   * - super_admin -> admin, reviewer
+   * - admin       -> reviewer
+   */
+  if (requesterRole === USER_ROLES.ADMIN) {
+    if (targetRole !== USER_ROLES.REVIEWER) {
+      throw new ApiError(
+        HTTP_STATUS.FORBIDDEN,
+        'Admin can only promote users to Reviewer status'
+      );
+    }
+  } else if (requesterRole !== USER_ROLES.SUPER_ADMIN) {
+    throw new ApiError(
+      HTTP_STATUS.FORBIDDEN,
+      'Insufficient permissions to promote users'
+    );
+  }
+
+  const oldRole = user.role;
+  user.role = targetRole;
+  await user.save({ validateBeforeSave: false });
+
+  // 5. Audit Log
+  await logAction({
+    userId: req.user._id,
+    action: AUDIT_ACTIONS.ROLE_PROMOTED,
+    resourceType: 'User',
+    resourceId: user._id,
+    changes: {
+      oldRole,
+      newRole: targetRole,
+      promotedBy: req.user.email,
+      requesterRole,
+      method: 'email',
+    },
+    req,
+  });
+
+  return res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        { _id: user._id, email: user.email, role: user.role },
+        `User ${email} promoted from ${oldRole} to ${targetRole} successfully`
       )
     );
 });
