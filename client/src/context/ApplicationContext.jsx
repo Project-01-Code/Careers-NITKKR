@@ -25,6 +25,8 @@ const SECTION_TYPE_MAP = {
   otherInfo: 'other_info',
   documents: 'final_documents',
   declaration: 'declaration',
+  photo: 'photo',
+  signature: 'signature',
 };
 
 const INITIAL_FORM_DATA = {
@@ -45,6 +47,8 @@ const INITIAL_FORM_DATA = {
   otherInfo: {},
   documents: {},
   declaration: {},
+  photo: {},
+  signature: {},
 };
 
 export const ApplicationProvider = ({ children }) => {
@@ -76,14 +80,20 @@ export const ApplicationProvider = ({ children }) => {
         (key) => SECTION_TYPE_MAP[key] === serverType
       );
 
-      if (frontendKey && sectionData?.data !== undefined) {
-        // Unwrap array sections: server stores {items: [...]} but frontend uses flat arrays
-        const rawData = sectionData.data;
+      if (frontendKey) {
+        // unwraps array sections: server stores {items: [...]} but frontend uses flat arrays
+        const rawData = sectionData?.data;
+        let mappedData = rawData || {};
+
         if (rawData && typeof rawData === 'object' && !Array.isArray(rawData) && Array.isArray(rawData.items)) {
-          newFormData[frontendKey] = rawData.items;
-        } else {
-          newFormData[frontendKey] = rawData;
+          mappedData = rawData.items;
         }
+
+        // Attach imageUrl and pdfUrl to the data we expose so file components can read them
+        if (sectionData.imageUrl) mappedData.imageUrl = sectionData.imageUrl;
+        if (sectionData.pdfUrl) mappedData.pdfUrl = sectionData.pdfUrl;
+
+        newFormData[frontendKey] = mappedData;
       }
     }
 
@@ -267,6 +277,14 @@ export const ApplicationProvider = ({ children }) => {
   }, [saveSection]);
 
   /**
+   * Updates only the local application context state without firing a server API call.
+   * Very useful for manual file uploads that update immediately via distinct endpoints.
+   */
+  const updateLocalSection = useCallback((sectionName, data) => {
+    setFormData((prev) => ({ ...prev, [sectionName]: { ...prev[sectionName], ...data } }));
+  }, []);
+
+  /**
    * Validate all sections before submission
    */
   const validateAll = useCallback(async () => {
@@ -358,6 +376,7 @@ export const ApplicationProvider = ({ children }) => {
         initApplication,
         loadApplication,
         updateSection,
+        updateLocalSection,
         saveSection,
         validateAll,
         validateSection,

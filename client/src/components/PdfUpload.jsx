@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 
-const PdfUpload = ({ label, description, value, onChange, applicationId, sectionType }) => {
+const PdfUpload = ({ label, description, value, onChange, applicationId, sectionType, maxSizeMB = 5 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -14,9 +14,9 @@ const PdfUpload = ({ label, description, value, onChange, applicationId, section
       return;
     }
 
-    // Validate size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File size must be less than 5MB.');
+    // Validate size using the configurable maxSizeMB prop
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      setError(`File size must be less than ${maxSizeMB}MB.`);
       return;
     }
 

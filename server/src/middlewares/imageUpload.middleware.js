@@ -25,15 +25,15 @@ const imageDiskStorage = multer.diskStorage({
   },
 });
 
-/** Shared JPEG-only file filter */
-const jpegFilter = (req, file, cb) => {
-  if (file.mimetype === 'image/jpeg') {
+/** Shared Image file filter */
+const imageFilter = (req, file, cb) => {
+  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
     cb(null, true);
   } else {
     cb(
       new ApiError(
         HTTP_STATUS.BAD_REQUEST,
-        'Only JPEG (JPG) images are allowed'
+        'Only JPEG (JPG) and PNG images are allowed'
       ),
       false
     );
@@ -41,12 +41,12 @@ const jpegFilter = (req, file, cb) => {
 };
 
 /**
- * Photo upload middleware — accepts JPEG ≤ 200KB (disk storage for malware scan)
+ * Photo upload middleware — accepts JPEG/PNG ≤ 200KB (disk storage for malware scan)
  * Used for: POST /api/v1/applications/:id/sections/photo/image
  */
 export const uploadPhoto = multer({
   storage: imageDiskStorage,
-  fileFilter: jpegFilter,
+  fileFilter: imageFilter,
   limits: {
     fileSize: 200 * 1024, // 200KB
     files: 1,
@@ -54,14 +54,14 @@ export const uploadPhoto = multer({
 });
 
 /**
- * Signature upload middleware — accepts JPEG ≤ 50KB (disk storage for malware scan)
+ * Signature upload middleware — accepts JPEG/PNG ≤ 200KB (disk storage for malware scan)
  * Used for: POST /api/v1/applications/:id/sections/signature/image
  */
 export const uploadSignature = multer({
   storage: imageDiskStorage,
-  fileFilter: jpegFilter,
+  fileFilter: imageFilter,
   limits: {
-    fileSize: 50 * 1024, // 50KB
+    fileSize: 200 * 1024, // 200KB
     files: 1,
   },
 });

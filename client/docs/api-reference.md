@@ -295,7 +295,7 @@ DELETE /applications/:id/sections/photo/image
 
 POST   /applications/:id/sections/signature/image
        Content-Type: multipart/form-data
-       Field: "image" (JPEG only, max 50KB)
+       Field: "image" (JPEG only, max 200KB)
 
 DELETE /applications/:id/sections/signature/image
 ```
@@ -312,7 +312,7 @@ Returns:
 ```
 POST /applications/:id/sections/final_documents/pdf
      Content-Type: multipart/form-data
-     Field: "pdf" (PDF file, max 3MB — server enforces this)
+     Field: "pdf" (PDF file, max 10MB — server enforces this)
 ```
 
 Returns:

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 
-const ImageUpload = ({ label, value, onChange, placeholder, applicationId, sectionType }) => {
+const ImageUpload = ({ label, value, onChange, placeholder, applicationId, sectionType, maxSizeKB = 200 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -15,9 +15,9 @@ const ImageUpload = ({ label, value, onChange, placeholder, applicationId, secti
       return;
     }
 
-    // Validate size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      setError('File size must be less than 2MB.');
+    // Validate size using the configurable maxSizeKB prop
+    if (file.size > maxSizeKB * 1024) {
+      setError(`File size must be less than ${maxSizeKB}KB.`);
       return;
     }
 

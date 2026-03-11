@@ -106,7 +106,7 @@ router.delete(
   deletePhotoOrSignature
 );
 
-// Final Documents (merged PDF ≤ 3MB — enforced in controller after magic-byte check)
+// Final Documents (merged PDF ≤ 10MB — enforced in controller after magic-byte check)
 router.post(
   '/:id/sections/final_documents/pdf',
   checkApplicationOwnership,

@@ -375,7 +375,7 @@ export const deletePhotoOrSignature = asyncHandler(async (req, res) => {
 });
 
 /**
- * Upload Final Documents (merged PDF ≤ 3MB)
+ * Upload Final Documents (merged PDF ≤ 10MB)
  * POST /api/v1/applications/:id/sections/final_documents/pdf
  */
 export const uploadFinalDocuments = asyncHandler(async (req, res) => {

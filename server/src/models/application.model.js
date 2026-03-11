@@ -39,6 +39,14 @@ const jobSnapshotSchema = new Schema(
         section: String,
       },
     ],
+    applicationFee: {
+      general: { type: Number, default: 0 },
+      sc_st: { type: Number, default: 0 },
+      obc: { type: Number, default: 0 },
+      ews: { type: Number, default: 0 },
+      pwd: { type: Number, default: 0 },
+      isRequired: { type: Boolean, default: false },
+    },
   },
   { _id: false }
 );
