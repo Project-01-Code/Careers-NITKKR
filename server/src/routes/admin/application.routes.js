@@ -16,24 +16,33 @@ import { requireRole } from '../../middlewares/rbac.middleware.js';
 import { USER_ROLES } from '../../constants.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 import {
+  listApplicationsSchema,
+  exportApplicationsSchema,
   updateApplicationStatusSchema,
   addReviewNotesSchema,
   bulkUpdateStatusSchema,
   verifySectionSchema,
+  exemptFeeSchema,
+  applicationIdParamSchema,
+  applicationsByJobSchema,
 } from '../../validators/adminApplication.validator.js';
 
 const router = Router();
 
 // Base path: /api/v1/admin/applications
 
-// Static routes MUST come before parameterized routes
+// ── Static routes MUST come before parameterized routes ───────────────────
+
+// CSV export
 router.get(
   '/export',
   verifyJWT,
   requireRole(USER_ROLES.ADMIN),
+  validate(exportApplicationsSchema),
   exportApplications
 );
 
+// Bulk status update
 router.post(
   '/bulk-status',
   verifyJWT,
@@ -42,11 +51,14 @@ router.post(
   bulkUpdateStatus
 );
 
-// List all applications
+// ── Collection-level routes ───────────────────────────────────────────────
+
+// List all applications (admins + reviewers, query params validated)
 router.get(
   '/',
   verifyJWT,
   requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
+  validate(listApplicationsSchema),
   getAllApplications
 );
 
@@ -55,18 +67,22 @@ router.get(
   '/job/:jobId',
   verifyJWT,
   requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
+  validate(applicationsByJobSchema),
   getApplicationsByJob
 );
 
-// Single application by ID
+// ── Single-application routes ─────────────────────────────────────────────
+
+// Get full application by ID
 router.get(
   '/:id',
   verifyJWT,
   requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
+  validate(applicationIdParamSchema),
   getApplicationById
 );
 
-// Update application status
+// Update application status (admin only)
 router.patch(
   '/:id/status',
   verifyJWT,
@@ -75,7 +91,7 @@ router.patch(
   updateApplicationStatus
 );
 
-// Add review notes
+// Add review notes (admins + reviewers)
 router.patch(
   '/:id/review',
   verifyJWT,
@@ -84,7 +100,7 @@ router.patch(
   addReviewNotes
 );
 
-// Verify section documents
+// Verify section documents (admins + reviewers)
 router.patch(
   '/:id/verify-section',
   verifyJWT,
@@ -94,18 +110,21 @@ router.patch(
 );
 
 // Exempt application fee
+// Fix: SUPER_ADMIN added — JSDoc says "Admin, Super Admin" but previously only ADMIN was wired
 router.post(
   '/:id/exempt-fee',
   verifyJWT,
-  requireRole(USER_ROLES.ADMIN),
+  requireRole(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  validate(exemptFeeSchema),
   exemptApplicationFee
 );
 
-// Export full application PDF
+// Export full application PDF (admins + reviewers)
 router.get(
   '/:id/export-full',
   verifyJWT,
   requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
+  validate(applicationIdParamSchema),
   exportFullApplicationPDF
 );
 

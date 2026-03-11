@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   createUser,
   promoteUser,
+  promoteUserByEmail,
 } from '../../controllers/admin/user.controller.js';
 import { verifyJWT } from '../../middlewares/auth.middleware.js';
 import { requireRole } from '../../middlewares/rbac.middleware.js';
@@ -15,6 +16,16 @@ const router = Router();
 // Super Admin can create Admin
 // Admin can create Reviewer (enforced in controller)
 router.post('/', verifyJWT, requireRole(USER_ROLES.ADMIN), createUser);
+
+// Promote existing user by email
+// Super Admin can promote to Admin/Reviewer
+// Admin can promote to Reviewer
+router.patch(
+  '/promote-by-email',
+  verifyJWT,
+  requireRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+  promoteUserByEmail
+);
 
 // Promote existing user to Admin
 // Only Super Admin

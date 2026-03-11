@@ -9,7 +9,7 @@ import { motion } from 'framer-motion';
 const AdminNotices = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = parseInt(searchParams.get('page') || '1');
-  
+
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -32,10 +32,10 @@ const AdminNotices = () => {
     try {
       const res = await api.get('/notices', { params: { page, limit: 10 } });
       const data = res.data.data;
-      
+
       const list = data.notices || (Array.isArray(data) ? data : []);
       const total = data.totalPages || data.pagination?.totalPages || 1;
-      
+
       setNotices(list);
       setTotalPages(total);
     } catch {
@@ -182,10 +182,11 @@ const AdminNotices = () => {
                   >
                     <option value="">Select Category</option>
                     <option value="Faculty Recruitment">Faculty Recruitment</option>
-                    <option value="Non-Teaching">Non-Teaching</option>
-                    <option value="Research">Research</option>
-                    <option value="Exam">Exam</option>
-                    <option value="General">General</option>
+                    <option value="Non-Teaching Positions">Non-Teaching Positions</option>
+                    <option value="Project & Research Staff">Project & Research Staff</option>
+                    <option value="Guest & Adjunct Faculty">Guest & Adjunct Faculty</option>
+                    <option value="Results & Shortlisting">Results & Shortlisting</option>
+                    <option value="Important Notifications">Important Notifications</option>
                   </select>
                 </div>
                 <div>
@@ -279,9 +280,8 @@ const AdminNotices = () => {
                         {formatDate(notice.createdAt)}
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                          notice.isActive !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                        }`}>
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${notice.isActive !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                          }`}>
                           {notice.isActive !== false ? 'Active' : 'Archived'}
                         </span>
                       </td>
