@@ -44,6 +44,7 @@ export async function snapshotJobConfiguration(jobId) {
     department: job.department?.name || 'Unknown',
     requiredSections: job.requiredSections || [],
     customFields: job.customFields || [],
+    applicationFee: job.applicationFee || null,
   };
 }
 

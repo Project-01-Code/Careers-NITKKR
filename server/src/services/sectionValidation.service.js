@@ -150,30 +150,37 @@ export function validateImageUpload(file, fieldName) {
     return errors;
   }
 
-  // Ensure file is a JPEG (Project Standard)
-  if (file.mimetype !== 'image/jpeg') {
+  // Ensure file is a JPEG or PNG (Project Standard)
+  if (file.mimetype !== 'image/jpeg' && file.mimetype !== 'image/png') {
     errors.push({
       field: fieldName,
-      message: 'Only JPEG (JPG) files are allowed',
+      message: 'Only JPEG (JPG) and PNG files are allowed',
     });
   }
 
   // Magic byte check: Verify file headers to prevent simple extension-renaming spoofing
-  if (file.buffer && file.buffer.length >= 3) {
+  if (file.buffer && file.buffer.length >= 4) {
     const isJpeg =
       file.buffer[0] === 0xff &&
       file.buffer[1] === 0xd8 &&
       file.buffer[2] === 0xff;
-    if (!isJpeg) {
+
+    const isPng =
+      file.buffer[0] === 0x89 &&
+      file.buffer[1] === 0x50 &&
+      file.buffer[2] === 0x4e &&
+      file.buffer[3] === 0x47;
+
+    if (!isJpeg && !isPng) {
       errors.push({
         field: fieldName,
-        message: 'File does not appear to be a valid JPEG image',
+        message: 'File does not appear to be a valid JPEG or PNG image (invalid magic bytes)',
       });
     }
   }
 
-  // Enforce specific size limits for Photo (200KB) and Signature (50KB)
-  const limits = { photo: 200 * 1024, signature: 50 * 1024 };
+  // Enforce specific size limits for Photo (200KB) and Signature (200KB)
+  const limits = { photo: 200 * 1024, signature: 200 * 1024 };
   const maxSize = limits[fieldName] || 200 * 1024;
   if (file.size > maxSize) {
     const maxKB = Math.round(maxSize / 1024);
@@ -228,7 +235,7 @@ export function validatePDFUpload(file, sectionConfig) {
 
 /**
  * Validates the final merged document PDF before submission.
- * Checks MIME type, magic bytes, and enforces the 3MB size cap.
+ * Checks MIME type, magic bytes, and enforces the 10MB size cap.
  *
  * @param {Object} file - The file object (includes buffer, mimetype, size).
  * @returns {Array<{field: string, message: string}>} Validation errors.
@@ -257,12 +264,12 @@ export function validateFinalPDF(file) {
     }
   }
 
-  const maxSize = 3 * 1024 * 1024; // Standardized 3MB limit for merged documents
+  const maxSize = 10 * 1024 * 1024; // Standardized 10MB limit for merged documents
   if (file.size > maxSize) {
     errors.push({
       field: 'file',
       message:
-        'File size must not exceed 3MB. Please compress and merge your documents.',
+        'File size must not exceed 10MB. Please compress and merge your documents.',
     });
   }
 

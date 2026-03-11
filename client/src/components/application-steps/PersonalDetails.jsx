@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 /* ------------------------------------------------------------------ */
 const GENDER = ['Male', 'Female', 'Transgender'];
 const MARITAL_STATUS = ['Single', 'Married', 'Divorced', 'Widowed'];
-const JOB_CATEGORY = ['GEN', 'SC', 'ST', 'OBC', 'EWS', 'PwD'];
+const JOB_CATEGORY = ['GEN', 'SC', 'ST', 'OBC', 'EWS'];
 const DEGREE_FROM_TOP_INSTITUTE = ['UG Degree', 'PG Degree', 'PhD Degree'];
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
@@ -160,6 +160,8 @@ const PersonalDetails = ({ onNext, onBack }) => {
     if (!d.phdDate) e.phdDate = 'Required';
     if (!d.degreeFromTopInstitute?.length) e.degreeFromTopInstitute = 'Select at least one';
 
+    if (d.aadhar && !/^\d{12}$/.test(d.aadhar)) e.aadhar = 'Must be exactly 12 digits';
+
     return e;
   };
 
@@ -175,8 +177,19 @@ const PersonalDetails = ({ onNext, onBack }) => {
       ...d,
       specialization: d.specialization.filter(s => s.trim()),
     };
-    const saved = await updateSection('personalDetails', cleanData);
-    if (saved && onNext) onNext();
+
+    try {
+      const saved = await updateSection('personalDetails', cleanData);
+      if (saved && onNext) onNext();
+    } catch (err) {
+      // Safely extract deeply nested Zod error arrays from the server if they exist
+      const errs = err.response?.data?.errors;
+      if (Array.isArray(errs) && errs.length > 0 && errs[0].message) {
+        toast.error(errs[0].message);
+      } else {
+        toast.error(err.response?.data?.message || 'Validation failed. Please check your inputs.');
+      }
+    }
   };
 
   const ic = (f) => `w-full px-3 py-2.5 rounded-lg border ${errors[f] ? 'border-red-400 bg-red-50/30' : 'border-gray-300'} focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all`;
@@ -248,7 +261,7 @@ const PersonalDetails = ({ onNext, onBack }) => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-1">
               {label('Date of Birth', true)}
-              <input type="date" value={d.dob} onChange={e => set('dob', e.target.value)} className={ic('dob')} />
+              <input type="date" value={d.dob} max={new Date().toISOString().split("T")[0]} onChange={e => set('dob', e.target.value)} className={ic('dob')} />
               {err('dob')}
             </div>
             <div className="space-y-1">
@@ -270,6 +283,7 @@ const PersonalDetails = ({ onNext, onBack }) => {
             <div className="space-y-1">
               {label('Aadhar No.', false)}
               <input value={d.aadhar} onChange={e => set('aadhar', e.target.value.replace(/\D/g, '').slice(0, 12))} className={ic('aadhar')} placeholder="12 digits" maxLength={12} />
+              {err('aadhar')}
             </div>
           </div>
         </fieldset>
@@ -329,23 +343,23 @@ const PersonalDetails = ({ onNext, onBack }) => {
           </label>
           <div className="space-y-1">
             {label('Address', true)}
-            <textarea value={d.permAddress} onChange={e => set('permAddress', e.target.value)} className={`${ic('permAddress')} h-20`} readOnly={d.sameAsCorrespondence} />
+            <textarea value={d.permAddress} onChange={e => set('permAddress', e.target.value)} className={`${ic('permAddress')} h-20 ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} readOnly={d.sameAsCorrespondence} />
             {err('permAddress')}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-1">
               {label('City', true)}
-              <input value={d.permCity} onChange={e => set('permCity', e.target.value)} className={ic('permCity')} readOnly={d.sameAsCorrespondence} />
+              <input value={d.permCity} onChange={e => set('permCity', e.target.value)} className={`${ic('permCity')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} readOnly={d.sameAsCorrespondence} />
               {err('permCity')}
             </div>
             <div className="space-y-1">
               {label('District', true)}
-              <input value={d.permDistrict} onChange={e => set('permDistrict', e.target.value)} className={ic('permDistrict')} readOnly={d.sameAsCorrespondence} />
+              <input value={d.permDistrict} onChange={e => set('permDistrict', e.target.value)} className={`${ic('permDistrict')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} readOnly={d.sameAsCorrespondence} />
               {err('permDistrict')}
             </div>
             <div className="space-y-1">
               {label('State', true)}
-              <select value={d.permState} onChange={e => set('permState', e.target.value)} className={sc('permState')} disabled={d.sameAsCorrespondence}>
+              <select value={d.permState} onChange={e => set('permState', e.target.value)} className={`${sc('permState')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} disabled={d.sameAsCorrespondence}>
                 <option value="">Select State</option>
                 {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -353,13 +367,13 @@ const PersonalDetails = ({ onNext, onBack }) => {
             </div>
             <div className="space-y-1">
               {label('Pincode', true)}
-              <input value={d.permPincode} onChange={e => set('permPincode', e.target.value.replace(/\D/g, '').slice(0, 6))} className={ic('permPincode')} maxLength={6} readOnly={d.sameAsCorrespondence} />
+              <input value={d.permPincode} onChange={e => set('permPincode', e.target.value.replace(/\D/g, '').slice(0, 6))} className={`${ic('permPincode')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} maxLength={6} readOnly={d.sameAsCorrespondence} />
               {err('permPincode')}
             </div>
           </div>
           <div className="space-y-1 md:w-1/2">
             {label('Phone (Permanent)', false)}
-            <input value={d.permPhone} onChange={e => set('permPhone', e.target.value)} className={ic('permPhone')} readOnly={d.sameAsCorrespondence} />
+            <input value={d.permPhone} onChange={e => set('permPhone', e.target.value)} className={`${ic('permPhone')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} readOnly={d.sameAsCorrespondence} />
           </div>
         </fieldset>
 
@@ -397,7 +411,7 @@ const PersonalDetails = ({ onNext, onBack }) => {
             </div>
             <div className="space-y-1">
               {label('PhD Award Date', true)}
-              <input type="date" value={d.phdDate} onChange={e => set('phdDate', e.target.value)} className={ic('phdDate')} />
+              <input type="date" value={d.phdDate} max={new Date().toISOString().split("T")[0]} onChange={e => set('phdDate', e.target.value)} className={ic('phdDate')} />
               {err('phdDate')}
             </div>
           </div>
@@ -426,7 +440,7 @@ const PersonalDetails = ({ onNext, onBack }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               {label('Promotion Date', false)}
-              <input type="date" value={d.lastPromotionDate} onChange={e => set('lastPromotionDate', e.target.value)} className={ic('lastPromotionDate')} />
+              <input type="date" value={d.lastPromotionDate} max={new Date().toISOString().split("T")[0]} onChange={e => set('lastPromotionDate', e.target.value)} className={ic('lastPromotionDate')} />
             </div>
             <div className="space-y-1">
               {label('Designation', false)}

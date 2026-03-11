@@ -26,8 +26,18 @@ const Declaration = ({ onNext, onBack }) => {
     if (!d.agreeToTerms) { toast.error('You must agree to the terms and conditions'); return; }
     if (!d.photoUploaded) { toast.error('Please confirm that you have uploaded your photograph'); return; }
     if (!d.detailsVerified) { toast.error('Please verify all details before proceeding'); return; }
-    const saved = await updateSection();
-    if (saved && onNext) onNext();
+
+    try {
+      const saved = await updateSection('declaration', d);
+      if (saved && onNext) onNext();
+    } catch (err) {
+      const errs = err.response?.data?.errors;
+      if (Array.isArray(errs) && errs.length > 0 && errs[0].message) {
+        toast.error(errs[0].message);
+      } else {
+        toast.error(err.response?.data?.message || 'Validation failed. Please check your inputs.');
+      }
+    }
   };
 
   const checkItem = (field, label) => (

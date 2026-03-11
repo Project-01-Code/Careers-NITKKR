@@ -495,7 +495,7 @@ DELETE /applications/:id/sections/:sectionType/image    — Delete image
 | ------------------------- | ------------ | ------------- | --------------------- |
 | `personal`                | Yes          | No            | No                    |
 | `photo`                   | No           | No            | Yes (JPEG, max 200KB) |
-| `signature`               | No           | No            | Yes (JPEG, max 50KB)  |
+| `signature`               | No           | No            | Yes (JPEG, max 200KB) |
 | `education`               | Yes          | Yes           | No                    |
 | `experience`              | Yes          | Yes           | No                    |
 | `publications_journal`    | No           | No            | No                    |
@@ -510,7 +510,7 @@ DELETE /applications/:id/sections/:sectionType/image    — Delete image
 | `credit_points`           | No           | No            | No                    |
 | `referees`                | No           | No            | No                    |
 | `other_info`              | No           | No            | No                    |
-| `final_documents`         | No           | Yes (max 3MB) | No                    |
+| `final_documents`         | No           | Yes (max 10MB)| No                    |
 | `declaration`             | No           | No            | No                    |
 
 ---
@@ -951,8 +951,8 @@ Content-Type: multipart/form-data
 
 | Field   | Type        | Max Size                        | Sections                                     |
 | ------- | ----------- | ------------------------------- | -------------------------------------------- |
-| `pdf`   | file        | 5MB (3MB for final_documents)   | `education`, `experience`, `final_documents` |
-| `image` | file (JPEG) | 200KB (photo), 50KB (signature) | `photo`, `signature`                         |
+| `pdf`   | file        | 5MB (10MB for final_documents)  | `education`, `experience`, `final_documents` |
+| `image` | file (JPEG) | 200KB (photo), 200KB (signature) | `photo`, `signature`                         |
 
 ---
 
