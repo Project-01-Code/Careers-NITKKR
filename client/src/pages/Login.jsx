@@ -52,8 +52,14 @@ const Login = () => {
         <div className="glass-card rounded-3xl p-8 md:p-10">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg shadow-primary/30">
-              N
+            <div className="w-14 h-14 rounded-2xl  flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg shadow-primary/30">
+              <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg">
+                <img
+                  src="/logoforppt.png"
+                  alt="NIT Kurukshetra Logo"
+                  className="w-full h-full object-contain"
+                />
+              </div>
             </div>
             <h1 className="text-2xl font-bold text-secondary">Welcome Back</h1>
             <p className="text-gray-500 text-sm mt-1">Sign in to continue to NIT KKR Careers</p>

@@ -61,6 +61,7 @@ export const ApplicationProvider = ({ children }) => {
   const [saving, setSaving] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState('pending');
   const [applicationStatus, setApplicationStatus] = useState('draft');
+  const [completedSections, setCompletedSections] = useState(new Set());
 
   // Ref to track in-flight initialization to prevent double-creation race conditions
   const initRef = useRef(false);
@@ -72,6 +73,7 @@ export const ApplicationProvider = ({ children }) => {
     if (!sections) return;
 
     const newFormData = { ...INITIAL_FORM_DATA };
+    const newCompletedSections = new Set();
 
     // sections is a Map-like object: { sectionType: { data, pdfUrl, ... } }
     for (const [serverType, sectionData] of Object.entries(sections)) {
@@ -81,6 +83,11 @@ export const ApplicationProvider = ({ children }) => {
       );
 
       if (frontendKey) {
+        // Track completed sections
+        if (sectionData?.isComplete) {
+          newCompletedSections.add(frontendKey);
+        }
+
         // unwraps array sections: server stores {items: [...]} but frontend uses flat arrays
         const rawData = sectionData?.data;
         let mappedData = rawData || {};
@@ -98,6 +105,7 @@ export const ApplicationProvider = ({ children }) => {
     }
 
     setFormData(newFormData);
+    setCompletedSections(newCompletedSections);
   }, []);
 
   /**
@@ -144,6 +152,7 @@ export const ApplicationProvider = ({ children }) => {
       setPaymentStatus(newApp.paymentStatus || 'pending');
       setJobSnapshot(newApp.jobSnapshot);
       setFormData({ ...INITIAL_FORM_DATA });
+      setCompletedSections(new Set());
 
       return newApp;
     } catch (err) {
@@ -256,6 +265,13 @@ export const ApplicationProvider = ({ children }) => {
       );
 
       const valid = await validateSection(sectionName);
+      if (valid) {
+        setCompletedSections((prev) => {
+          const next = new Set(prev);
+          next.add(sectionName);
+          return next;
+        });
+      }
       return valid;
     } catch (err) {
       console.error(`Failed to save section ${sectionName}:`, err);
@@ -356,6 +372,7 @@ export const ApplicationProvider = ({ children }) => {
     setFormData({ ...INITIAL_FORM_DATA });
     setPaymentStatus('pending');
     setApplicationStatus('draft');
+    setCompletedSections(new Set());
   }, []);
 
   return (
@@ -371,6 +388,7 @@ export const ApplicationProvider = ({ children }) => {
         saving,
         paymentStatus,
         applicationStatus,
+        completedSections,
 
         // Actions
         initApplication,
