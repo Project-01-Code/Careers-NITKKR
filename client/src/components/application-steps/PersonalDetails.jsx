@@ -77,18 +77,22 @@ const PersonalDetails = ({ onNext, onBack }) => {
 
   useEffect(() => {
     if (formData?.personalDetails && Object.keys(formData.personalDetails).length) {
-      setD(prev => ({ ...prev, ...formData.personalDetails }));
+      setTimeout(() => {
+        setD(prev => ({ ...prev, ...formData.personalDetails }));
+      }, 0);
     }
   }, [formData?.personalDetails]);
 
   // Auto-fill postAppliedFor and departmentDiscipline from job
   useEffect(() => {
     if (jobSnapshot) {
-      setD(prev => ({
-        ...prev,
-        postAppliedFor: prev.postAppliedFor || jobSnapshot.designation || jobSnapshot.title || '',
-        departmentDiscipline: prev.departmentDiscipline || jobSnapshot.department || '',
-      }));
+      setTimeout(() => {
+        setD(prev => ({
+          ...prev,
+          postAppliedFor: prev.postAppliedFor || jobSnapshot.designation || jobSnapshot.title || '',
+          departmentDiscipline: prev.departmentDiscipline || jobSnapshot.department || '',
+        }));
+      }, 0);
     }
   }, [jobSnapshot]);
 

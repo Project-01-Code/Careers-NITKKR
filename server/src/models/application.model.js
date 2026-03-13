@@ -167,6 +167,13 @@ const applicationSchema = new Schema(
       default: false,
     },
     lockedAt: Date,
+    // Expert reviewers assigned to evaluate this application
+    assignedReviewers: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
     // Review Details
     reviewNotes: String,
     reviewedBy: {

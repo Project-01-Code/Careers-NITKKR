@@ -12,14 +12,15 @@ const Referees = ({ onNext, onBack }) => {
 
   useEffect(() => {
     const saved = formData?.referees;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (saved?.items?.length) {
-      setList(saved.items.length >= 2 ? saved.items : [...saved.items, ...Array(2 - saved.items.length).fill(null).map(() => ({ ...EMPTY_ROW }))]);
-    } else if (Array.isArray(saved) && saved.length) {
-      setList(saved.length >= 2 ? saved : [...saved, ...Array(2 - saved.length).fill(null).map(() => ({ ...EMPTY_ROW }))]);
-    } else {
-      setList([{ ...EMPTY_ROW }, { ...EMPTY_ROW }]);
-    }
+    setTimeout(() => {
+      if (saved?.items?.length) {
+        setList(saved.items.length >= 2 ? saved.items : [...saved.items, ...Array(2 - saved.items.length).fill(null).map(() => ({ ...EMPTY_ROW }))]);
+      } else if (Array.isArray(saved) && saved.length) {
+        setList(saved.length >= 2 ? saved : [...saved, ...Array(2 - saved.length).fill(null).map(() => ({ ...EMPTY_ROW }))]);
+      } else {
+        setList([{ ...EMPTY_ROW }, { ...EMPTY_ROW }]);
+      }
+    }, 0);
   }, [formData?.referees]);
 
   const set = (i, field, val) => {

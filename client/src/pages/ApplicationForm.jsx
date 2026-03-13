@@ -6,6 +6,7 @@ import { useApplication } from '../context/ApplicationContext';
 
 // Import All Steps
 import PersonalDetails from '../components/application-steps/PersonalDetails';
+import { motion } from 'framer-motion'; // eslint-disable-line
 import Education from '../components/application-steps/Education';
 import Experience from '../components/application-steps/Experience';
 import ReviewSubmit from '../components/application-steps/ReviewSubmit';
@@ -33,7 +34,14 @@ const ApplicationForm = () => {
     return saved ? parseInt(saved, 10) : 1;
   });
 
-  const { initApplication, loading, validateSection, completedSections } = useApplication();
+  const { 
+    initApplication, 
+    loading, 
+    validateSection, 
+    completedSections, 
+    jobSnapshot, 
+    SECTION_TYPE_MAP 
+  } = useApplication();
 
   useEffect(() => {
     if (jobId) {
@@ -41,8 +49,7 @@ const ApplicationForm = () => {
     } else {
       navigate('/jobs');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId]);
+  }, [jobId, initApplication, navigate]);
 
   // Persist current step to localStorage whenever it changes
   useEffect(() => {
@@ -51,26 +58,53 @@ const ApplicationForm = () => {
     }
   }, [currentStep, jobId]);
 
-  const steps = [
-    { id: 1, title: "Personal Details", component: PersonalDetails, key: 'personalDetails' },
-    { id: 2, title: "Education", component: Education, key: 'education' },
-    { id: 3, title: "Experience", component: Experience, key: 'experience' },
-    { id: 4, title: "Referees", component: Referees, key: 'referees' },
-    { id: 5, title: "Journal Publications", component: Publications, key: 'publications' },
-    { id: 6, title: "Conference Publications", component: ConferencePublications, key: 'conferencePublications' },
-    { id: 7, title: "Books & Monographs", component: BooksPublications, key: 'booksPublications' },
-    { id: 8, title: "Patents", component: Patents, key: 'patents' },
-    { id: 9, title: "Sponsored Projects", component: Projects, key: 'projects' },
-    { id: 10, title: "Consultancy Projects", component: ConsultancyProjects, key: 'consultancyProjects' },
-    { id: 11, title: "PhD Supervision", component: PhdSupervision, key: 'phdSupervision' },
-    { id: 12, title: "Subjects Taught", component: SubjectsTaught, key: 'subjectsTaught' },
-    { id: 13, title: "Organized Programs", component: OrganizedPrograms, key: 'organizedPrograms' },
-    { id: 14, title: "Credit Points", component: CreditPoints, key: 'creditPoints' },
-    { id: 15, title: "Other Info", component: OtherInfo, key: 'otherInfo' },
-    { id: 16, title: "Documents", component: DocumentUpload, key: 'documents' },
-    { id: 17, title: "Declaration", component: Declaration, key: 'declaration' },
-    { id: 18, title: "Review & Submit", component: ReviewSubmit, key: 'reviewSubmit' }
-  ];
+  // Dynamic steps filtered by jobSnapshot
+  const steps = React.useMemo(() => {
+    const allSteps = [
+      { title: "Personal Details", component: PersonalDetails, key: 'personalDetails' },
+      { title: "Education", component: Education, key: 'education' },
+      { title: "Experience", component: Experience, key: 'experience' },
+      { title: "Referees", component: Referees, key: 'referees' },
+      { title: "Journal Publications", component: Publications, key: 'publications' },
+      { title: "Conference Publications", component: ConferencePublications, key: 'conferencePublications' },
+      { title: "Books & Monographs", component: BooksPublications, key: 'booksPublications' },
+      { title: "Patents", component: Patents, key: 'patents' },
+      { title: "Sponsored Projects", component: Projects, key: 'projects' },
+      { title: "Consultancy Projects", component: ConsultancyProjects, key: 'consultancyProjects' },
+      { title: "PhD Supervision", component: PhdSupervision, key: 'phdSupervision' },
+      { title: "Subjects Taught", component: SubjectsTaught, key: 'subjectsTaught' },
+      { title: "Organized Programs", component: OrganizedPrograms, key: 'organizedPrograms' },
+      { title: "Credit Points", component: CreditPoints, key: 'creditPoints' },
+      { title: "Other Info", component: OtherInfo, key: 'otherInfo' },
+      { title: "Documents", component: DocumentUpload, key: 'documents' },
+      { title: "Declaration", component: Declaration, key: 'declaration' },
+      { title: "Review & Submit", component: ReviewSubmit, key: 'reviewSubmit' }
+    ];
+
+    if (!jobSnapshot?.requiredSections) return [];
+
+    const reqSecTypes = jobSnapshot.requiredSections.map(s => s.sectionType);
+    
+    const filtered = allSteps.filter(s => {
+      // Review & Submit + Declaration are always included
+      if (s.key === 'reviewSubmit' || s.key === 'declaration') return true;
+      
+      // Documents step is visible if photo, signature, or final_documents is required
+      if (s.key === 'documents') {
+        return (
+          reqSecTypes.includes('photo') || 
+          reqSecTypes.includes('signature') || 
+          reqSecTypes.includes('final_documents')
+        );
+      }
+
+      // Check if this frontend step key maps to a required server section type
+      const serverType = SECTION_TYPE_MAP[s.key];
+      return reqSecTypes.includes(serverType);
+    });
+
+    return filtered.map((s, idx) => ({ ...s, id: idx + 1 }));
+  }, [jobSnapshot, SECTION_TYPE_MAP]);
 
   // Map completedSections to step indices
   const completedSteps = new Set(
@@ -79,26 +113,22 @@ const ApplicationForm = () => {
       .map(s => s.id)
   );
 
+  const hasAutoAdvanced = React.useRef(false);
+
   // Auto-advance to the first incomplete step after initialization
   useEffect(() => {
-    if (!loading && jobId) {
-      // Find the first step ID that is NOT in completedSteps
-      const firstIncomplete = steps.find(s => !completedSteps.has(s.id));
-
-      if (firstIncomplete) {
-        // If currentStep is already completed, jump to the first incomplete one
-        if (completedSteps.has(currentStep) || currentStep < firstIncomplete.id) {
+    if (!loading && jobId && steps.length > 0 && !hasAutoAdvanced.current) {
+      hasAutoAdvanced.current = true;
+      setTimeout(() => {
+        const firstIncomplete = steps.find(s => !completedSections.has(s.key));
+        if (firstIncomplete) {
           setCurrentStep(firstIncomplete.id);
+        } else if (completedSections.size >= steps.length - 1) {
+          setCurrentStep(steps.length);
         }
-      } else if (completedSteps.size === steps.length - 1) {
-        // All steps except maybe the last one (Review) are done
-        setCurrentStep(steps.length);
-      }
+      }, 0);
     }
-    // Only run this when loading finished or completedSteps changes initially
-    // We don't want to force jump while the user is actively navigating back
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, jobId, completedSections.size]);
+  }, [loading, jobId, steps, completedSections]);
 
   const handleNext = async () => {
     if (currentStep < steps.length) {
@@ -120,9 +150,31 @@ const ApplicationForm = () => {
     }
   };
 
+  const handleGoToStep = (stepId) => {
+    setCurrentStep(stepId);
+    window.scrollTo(0, 0);
+  };
+
+  const handleGoToSection = (sectionKey) => {
+    const step = steps.find((s) => s.key === sectionKey);
+    if (step) {
+      handleGoToStep(step.id);
+    }
+  };
+
   const renderStep = () => {
-    const StepComponent = steps[currentStep - 1].component;
-    return <StepComponent onNext={handleNext} onBack={currentStep > 1 ? handleBack : null} />;
+    if (steps.length === 0) return null;
+    const StepComponent = steps[currentStep - 1]?.component;
+    if (!StepComponent) return null;
+
+    return (
+      <StepComponent
+        onNext={handleNext}
+        onBack={currentStep > 1 ? handleBack : null}
+        onGoToStep={handleGoToStep}
+        onGoToSection={handleGoToSection}
+      />
+    );
   };
 
   if (loading && currentStep === 1) {

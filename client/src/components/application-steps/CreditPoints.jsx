@@ -42,11 +42,13 @@ const CreditPoints = ({ onNext, onBack }) => {
   const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
-    if (formData?.creditPoints && typeof formData.creditPoints === 'object') {
-      const cp = formData.creditPoints;
-      setManualActivities(cp.manualActivities || []);
+    if (formData?.credit_points && typeof formData.credit_points === 'object') {
+      const cp = formData.credit_points;
+      setTimeout(() => {
+        setManualActivities(cp.manualActivities || []);
+      }, 0);
     }
-  }, [formData?.creditPoints]);
+  }, [formData?.credit_points]);
 
   // Fetch auto-calc summary from server
   useEffect(() => {
@@ -110,7 +112,7 @@ const CreditPoints = ({ onNext, onBack }) => {
     const bad = manualActivities.some(a => !a.description?.trim() || a.claimedPoints < 0);
     if (bad) { toast.error('Please fill description and valid points for all activities'); return; }
 
-    await updateSection('creditPoints', {
+    await updateSection('credit_points', {
       manualActivities,
       totalCreditsClaimed: combinedTotal, // Default save mapping defaults to auto + manual
       totalCreditsAllowed: 0, // Admin uses this later

@@ -14,11 +14,12 @@ const Publications = ({ onNext, onBack }) => {
 
   useEffect(() => {
     const saved = formData?.publications;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (saved?.items?.length) setList(saved.items);
-    else if (Array.isArray(saved) && saved.length) setList(saved);
-    else setList([{ ...EMPTY_ROW }]);
-  }, [formData?.publications]);
+    setTimeout(() => {
+      if (saved?.items?.length) setList(saved.items);
+      else if (Array.isArray(saved) && saved.length) setList(saved);
+      else if (list.length === 0) setList([{ ...EMPTY_ROW }]);
+    }, 0);
+  }, [formData?.publications, list.length]);
 
   const set = (i, field, val) => {
     const upd = [...list];

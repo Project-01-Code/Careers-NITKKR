@@ -5,6 +5,7 @@ import {
   updateApplicationStatus,
   addReviewNotes,
   bulkUpdateStatus,
+  bulkAssignReviewers,
   exportApplications,
   getApplicationsByJob,
   verifySectionDocuments,
@@ -21,6 +22,7 @@ import {
   updateApplicationStatusSchema,
   addReviewNotesSchema,
   bulkUpdateStatusSchema,
+  bulkAssignSchema,
   verifySectionSchema,
   exemptFeeSchema,
   applicationIdParamSchema,
@@ -40,6 +42,15 @@ router.get(
   requireRole(USER_ROLES.ADMIN),
   validate(exportApplicationsSchema),
   exportApplications
+);
+
+// Bulk assign reviewers
+router.patch(
+  '/bulk-assign',
+  verifyJWT,
+  requireRole(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  validate(bulkAssignSchema),
+  bulkAssignReviewers
 );
 
 // Bulk status update

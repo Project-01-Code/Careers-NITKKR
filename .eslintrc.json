@@ -1,6 +1,9 @@
 {
   "extends": ["eslint:recommended", "prettier"],
   "root": true,
+  "rules": {
+    "no-unused-vars": ["warn", { "varsIgnorePattern": "^[A-Z_]", "argsIgnorePattern": "^_" }]
+  },
   "ignorePatterns": ["client/dist/**"],
   "overrides": [
     {
@@ -37,8 +40,7 @@
         "react/react-in-jsx-scope": "off",
         "react/prop-types": "off",
         "react/no-unescaped-entities": "off",
-        "react/jsx-no-undef": "off",
-        "no-unused-vars": ["warn", { "varsIgnorePattern": "^[A-Z_]", "argsIgnorePattern": "^_" }]
+        "react/jsx-no-undef": "off"
       }
     }
   ]

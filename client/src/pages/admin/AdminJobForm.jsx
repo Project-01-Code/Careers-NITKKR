@@ -56,18 +56,25 @@ const AdminJobForm = () => {
 
   const [form, setForm] = useState(emptyForm);
   const [departments, setDepartments] = useState([]);
+  const [reviewers, setReviewers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [emailQuery, setEmailQuery] = useState('');
 
-  // Fetch departments
+  // Fetch departments and reviewers
   useEffect(() => {
-    const fetchDepts = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get('/departments');
-        setDepartments(res.data.data || []);
+        const [deptsRes, revsRes] = await Promise.all([
+          api.get('/departments'),
+          api.get('/admin/reviews/reviewers'),
+        ]);
+        setDepartments(deptsRes.data.data || []);
+        setReviewers(revsRes.data.data?.reviewers || []);
       } catch { /* ignore */ }
     };
-    fetchDepts();
+    fetchData();
   }, []);
 
   // Fetch existing job if editing
@@ -82,6 +89,7 @@ const AdminJobForm = () => {
           ...emptyForm,
           ...job,
           department: typeof job.department === 'object' ? job.department._id : job.department,
+          assignedReviewers: job.assignedReviewers?.map(r => typeof r === 'object' ? r._id : r) || [],
           applicationStartDate: job.applicationStartDate?.split('T')[0] || '',
           applicationEndDate: job.applicationEndDate?.split('T')[0] || '',
           qualifications: job.qualifications?.length ? job.qualifications : [''],
@@ -180,6 +188,47 @@ const AdminJobForm = () => {
         requiredDegrees: prev.eligibilityCriteria.requiredDegrees.filter((_, i) => i !== index),
       },
     }));
+  };
+
+  const handleReviewerToggle = (reviewerId) => {
+    setForm((prev) => ({
+      ...prev,
+      assignedReviewers: prev.assignedReviewers?.includes(reviewerId)
+        ? prev.assignedReviewers.filter((id) => id !== reviewerId)
+        : [...(prev.assignedReviewers || []), reviewerId],
+    }));
+  };
+
+  const handleAddByEmail = (e) => {
+    e.preventDefault();
+    if (!emailQuery.trim()) return;
+
+    const target = reviewers.find(r => r.email.toLowerCase() === emailQuery.toLowerCase());
+    if (!target) {
+      toast.error('No reviewer found with this email. Ensure the user exists and has the Reviewer role.');
+      return;
+    }
+
+    if (form.assignedReviewers?.includes(target._id)) {
+      toast.error('Reviewer is already assigned.');
+    } else {
+      handleReviewerToggle(target._id);
+      toast.success(`Assigned ${target.email}`);
+    }
+    setEmailQuery('');
+  };
+
+  const handleSyncReviewers = async () => {
+    if (!id) return;
+    setSyncing(true);
+    try {
+      await api.post(`/admin/jobs/${id}/sync-reviewers`);
+      toast.success('Successfully synced reviewers to all existing applications');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to sync reviewers');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleSectionToggle = (sectionType) => {
@@ -497,6 +546,86 @@ const AdminJobForm = () => {
                 );
               })}
             </div>
+          </Section>
+
+          {/* Reviewers */}
+          <Section title="Assigned Reviewers" icon="rate_review">
+            <p className="text-sm text-gray-500 mb-4">Assign expert reviewers by email or select from the list below.</p>
+
+            {/* Email Assignment Input */}
+            <div className="mb-6">
+              <Label>Assign by Email</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 text-lg">mail</span>
+                  <input
+                    type="email"
+                    value={emailQuery}
+                    onChange={(e) => setEmailQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddByEmail(e)}
+                    placeholder="Enter reviewer email address..."
+                    className={`${inputClass} pl-10`}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddByEmail}
+                  className="px-6 py-2.5 bg-secondary text-white rounded-xl font-bold text-xs hover:bg-black transition-all shadow-lg shadow-secondary/20 flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-sm">person_add</span>
+                  ASSIGN
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {reviewers.map((rev) => {
+                const active = form.assignedReviewers?.includes(rev._id);
+                return (
+                  <button
+                    key={rev._id}
+                    type="button"
+                    onClick={() => handleReviewerToggle(rev._id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                      active
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-200'
+                    }`}
+                  >
+                    <span className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] text-indigo-600">
+                      {rev.email[0].toUpperCase()}
+                    </span>
+                    {rev.profile?.firstName ? `${rev.profile.firstName} ${rev.profile.lastName || ''}` : rev.email}
+                    {active && <span className="material-symbols-outlined text-[16px]">check_circle</span>}
+                  </button>
+                );
+              })}
+              {reviewers.length === 0 && (
+                <p className="text-sm text-amber-600 font-medium bg-amber-50 px-4 py-2 rounded-xl">No reviewers found. Please create reviewer users first.</p>
+              )}
+            </div>
+
+            {isEditing && (
+              <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-secondary">Sync current applications?</h4>
+                  <p className="text-xs text-gray-500">Apply these reviewers to all applications submitted so far for this job.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSyncReviewers}
+                  disabled={syncing || form.assignedReviewers?.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-primary bg-primary/10 hover:bg-primary/20 disabled:opacity-50 transition-all"
+                >
+                  {syncing ? (
+                    <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  ) : (
+                    <span className="material-symbols-outlined text-[18px]">sync</span>
+                  )}
+                  Sync Reviewers
+                </button>
+              </div>
+            )}
           </Section>
 
           {/* Submit */}

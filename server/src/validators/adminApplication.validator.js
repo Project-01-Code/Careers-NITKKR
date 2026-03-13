@@ -53,6 +53,11 @@ export const listApplicationsSchema = z.object({
                 }).optional()
             )
             .optional(),
+        departmentId: z
+            .string()
+            .transform((v) => (v === '' ? undefined : v))
+            .pipe(objectIdParam('departmentId').optional())
+            .optional(),
         search: z.string().max(100, 'Search term too long').optional(),
         dateFrom: isoDate,
         dateTo: isoDate,
@@ -61,7 +66,7 @@ export const listApplicationsSchema = z.object({
                 errorMap: () => ({ message: `sortBy must be one of: ${ALLOWED_SORT_FIELDS.join(', ')}` }),
             })
             .optional()
-            .default('createdAt'),
+            .default('submittedAt'),
         sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
         page: z
             .string()
@@ -132,6 +137,18 @@ export const addReviewNotesSchema = z.object({
     }),
     params: z.object({
         id: objectIdParam(),
+    }),
+});
+
+// ─── PATCH /admin/applications/bulk-assign ──────────────────────────────────
+
+const objectIdArray = (minLen = 1) =>
+    z.array(objectIdParam()).min(minLen, 'At least one ID required').max(50, 'Maximum 50 IDs');
+
+export const bulkAssignSchema = z.object({
+    body: z.object({
+        applicationIds: objectIdArray(),
+        reviewerIds: objectIdArray(),
     }),
 });
 

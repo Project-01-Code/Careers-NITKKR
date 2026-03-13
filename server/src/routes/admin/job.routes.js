@@ -7,6 +7,7 @@ import {
   deleteJob,
   publishJob,
   closeJob,
+  syncJobReviewers,
 } from '../../controllers/admin/job.controller.js';
 import { verifyJWT } from '../../middlewares/auth.middleware.js';
 import { requireRole } from '../../middlewares/rbac.middleware.js';
@@ -56,5 +57,6 @@ router.post(
 );
 
 router.post('/:id/close', verifyJWT, requireRole(USER_ROLES.ADMIN), closeJob);
+router.post('/:id/sync-reviewers', verifyJWT, requireRole(USER_ROLES.ADMIN), syncJobReviewers);
 
 export default router;

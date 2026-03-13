@@ -12,11 +12,12 @@ const OrganizedPrograms = ({ onNext, onBack }) => {
 
   useEffect(() => {
     const saved = formData?.organizedPrograms;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (saved?.items?.length) setList(saved.items);
-    else if (Array.isArray(saved) && saved.length) setList(saved);
-    else setList([{ ...EMPTY_ROW }]);
-  }, [formData?.organizedPrograms]);
+    setTimeout(() => {
+      if (saved?.items?.length) setList(saved.items);
+      else if (Array.isArray(saved) && saved.length) setList(saved);
+      else if (list.length === 0) setList([{ ...EMPTY_ROW }]);
+    }, 0);
+  }, [formData?.organizedPrograms, list.length]);
 
   const set = (i, field, val) => {
     const upd = [...list];
