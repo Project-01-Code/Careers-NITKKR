@@ -137,6 +137,7 @@ export const getAllJobs = asyncHandler(async (req, res) => {
       .limit(limitNum)
       .populate('department', 'name code')
       .populate('createdBy', 'email profile.firstName profile.lastName')
+      .populate('assignedReviewers', 'email profile.firstName profile.lastName')
       .lean(),
     Job.countDocuments(query),
   ]);
@@ -171,7 +172,8 @@ export const getJobById = asyncHandler(async (req, res) => {
     deletedAt: null,
   })
     .populate('department', 'name code')
-    .populate('createdBy', 'email profile.firstName profile.lastName');
+    .populate('createdBy', 'email profile.firstName profile.lastName')
+    .populate('assignedReviewers', 'email profile.firstName profile.lastName');
 
   if (!job) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
@@ -325,6 +327,81 @@ export const publishJob = asyncHandler(async (req, res) => {
  * @desc    Close a job early
  * @access  Admin
  */
+/**
+ * @route   POST /api/admin/jobs/:id/sync-reviewers
+ * @desc    Sync job reviewers to all existing applications of this job
+ * @access  Admin
+ */
+export const syncJobReviewers = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const job = await Job.findOne({ _id: id, deletedAt: null });
+
+  if (!job) {
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
+  }
+
+  const reviewerIds = job.assignedReviewers || [];
+  if (reviewerIds.length === 0) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'No reviewers assigned to this job to sync');
+  }
+
+  const { Application } = await import('../../models/application.model.js');
+  const { Review } = await import('../../models/review.model.js');
+
+  // Update applications: Add reviewers to assignedReviewers array
+  const applications = await Application.find({ jobId: id, status: { $ne: 'draft' } });
+  const appIds = applications.map(a => a._id);
+
+  if (appIds.length === 0) {
+    return res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(HTTP_STATUS.OK, null, 'No applications found to sync')
+    );
+  }
+
+  // Bulk update applications
+  await Application.updateMany(
+    { _id: { $in: appIds } },
+    { $addToSet: { assignedReviewers: { $each: reviewerIds } } }
+  );
+
+  // Bulk create/update Review documents
+  const bulkOps = [];
+  for (const appId of appIds) {
+    for (const revId of reviewerIds) {
+      bulkOps.push({
+        updateOne: {
+          filter: { applicationId: appId, reviewerId: revId },
+          update: {
+            $setOnInsert: {
+              reviewerId: revId,
+              applicationId: appId,
+              status: 'PENDING',
+            },
+          },
+          upsert: true,
+        },
+      });
+    }
+  }
+
+  if (bulkOps.length > 0) {
+    await Review.bulkWrite(bulkOps);
+  }
+
+  await logAction({
+    userId: req.user._id,
+    action: AUDIT_ACTIONS.APPLICATION_ASSIGNED,
+    resourceType: RESOURCE_TYPES.JOB,
+    resourceId: id,
+    changes: { reviewerIds, appCount: appIds.length },
+    req,
+  });
+
+  res.status(HTTP_STATUS.OK).json(
+    new ApiResponse(HTTP_STATUS.OK, { syncedCount: appIds.length }, `Reviewers synced to ${appIds.length} applications`)
+  );
+});
+
 export const closeJob = asyncHandler(async (req, res) => {
   const job = await Job.findOne({
     _id: req.params.id,

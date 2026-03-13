@@ -14,8 +14,9 @@ const Declaration = ({ onNext, onBack }) => {
 
   useEffect(() => {
     if (formData?.declaration && typeof formData.declaration === 'object') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setD(prev => ({ ...prev, ...formData.declaration }));
+      setTimeout(() => {
+        setD(prev => ({ ...prev, ...formData.declaration }));
+      }, 0);
     }
   }, [formData?.declaration]);
 

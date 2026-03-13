@@ -4,10 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const AdminLayout = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
 
   const handleLogout = async () => {
     await logout();
@@ -16,16 +16,19 @@ const AdminLayout = ({ children }) => {
   };
 
   const navItems = [
-    { path: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { path: '/admin/jobs', label: 'Jobs', icon: 'work' },
-    { path: '/admin/notices', label: 'Notices', icon: 'campaign' },
-    { path: '/admin/applicants', label: 'Applicants', icon: 'groups' },
+    { path: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard', roles: ['admin', 'super_admin', 'reviewer'] },
+    { path: '/admin/queue', label: 'Evaluation Queue', icon: 'rate_review', roles: ['reviewer'] },
+    { path: '/admin/jobs', label: 'Jobs', icon: 'work', roles: ['admin', 'super_admin'] },
+    { path: '/admin/notices', label: 'Notices', icon: 'campaign', roles: ['admin', 'super_admin'] },
+    { path: '/admin/applicants', label: 'Applicants', icon: 'groups', roles: ['admin', 'super_admin', 'reviewer'] },
+    { path: '/admin/fee-exemption', label: 'Fee Exemption', icon: 'payments', roles: ['admin', 'super_admin'] },
     { path: '/admin/users', label: 'User Management', icon: 'manage_accounts', roles: ['admin', 'super_admin'] },
   ];
 
   const filteredNavItems = navItems.filter(item => {
     if (!item.roles) return true;
-    return item.roles.includes(user?.role);
+    const userRole = user?.role?.toLowerCase();
+    return item.roles.some(r => r.toLowerCase() === userRole);
   });
 
   const isActive = (path) => location.pathname.startsWith(path);
@@ -33,20 +36,26 @@ const AdminLayout = ({ children }) => {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-secondary text-white transform transition-transform duration-300 lg:translate-x-0 ${
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-secondary text-white transform transition-transform duration-300 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         {/* Logo */}
-        <div className="p-6 border-b border-white/10">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg">
               <img src="/logoforppt.png" alt="NIT Kurukshetra Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <span className="font-bold text-base block leading-tight">NIT KKR</span>
-              <span className="text-xs text-gray-400">Admin Panel</span>
+              <span className="text-xs text-gray-400">{isAdmin ? 'Admin Panel' : 'Review Panel'}</span>
             </div>
           </Link>
+          <button 
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <span className="material-symbols-outlined text-white">close</span>
+          </button>
         </div>
 
         {/* Nav Links */}
@@ -80,25 +89,28 @@ const AdminLayout = ({ children }) => {
         </div>
       </aside>
 
-      {/* Overlay */}
+      {/* Overlay - Mobile Only */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-64">
+      <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
         {/* Top Bar */}
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 px-6 py-4">
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <span className="material-symbols-outlined">menu</span>
-            </button>
-
-            <div className="hidden lg:block">
-              <h2 className="text-lg font-bold text-secondary">
+            {/* Hamburger Button */}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="w-10 h-10 flex flex-col items-center justify-center gap-1 hover:bg-gray-100 rounded-xl transition-all group"
+                aria-label="Toggle Menu"
+              >
+                <span className={`w-5 h-0.5 bg-secondary rounded-full transition-all ${sidebarOpen ? 'rotate-45 translate-y-1.5' : ''}`} />
+                <span className={`w-5 h-0.5 bg-secondary rounded-full transition-all ${sidebarOpen ? 'opacity-0' : ''}`} />
+                <span className={`w-5 h-0.5 bg-secondary rounded-full transition-all ${sidebarOpen ? '-rotate-45 -translate-y-1.5' : ''}`} />
+              </button>
+              <h2 className="text-sm lg:text-lg font-bold text-secondary tracking-tight">
                 {navItems.find((n) => isActive(n.path))?.label || 'NIT KKR Recruitment Portal'}
               </h2>
             </div>

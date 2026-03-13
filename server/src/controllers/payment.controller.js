@@ -4,6 +4,7 @@ import { ApiError } from '../utils/apiError.js';
 import { HTTP_STATUS, PAYMENT_STATUS } from '../constants.js';
 import { Application } from '../models/application.model.js';
 import { Payment } from '../models/payment.model.js';
+import mongoose from 'mongoose';
 import { stripeService } from '../services/stripe.service.js';
 
 /**
@@ -39,8 +40,50 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     );
   }
 
-  // TODO: Get exact amount dynamically based on config/category
-  const amountToCharge = 1000; // 1000 INR
+  // Fetch Job to get fee configuration
+  const job = await mongoose.model('Job').findById(application.jobId).lean();
+  if (!job) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Job not found');
+  }
+
+  // Retrieve applicant's category
+  const personalData = application.sections?.get('personal')?.data;
+  const category = personalData?.category?.toUpperCase() || 'GEN';
+  const isPwd = personalData?.disability;
+
+  const appFeeConfig = job.applicationFee || {};
+  let baseFee = appFeeConfig.general || 0;
+
+  if (isPwd) {
+    baseFee = appFeeConfig.pwd || 0;
+  } else if (['SC', 'ST'].includes(category)) {
+    baseFee = appFeeConfig.sc_st || 0;
+  } else if (category === 'OBC' || category === 'OBC-NCL') {
+    baseFee = appFeeConfig.obc || 0;
+  } else if (category === 'EWS') {
+    baseFee = appFeeConfig.ews || 0;
+  }
+
+  const TRANSACTION_FEE = 50; // Hardcoded transaction fee
+  const amountToCharge = baseFee > 0 ? baseFee + TRANSACTION_FEE : 0;
+
+  // Zero-Fee application
+  if (amountToCharge === 0 || !appFeeConfig.isRequired) {
+    application.paymentStatus = PAYMENT_STATUS.EXEMPTED;
+    application.status = 'submitted';
+    application.submittedAt = new Date();
+    await application.save();
+
+    return res
+      .status(HTTP_STATUS.OK)
+      .json(
+        new ApiResponse(
+          HTTP_STATUS.OK,
+          { bypassed: true, status: application.paymentStatus },
+          'Application fee exempted based on category. Submission complete.'
+        )
+      );
+  }
 
   const origin = req.get('origin') || 'http://localhost:3000';
   const successUrl = `${origin}/applications/${applicationId}/payment-success?session_id={CHECKOUT_SESSION_ID}`;

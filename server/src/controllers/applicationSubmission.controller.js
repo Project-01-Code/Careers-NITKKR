@@ -2,7 +2,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
 import { canSubmitApplication } from '../services/submissionValidation.service.js';
-import { generateReceiptPDF } from '../services/receipt.service.js';
+import { generateApplicationPDF } from '../services/pdfExport.service.js';
 import { sendApplicationConfirmation } from '../services/email.service.js';
 import {
   APPLICATION_STATUS,
@@ -239,8 +239,8 @@ export const downloadReceipt = asyncHandler(async (req, res) => {
     );
   }
 
-  // Generate PDF buffer
-  const pdfBuffer = await generateReceiptPDF(application);
+  // Generate PDF buffer using unified service
+  const pdfBuffer = await generateApplicationPDF(application._id, { title: 'Application Acknowledgement' });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(

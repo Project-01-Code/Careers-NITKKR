@@ -17,8 +17,9 @@ const OtherInfo = ({ onNext, onBack }) => {
 
   useEffect(() => {
     if (formData?.otherInfo && typeof formData.otherInfo === 'object') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setInfo(prev => ({ ...prev, ...formData.otherInfo }));
+      setTimeout(() => {
+        setInfo(prev => ({ ...prev, ...formData.otherInfo }));
+      }, 0);
     }
   }, [formData?.otherInfo]);
 

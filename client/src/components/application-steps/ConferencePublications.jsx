@@ -29,13 +29,14 @@ const ConferencePublications = ({ onNext, onBack }) => {
 
   useEffect(() => {
     const saved = formData?.conferencePublications;
-    if (saved && Array.isArray(saved) && saved.length) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setList(saved);
-    } else {
-      setList([{ ...EMPTY_ROW }]);
-    }
-  }, [formData?.conferencePublications]);
+    setTimeout(() => {
+      if (saved && Array.isArray(saved) && saved.length) {
+        setList(saved);
+      } else if (list.length === 0) {
+        setList([{ ...EMPTY_ROW }]);
+      }
+    }, 0);
+  }, [formData?.conferencePublications, list.length]);
 
   const set = (i, field, val) => {
     const upd = [...list];

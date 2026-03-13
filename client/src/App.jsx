@@ -14,7 +14,9 @@ import AdminNotices from './pages/admin/AdminNotices';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminApplications from './pages/admin/AdminApplications';
 import AdminUserManagement from './pages/admin/AdminUserManagement';
+import AdminFeeExemption from './pages/admin/AdminFeeExemption';
 import ApplicationReview from './pages/admin/ApplicationReview';
+import ReviewerQueue from './pages/admin/ReviewerQueue';
 import ProtectedRoute from './components/ProtectedRoute';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
@@ -121,6 +123,14 @@ function App() {
           }
         />
         <Route
+          path="/admin/queue"
+          element={
+            <ProtectedRoute roles={['admin', 'super_admin', 'reviewer']}>
+              <ReviewerQueue />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/applicants"
           element={
             <ProtectedRoute roles={['admin', 'super_admin', 'reviewer']}>
@@ -141,6 +151,14 @@ function App() {
           element={
             <ProtectedRoute roles={['admin', 'super_admin']}>
               <AdminUserManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/fee-exemption"
+          element={
+            <ProtectedRoute roles={['admin', 'super_admin']}>
+              <AdminFeeExemption />
             </ProtectedRoute>
           }
         />

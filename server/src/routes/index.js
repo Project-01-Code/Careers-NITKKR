@@ -8,6 +8,7 @@ import paymentRouter from './public/payment.routes.js';
 import adminJobRouter from './admin/job.routes.js';
 import adminUserRouter from './admin/user.routes.js';
 import adminApplicationRouter from './admin/application.routes.js';
+import adminReviewRouter from './admin/review.routes.js';
 import adminDashboardRouter from './admin/dashboard.routes.js';
 
 const router = Router();
@@ -26,6 +27,7 @@ router.use('/applications', applicationRouter);
 router.use('/admin/jobs', adminJobRouter);
 router.use('/admin/users', adminUserRouter);
 router.use('/admin/applications', adminApplicationRouter);
+router.use('/admin/reviews', adminReviewRouter);
 router.use('/admin/dashboard', adminDashboardRouter);
 
 export default router;

@@ -5,12 +5,25 @@ import { motion } from 'framer-motion';
 
 const JobCard = ({ job }) => {
   const formatDate = (d) =>
-    d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    d
+      ? new Date(d).toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        })
+      : '';
 
-  const deptName = typeof job.department === 'object' ? job.department?.name : job.department;
+  const deptName =
+    typeof job.department === 'object' ? job.department?.name : job.department;
 
   const daysLeft = job.applicationEndDate
-    ? Math.max(0, Math.ceil((new Date(job.applicationEndDate) - new Date()) / (1000 * 60 * 60 * 24)))
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(job.applicationEndDate) - new Date()) /
+            (1000 * 60 * 60 * 24)
+        )
+      )
     : null;
 
   return (
@@ -34,14 +47,20 @@ const JobCard = ({ job }) => {
             )}
             {job.applicationEndDate && (
               <span className="text-gray-400 text-xs flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+                <span className="material-symbols-outlined text-[14px]">
+                  calendar_today
+                </span>
                 Deadline: {formatDate(job.applicationEndDate)}
               </span>
             )}
             {daysLeft != null && daysLeft <= 10 && (
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                daysLeft <= 3 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
-              }`}>
+              <span
+                className={`text-xs font-bold px-2 py-0.5 rounded ${
+                  daysLeft <= 3
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-orange-100 text-orange-700'
+                }`}
+              >
                 {daysLeft === 0 ? 'Last day!' : `${daysLeft}d left`}
               </span>
             )}
@@ -52,14 +71,18 @@ const JobCard = ({ job }) => {
           </h3>
 
           <div className="flex items-center gap-2 text-gray-600 text-sm mb-3">
-            <span className="material-symbols-outlined text-[18px]">apartment</span>
+            <span className="material-symbols-outlined text-[18px]">
+              apartment
+            </span>
             {deptName || 'Department'}
           </div>
 
           <div className="flex flex-wrap gap-2">
             {job.positions && (
               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-md flex items-center gap-1">
-                <span className="material-symbols-outlined text-[12px]">group</span>
+                <span className="material-symbols-outlined text-[12px]">
+                  group
+                </span>
                 {job.positions} position{job.positions > 1 ? 's' : ''}
               </span>
             )}
@@ -69,7 +92,10 @@ const JobCard = ({ job }) => {
               </span>
             )}
             {job.categories?.map((cat) => (
-              <span key={cat} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-md">
+              <span
+                key={cat}
+                className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-md"
+              >
                 {cat}
               </span>
             ))}

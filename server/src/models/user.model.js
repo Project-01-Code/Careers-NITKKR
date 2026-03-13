@@ -128,7 +128,10 @@ userSchema.methods.toJSON = function () {
   delete userObject.__v;
   // Strip hashed tokens from each session — keep deviceInfo & createdAt for UI use
   if (userObject.sessions) {
-    userObject.sessions = userObject.sessions.map(({ token: _t, ...safe }) => safe);
+    userObject.sessions = userObject.sessions.map((session) => {
+      delete session.token;
+      return session;
+    });
   }
   return userObject;
 };

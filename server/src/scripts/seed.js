@@ -5,6 +5,7 @@ import { Job } from '../models/job.model.js';
 import { Notice } from '../models/notice.model.js';
 import { Department } from '../models/department.model.js';
 import { Application } from '../models/application.model.js';
+import { Review } from '../models/review.model.js';
 import { AuditLog } from '../models/auditLog.model.js';
 import {
   USER_ROLES,
@@ -18,22 +19,24 @@ import {
   PAYMENT_STATUS,
 } from '../constants.js';
 
-const PLACEHOLDER_PDF =
-  'https://res.cloudinary.com/demo/image/upload/sample_pdf.pdf';
-const PLACEHOLDER_IMAGE =
-  'https://res.cloudinary.com/demo/image/upload/sample.jpg';
-const MOCK_CLOUDINARY_ID = 'demo_placeholder_id';
+const PLACEHOLDER_PDF = 'https://res.cloudinary.com/demo/image/upload/sample_pdf.pdf';
+const PLACEHOLDER_IMAGE = 'https://res.cloudinary.com/demo/image/upload/sample.jpg';
 
-const divider = (char = '─', len = 70) => console.log(char.repeat(len));
-const row = (label, value) => console.log(`  ${label.padEnd(24)} ${value}`);
+const divider = (char = '─', len = 80) => console.log(char.repeat(len));
 
 const megaSeed = async () => {
   try {
     await connectDB();
 
-    // ── Wipe ─────────────────────────────────────────────────────
+    divider('═');
+    console.log('  🚀  ULTIMATE SEED V3 — NIT KKR Recruitment Ecosystem');
+    divider('═');
+
+    // ── Wipe Everything ──────────────────────────────────────────
+    console.log('  🧹 purging legacy data...');
     await Promise.all([
       AuditLog.deleteMany({}),
+      Review.deleteMany({}),
       Application.deleteMany({}),
       Job.deleteMany({}),
       Notice.deleteMany({}),
@@ -42,722 +45,319 @@ const megaSeed = async () => {
     ]);
 
     // ── Users ────────────────────────────────────────────────────
-    const [
-      superAdmin,
-      ,
-      ,
-      standardApplicant,
-      submittedApplicant,
-      applicant2,
-      applicant3,
-    ] = await Promise.all([
-      User.create({
+    console.log('  👥 creating authenticated actors...');
+    const users = await User.create([
+      {
         email: 'superadmin@nitkkr.ac.in',
         password: 'Password@123',
         role: USER_ROLES.SUPER_ADMIN,
-        profile: { firstName: 'Super', lastName: 'Admin', phone: '9000000001' },
-      }),
-      User.create({
+        profile: { firstName: 'Director', lastName: 'Office', phone: '9000000001' },
+      },
+      {
         email: 'admin@nitkkr.ac.in',
         password: 'Password@123',
         role: USER_ROLES.ADMIN,
-        profile: {
-          firstName: 'System',
-          lastName: 'Admin',
-          phone: '9000000002',
-        },
-      }),
-      User.create({
-        email: 'reviewer@nitkkr.ac.in',
+        profile: { firstName: 'Recruitment', lastName: 'Coordinator', phone: '9000000002' },
+      },
+      // Reviewers for different departments
+      {
+        email: 'rev.cs@nitkkr.ac.in',
         password: 'Password@123',
         role: USER_ROLES.REVIEWER,
-        profile: {
-          firstName: 'Faculty',
-          lastName: 'Reviewer',
-          phone: '9000000003',
-        },
-      }),
-      User.create({
-        email: 'applicant@nitkkr.ac.in',
-        password: 'Password@123',
-        role: USER_ROLES.APPLICANT,
-        profile: {
-          firstName: 'Internal',
-          lastName: 'Applicant',
-          phone: '9000000004',
-        },
-      }),
-      User.create({
-        email: 'submitted@gmail.com',
-        password: 'Password@123',
-        role: USER_ROLES.APPLICANT,
-        profile: {
-          firstName: 'Submitted',
-          lastName: 'User',
-          phone: '9000000005',
-        },
-      }),
-      User.create({
-        email: 'applicant2@gmail.com',
-        password: 'Password@123',
-        role: USER_ROLES.APPLICANT,
-        profile: {
-          firstName: 'Applicant',
-          lastName: 'Two',
-          phone: '9000000006',
-        },
-      }),
-      User.create({
-        email: 'applicant3@gmail.com',
-        password: 'Password@123',
-        role: USER_ROLES.APPLICANT,
-        profile: {
-          firstName: 'Applicant',
-          lastName: 'Three',
-          phone: '9000000007',
-        },
-      }),
-      User.create({
-        email: 'reviewer2@nitkkr.ac.in',
+        profile: { firstName: 'Dr. Ramesh', lastName: 'Kaur', phone: '9000000003' },
+      },
+      {
+        email: 'rev.ec@nitkkr.ac.in',
         password: 'Password@123',
         role: USER_ROLES.REVIEWER,
-        profile: {
-          firstName: 'Faculty',
-          lastName: 'Reviewer Two',
-          phone: '9000000008',
-        },
-      }),
-      User.create({
-        email: 'reviewer3@nitkkr.ac.in',
+        profile: { firstName: 'Dr. Sunita', lastName: 'Gupta', phone: '9000000004' },
+      },
+      // Applicants
+      {
+        email: 'applicant@gmail.com',
         password: 'Password@123',
-        role: USER_ROLES.REVIEWER,
-        profile: {
-          firstName: 'Faculty',
-          lastName: 'Reviewer Three',
-          phone: '9000000009',
-        },
-      }),
-      // Additional Admins
-      User.create({
-        email: 'admin2@nitkkr.ac.in',
+        role: USER_ROLES.APPLICANT,
+        profile: { firstName: 'Vikram', lastName: 'Aditya', phone: '9876543210' },
+      },
+      {
+        email: 'priya.research@gmail.com',
         password: 'Password@123',
-        role: USER_ROLES.ADMIN,
-        profile: {
-          firstName: 'Registrar',
-          lastName: 'Admin',
-          phone: '9000000010',
-        },
-      }),
-      User.create({
-        email: 'admin3@nitkkr.ac.in',
+        role: USER_ROLES.APPLICANT,
+        profile: { firstName: 'Priya', lastName: 'Sharma', phone: '8876543211' },
+      },
+      {
+        email: 'amit.sc@gmail.com',
         password: 'Password@123',
-        role: USER_ROLES.ADMIN,
-        profile: {
-          firstName: 'Dean',
-          lastName: 'Admin',
-          phone: '9000000011',
-        },
-      }),
+        role: USER_ROLES.APPLICANT,
+        profile: { firstName: 'Amit', lastName: 'Das', phone: '7876543212' },
+      }
     ]);
 
+    const admin = users.find(u => u.role === USER_ROLES.ADMIN);
+    const revCS = users.find(u => u.email === 'rev.cs@nitkkr.ac.in');
+    const revEC = users.find(u => u.email === 'rev.ec@nitkkr.ac.in');
+    
     // ── Departments ───────────────────────────────────────────────
+    console.log('  🏛️  founding institutions...');
     const departments = await Department.insertMany([
-      { name: 'Computer Engineering', code: 'CO' },
-      { name: 'Electronics & Communication Engineering', code: 'EC' },
+      { name: 'Computer Engineering', code: 'CS' },
+      { name: 'Electronics & Communication', code: 'EC' },
       { name: 'Mechanical Engineering', code: 'ME' },
-      { name: 'Civil Engineering', code: 'CE' },
-      { name: 'Electrical Engineering', code: 'EE' },
       { name: 'Physics', code: 'PH' },
-      { name: 'Mathematics', code: 'MA' },
     ]);
-    const coDept = departments.find((d) => d.code === 'CO');
+
+    const csDept = departments.find(d => d.code === 'CS');
+    const ecDept = departments.find(d => d.code === 'EC');
 
     // ── Notices ───────────────────────────────────────────────────
-    await Notice.insertMany([
+    console.log('  📢 blasting notification board...');
+    await Notice.create([
       {
-        heading: 'Faculty Recruitment Drive 2026 - Phase 1',
-        advtNo: 'NITKKR/FAC/2026/01',
+        heading: 'Recruitment for Faculty Positions (ADVT/CS/2026)',
         category: 'Faculty Recruitment',
-        pdfUrl: PLACEHOLDER_PDF,
-        cloudinaryId: MOCK_CLOUDINARY_ID,
-        isActive: true,
+        advtNo: 'ADVT/CS/2026',
+        pdfUrl: 'https://example.com/notices/cs-faculty.pdf'
       },
       {
-        heading: 'Format for OBC/EWS Certificates',
-        category: 'Important Notifications',
-        pdfUrl: PLACEHOLDER_PDF,
-        cloudinaryId: MOCK_CLOUDINARY_ID,
-        isActive: true,
-      },
-      {
-        heading: 'Syllabus and Pattern for Written Test',
-        category: 'Important Notifications',
-        isActive: false,
-      },
-      {
-        heading: 'Shortlisted Candidates for Interview (Phase 1)',
-        category: 'Results & Shortlisting',
-        pdfUrl: PLACEHOLDER_PDF,
-        cloudinaryId: MOCK_CLOUDINARY_ID,
-        isActive: true,
-      },
-      {
-        heading: 'Corrigendum to Advertisement No. NITKKR/FAC/2026/01',
-        category: 'Important Notifications',
-        pdfUrl: PLACEHOLDER_PDF,
-        cloudinaryId: MOCK_CLOUDINARY_ID,
-        isActive: true,
-      },
-      {
-        heading: 'Walk-in Interview for Adhoc Faculty',
+        heading: 'Extension of last date for Guest Faculty walk-in',
         category: 'Guest & Adjunct Faculty',
-        pdfUrl: PLACEHOLDER_PDF,
-        cloudinaryId: MOCK_CLOUDINARY_ID,
-        isActive: true,
-      },
+        advtNo: 'WALK-IN/EC/2026',
+        externalLink: 'https://nitkkr.ac.in/walk-in-updates'
+      }
     ]);
 
-    // ── Jobs ──────────────────────────────────────────────────────
-    const standardJobRequiredSections = Object.values(JOB_SECTION_TYPE).map(
-      (type) => ({
-        sectionType: type,
-        isMandatory: [
-          JOB_SECTION_TYPE.PERSONAL,
-          JOB_SECTION_TYPE.PHOTO,
-          JOB_SECTION_TYPE.SIGNATURE,
-          JOB_SECTION_TYPE.EDUCATION,
-          JOB_SECTION_TYPE.DECLARATION,
-        ].includes(type),
-        requiresPDF: [
-          JOB_SECTION_TYPE.EDUCATION,
-          JOB_SECTION_TYPE.EXPERIENCE,
-        ].includes(type),
-        pdfLabel: [
-          JOB_SECTION_TYPE.EDUCATION,
-          JOB_SECTION_TYPE.EXPERIENCE,
-        ].includes(type)
-          ? `Upload ${type} Proofs`
-          : undefined,
-      })
-    );
+    // 💼 ──────────────────────────────────────────────
+    console.log('  💼 launching job postings with dynamic constraints...');
+    
+    // Complex Faculty Job (Most sections required)
+    const facultySections = [
+      { sectionType: 'personal', isMandatory: true },
+      { sectionType: 'photo', isMandatory: true },
+      { sectionType: 'signature', isMandatory: true },
+      { sectionType: 'education', isMandatory: true, minItems: 3 },
+      { sectionType: 'experience', isMandatory: true },
+      { sectionType: 'publications_journal', isMandatory: false },
+      { sectionType: 'publications_conference', isMandatory: false },
+      { sectionType: 'phd_supervision', isMandatory: false },
+      { sectionType: 'subjects_taught', isMandatory: false },
+      { sectionType: 'credit_points', isMandatory: true },
+      { sectionType: 'referees', isMandatory: true, minItems: 2 },
+      { sectionType: 'declaration', isMandatory: true },
+    ];
 
-    const jobsData = [];
-    for (let i = 1; i <= 15; i++) {
-      const dept = departments[i % departments.length];
-      const isGradeI = i % 3 === 0;
-      const designation = isGradeI
-        ? JOB_DESIGNATION.ASSISTANT_PROFESSOR_GRADE_I
-        : JOB_DESIGNATION.ASSISTANT_PROFESSOR_GRADE_II;
-      const payLevel = isGradeI
-        ? JOB_PAY_LEVEL.LEVEL_12
-        : JOB_PAY_LEVEL.LEVEL_10;
-      let status = JOB_STATUS.PUBLISHED;
-      if (i % 5 === 0) status = JOB_STATUS.CLOSED;
-      if (i % 9 === 0) status = JOB_STATUS.DRAFT;
+    // Minimal Profile Job (e.g. for Ad-hoc/Temp positions)
+    const minimalSections = [
+      { sectionType: 'personal', isMandatory: true },
+      { sectionType: 'education', isMandatory: true, minItems: 2 },
+      { sectionType: 'experience', isMandatory: false },
+      { sectionType: 'photo', isMandatory: true },
+      { sectionType: 'declaration', isMandatory: true },
+    ];
 
-      jobsData.push({
-        title: `${designation} (${dept.name})`,
-        advertisementNo: `NITKKR/FAC/2026/${String(i).padStart(2, '0')}/${dept.code}`,
-        department: dept._id,
-        designation,
-        payLevel,
-        positions: (i % 4) + 1,
-        recruitmentType:
-          i % 4 === 0
-            ? JOB_RECRUITMENT_TYPE.INTERNAL
-            : JOB_RECRUITMENT_TYPE.EXTERNAL,
-        categories: [JOB_CATEGORY.GEN, JOB_CATEGORY.OBC, JOB_CATEGORY.SC],
-        applicationFee: {
-          general: 1500,
-          obc: 1500,
-          sc_st: 750,
-          ews: 1500,
-          pwd: 0,
-          isRequired: true,
-        },
+    const jobs = await Job.create([
+      {
+        title: 'Assistant Professor (Grade-II) - CS',
+        advertisementNo: 'ADVT/CS/2026',
+        department: csDept._id,
+        designation: JOB_DESIGNATION.ASSISTANT_PROFESSOR_GRADE_II,
+        payLevel: JOB_PAY_LEVEL.LEVEL_11,
+        positions: 8,
+        vacancies: { UR: 4, OBC: 2, SC: 1, EWS: 1, total: 8 },
+        recruitmentType: JOB_RECRUITMENT_TYPE.EXTERNAL,
+        categories: [JOB_CATEGORY.GEN, JOB_CATEGORY.OBC, JOB_CATEGORY.SC, JOB_CATEGORY.EWS],
+        applicationFee: { general: 1500, sc_st: 750, obc: 1500, ews: 1000, pwd: 0, isRequired: true },
+        description: 'Applications are invited for the post of Assistant Professor (Grade-II) in the Department of Computer Engineering. Candidates should have a strong academic record and research potential.',
         eligibilityCriteria: {
-          minAge: 21,
+          minAge: 25,
           maxAge: 45,
-          minExperience: isGradeI ? 3 : 0,
+          nationality: ['Indian'],
+          minExperience: 0,
           requiredDegrees: [
-            {
-              level: 'PhD',
-              field: 'Relevant Specialization',
-              isMandatory: true,
-            },
-          ],
+            { level: 'PhD', field: 'Computer Science/Engineering', isMandatory: true }
+          ]
         },
-        description: `Excellent opportunity for researchers with a passion for teaching in ${dept.name}.`,
-        requiredSections: standardJobRequiredSections,
-        applicationStartDate: new Date(
-          Date.now() - (15 - i) * 24 * 60 * 60 * 1000
-        ),
-        applicationEndDate:
-          status === JOB_STATUS.CLOSED
-            ? new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
-            : new Date(Date.now() + (20 + i) * 24 * 60 * 60 * 1000),
-        status,
-        publishDate:
-          status !== JOB_STATUS.DRAFT
-            ? new Date(Date.now() - (15 - i) * 24 * 60 * 60 * 1000)
-            : undefined,
-        createdBy: superAdmin._id,
-      });
-    }
-
-    const jobs = await Job.insertMany(jobsData);
-    const publishedJobs = jobs.filter((j) => j.status === JOB_STATUS.PUBLISHED);
-    const activeJob =
-      publishedJobs.find(
-        (j) => j.department.toString() === coDept._id.toString()
-      ) || publishedJobs[0];
-    const activeJob2 = publishedJobs.length > 1 ? publishedJobs[1] : activeJob;
-    const activeJob3 = publishedJobs.length > 2 ? publishedJobs[2] : activeJob;
+        requiredSections: facultySections,
+        assignedReviewers: [revCS._id],
+        status: JOB_STATUS.PUBLISHED,
+        applicationStartDate: new Date(),
+        applicationEndDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
+        createdBy: admin._id
+      },
+      {
+        title: 'Guest Faculty - Electronics',
+        advertisementNo: 'WALK-IN/EC/2026',
+        department: ecDept._id,
+        designation: JOB_DESIGNATION.ASSISTANT_PROFESSOR_GRADE_II, // Using valid enum value
+        payLevel: JOB_PAY_LEVEL.LEVEL_10,
+        positions: 4,
+        vacancies: { UR: 4, total: 4 },
+        recruitmentType: JOB_RECRUITMENT_TYPE.INTERNAL, 
+        categories: [JOB_CATEGORY.GEN],
+        applicationFee: { general: 0, sc_st: 0, obc: 0, ews: 0, pwd: 0, isRequired: false },
+        description: 'Walk-in interview for Guest Faculty in Electronics and Communication Engineering for the upcoming semester.',
+        eligibilityCriteria: {
+          minAge: 22,
+          maxAge: 65,
+          nationality: ['Indian'],
+          minExperience: 0,
+          requiredDegrees: [
+            { level: 'Masters', field: 'Electronics/ECE', isMandatory: true }
+          ]
+        },
+        requiredSections: minimalSections,
+        assignedReviewers: [revEC._id],
+        status: JOB_STATUS.PUBLISHED,
+        applicationStartDate: new Date(),
+        applicationEndDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+        createdBy: admin._id
+      }
+    ]);
 
     // ── Applications ──────────────────────────────────────────────
-    const getDeptName = (deptId) =>
-      departments.find((d) => d._id.toString() === deptId.toString())?.name ||
-      'Department';
+    console.log('  📑 generating lifecycle applications...');
 
-    // APP-2026-00001 — DRAFT (partial)
-    await Application.create({
-      applicationNumber: 'APP-2026-00001',
-      userId: standardApplicant._id,
-      jobId: activeJob._id,
-      jobSnapshot: {
-        title: activeJob.title,
-        jobCode: activeJob.advertisementNo,
-        department: coDept.name,
-        requiredSections: activeJob.requiredSections,
-      },
-      status: APPLICATION_STATUS.DRAFT,
-      sections: {
-        [JOB_SECTION_TYPE.PERSONAL]: {
-          data: {
-            postAppliedFor: activeJob.title,
-            departmentDiscipline: coDept.name,
-            category: JOB_CATEGORY.GEN,
-            disability: false,
-            name: 'Standard Applicant',
-            dob: '1994-05-14',
-            fatherName: 'Mr. Applicant Father',
-            nationality: 'Indian',
-            gender: 'Male',
-            maritalStatus: 'Single',
-            corrAddress: '123 Fake Street, Apartment 4',
-            corrCity: 'Kurukshetra',
-            corrDistrict: 'Kurukshetra',
-            corrState: 'Haryana',
-            corrPincode: '136119',
-            mobile: '9876543210',
-            permAddress: '123 Fake Street, Apartment 4',
-            permCity: 'Kurukshetra',
-            permDistrict: 'Kurukshetra',
-            permState: 'Haryana',
-            permPincode: '136119',
-            specialization: ['Machine Learning', 'AI'],
-            phdTitle: 'Deep Learning in Vision',
-            phdUniversity: 'NIT Kurukshetra',
-            phdDate: '2023-08-01',
-            degreeFromTopInstitute: ['PhD Degree'],
-          },
-          savedAt: new Date(),
-          isComplete: true,
-        },
-        [JOB_SECTION_TYPE.PHOTO]: {
-          imageUrl: PLACEHOLDER_IMAGE,
-          cloudinaryId: MOCK_CLOUDINARY_ID,
-          savedAt: new Date(),
-          isComplete: true,
-        },
-        [JOB_SECTION_TYPE.SIGNATURE]: {
-          imageUrl: PLACEHOLDER_IMAGE,
-          cloudinaryId: MOCK_CLOUDINARY_ID,
-          savedAt: new Date(),
-          isComplete: true,
-        },
-      },
-    });
-
-    // APP-2026-00002 — SUBMITTED + PAID (all sections)
-    await Application.create({
-      applicationNumber: 'APP-2026-00002',
-      userId: submittedApplicant._id,
-      jobId: activeJob._id,
-      jobSnapshot: {
-        title: activeJob.title,
-        jobCode: activeJob.advertisementNo,
-        department: coDept.name,
-        requiredSections: activeJob.requiredSections,
+    // 1. Vikram Aditya - FULLY SUBMITTED & PAID
+    const appVikram = await Application.create({
+      applicationNumber: 'APP-2026-CS-001',
+      userId: users.find(u => u.email === 'applicant@gmail.com')._id,
+      jobId: jobs[0]._id,
+      jobSnapshot: { 
+        title: jobs[0].title, 
+        jobCode: jobs[0].advertisementNo, 
+        department: csDept.name, 
+        requiredSections: jobs[0].requiredSections 
       },
       status: APPLICATION_STATUS.SUBMITTED,
       paymentStatus: PAYMENT_STATUS.PAID,
-      paymentRef: 'pi_test_32187319283712',
-      submittedAt: new Date(),
+      paymentRef: 'PI_MOCK_SUCCESS_101',
+      submittedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+      assignedReviewers: [revCS._id],
       sections: {
-        [JOB_SECTION_TYPE.PERSONAL]: {
-          data: {
-            postAppliedFor: activeJob.title,
-            departmentDiscipline: coDept.name,
-            category: JOB_CATEGORY.OBC,
-            disability: false,
-            name: 'Submitted User',
-            dob: '1990-01-01',
-            fatherName: 'Mr. Sub',
-            nationality: 'Indian',
-            gender: 'Female',
-            maritalStatus: 'Married',
-            corrAddress: '456 Verified Avenue',
-            corrCity: 'Delhi',
-            corrDistrict: 'New Delhi',
-            corrState: 'Delhi',
-            corrPincode: '110001',
-            mobile: '9998887776',
-            permAddress: '456 Verified Avenue',
-            permCity: 'Delhi',
-            permDistrict: 'New Delhi',
-            permState: 'Delhi',
-            permPincode: '110001',
-            specialization: ['Software Engineering'],
-            phdTitle: 'Microservice Architectures',
-            phdUniversity: 'IIT Delhi',
-            phdDate: '2020-05-15',
-            degreeFromTopInstitute: ['PhD Degree', 'PG Degree'],
+        personal: {
+          data: { 
+            name: 'Vikram Aditya', dob: '1990-05-15', gender: 'Male', category: 'GEN', 
+            mobile: '9876543210', nationality: 'Indian', corrAddress: 'Flat 402, Green Valley, Kurukshetra',
+            phdTitle: 'Optimization in Distributed Systems', phdUniversity: 'IIT Bombay', phdDate: '2019-08-12'
           },
-          isComplete: true,
-          savedAt: new Date(),
+          isComplete: true
         },
-        [JOB_SECTION_TYPE.EDUCATION]: {
-          data: {
+        education: {
+          data: { 
             items: [
-              {
-                examPassed: 'B.Tech/BE/B.Sc',
-                discipline: 'Computer Science',
-                boardUniversity: 'NIT Kurukshetra',
-                marks: '8.5',
-                classDivision: 'First',
-                yearOfPassing: '2012',
-              },
-              {
-                examPassed: 'M.Tech/ME/M.Sc',
-                discipline: 'Computer Science',
-                boardUniversity: 'IIT Delhi',
-                marks: '9.0',
-                classDivision: 'First',
-                yearOfPassing: '2015',
-              },
-              {
-                examPassed: 'PhD',
-                discipline: 'Computer Science',
-                boardUniversity: 'IIT Delhi',
-                marks: 'Awarded',
-                classDivision: 'Completed',
-                yearOfPassing: '2020',
-              },
-            ],
+              { examPassed: 'PhD', discipline: 'CSE', boardUniversity: 'IIT B', yearOfPassing: '2019', marks: '9.5' },
+              { examPassed: 'M.Tech', discipline: 'CSE', boardUniversity: 'NIT KKR', yearOfPassing: '2014', marks: '88%' }
+            ]
           },
-          pdfUrl: PLACEHOLDER_PDF,
-          cloudinaryId: MOCK_CLOUDINARY_ID,
-          isComplete: true,
-          savedAt: new Date(),
+          isComplete: true
         },
-        [JOB_SECTION_TYPE.EXPERIENCE]: {
-          data: {
-            items: [
-              {
-                experienceType: ['Teaching'],
-                employerNameAddress: 'NIT Jalandhar',
-                isPresentEmployer: true,
-                designation: 'Assistant Professor',
-                appointmentType: 'Regular',
-                payScale: 'Level 10',
-                fromDate: '2021-01-01',
-                organizationType:
-                  'Fully Funded Central Educational Institutions',
-              },
-            ],
-          },
-          pdfUrl: PLACEHOLDER_PDF,
-          cloudinaryId: MOCK_CLOUDINARY_ID,
-          isComplete: true,
-          savedAt: new Date(),
+        credit_points: {
+          data: { totalCreditsClaimed: 55, manualActivities: [{ activityId: '1', description: 'Journal Papers', claimedPoints: 40 }] },
+          isComplete: true
         },
-        [JOB_SECTION_TYPE.PUBLICATIONS_JOURNAL]: {
-          data: {
-            items: [
-              {
-                journalType: 'SCI / Scopus Journals',
-                paperTitle: 'A Study on APIs',
-                authors: 'Sub User, Jane Doe',
-                isFirstAuthor: true,
-                coAuthorCount: 1,
-                journalName: 'IEEE Transactions',
-                isPaidJournal: false,
-                volume: '12',
-                year: '2022',
-                pages: '45-56',
-              },
-            ],
-          },
-          isComplete: true,
-          savedAt: new Date(),
-        },
-        [JOB_SECTION_TYPE.REFEREES]: {
-          data: {
-            items: [
-              {
-                name: 'Prof. Alpha',
-                designation: 'Professor',
-                departmentAddress: 'IIT Delhi CS Dept',
-                city: 'Delhi',
-                pincode: '110001',
-                phone: '0112345678',
-                officialEmail: 'alpha@iitd.ac.in',
-                personalEmail: 'alpha@gmail.com',
-              },
-              {
-                name: 'Prof. Beta',
-                designation: 'HOD',
-                departmentAddress: 'NIT Jalandhar CS',
-                city: 'Jalandhar',
-                pincode: '144008',
-                phone: '018156789',
-                officialEmail: 'beta@nitj.ac.in',
-                personalEmail: 'beta@gmail.com',
-              },
-            ],
-          },
-          isComplete: true,
-          savedAt: new Date(),
-        },
-        [JOB_SECTION_TYPE.CREDIT_POINTS]: {
-          data: {
-            manualActivities: [],
-            totalCreditsClaimed: 25,
-            totalCreditsAllowed: 0,
-          },
-          autoCredits: {
-            total: 25,
-            breakdown: { publications: 15, experience: 10 },
-          },
-          isComplete: true,
-          savedAt: new Date(),
-        },
-        [JOB_SECTION_TYPE.PHOTO]: {
-          imageUrl: PLACEHOLDER_IMAGE,
-          cloudinaryId: MOCK_CLOUDINARY_ID,
-          isComplete: true,
-          savedAt: new Date(),
-        },
-        [JOB_SECTION_TYPE.SIGNATURE]: {
-          imageUrl: PLACEHOLDER_IMAGE,
-          cloudinaryId: MOCK_CLOUDINARY_ID,
-          isComplete: true,
-          savedAt: new Date(),
-        },
-        [JOB_SECTION_TYPE.FINAL_DOCUMENTS]: {
-          pdfUrl: PLACEHOLDER_PDF,
-          cloudinaryId: MOCK_CLOUDINARY_ID,
-          isComplete: true,
-          savedAt: new Date(),
-        },
-        [JOB_SECTION_TYPE.DECLARATION]: {
-          data: {
-            declareInfoTrue: true,
-            agreeToTerms: true,
-            photoUploaded: true,
-            detailsVerified: true,
-          },
-          isComplete: true,
-          savedAt: new Date(),
-        },
-      },
+        photo: { imageUrl: PLACEHOLDER_IMAGE, isComplete: true },
+        signature: { imageUrl: PLACEHOLDER_IMAGE, isComplete: true },
+        documents: { pdfUrl: PLACEHOLDER_PDF, isComplete: true },
+        declaration: { data: { declareInfoTrue: true, agreeToTerms: true, photoUploaded: true, detailsVerified: true }, isComplete: true }
+      }
     });
 
-    // APP-2026-00003 — SUBMITTED + PAID (sparse, SC)
+    // 2. Priya Sharma - SUBMITTED & EXEMPTED (Female Category)
     await Application.create({
-      applicationNumber: 'APP-2026-00003',
-      userId: applicant2._id,
-      jobId: activeJob2._id,
-      jobSnapshot: {
-        title: activeJob2.title,
-        jobCode: activeJob2.advertisementNo,
-        department: getDeptName(activeJob2.department),
-        requiredSections: activeJob2.requiredSections,
+      applicationNumber: 'APP-2026-CS-002',
+      userId: users.find(u => u.email === 'priya.research@gmail.com')._id,
+      jobId: jobs[0]._id,
+      jobSnapshot: { 
+        title: jobs[0].title, 
+        jobCode: jobs[0].advertisementNo, 
+        department: csDept.name, 
+        requiredSections: jobs[0].requiredSections 
       },
       status: APPLICATION_STATUS.SUBMITTED,
-      paymentStatus: PAYMENT_STATUS.PAID,
-      paymentRef: 'pi_test_999888777666',
-      submittedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-      sections: {
-        [JOB_SECTION_TYPE.PERSONAL]: {
-          data: {
-            postAppliedFor: activeJob2.title,
-            departmentDiscipline: getDeptName(activeJob2.department),
-            category: JOB_CATEGORY.SC,
-            name: 'Applicant Two',
-            dob: '1992-02-20',
-            gender: 'Male',
-            nationality: 'Indian',
-            corrAddress: '789 Real Street',
-            mobile: '7778889990',
-            degreeFromTopInstitute: [],
-          },
-          savedAt: new Date(),
-          isComplete: true,
-        },
-        [JOB_SECTION_TYPE.DECLARATION]: {
-          data: { declareInfoTrue: true, agreeToTerms: true },
-          isComplete: true,
-        },
-      },
-    });
-
-    // APP-2026-00004 — SUBMITTED + PAYMENT PENDING
-    await Application.create({
-      applicationNumber: 'APP-2026-00004',
-      userId: applicant3._id,
-      jobId: activeJob3._id,
-      jobSnapshot: {
-        title: activeJob3.title,
-        jobCode: activeJob3.advertisementNo,
-        department: getDeptName(activeJob3.department),
-        requiredSections: activeJob3.requiredSections,
-      },
-      status: APPLICATION_STATUS.SUBMITTED,
-      paymentStatus: PAYMENT_STATUS.PENDING,
+      paymentStatus: PAYMENT_STATUS.EXEMPTED,
       submittedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+      assignedReviewers: [revCS._id],
       sections: {
-        [JOB_SECTION_TYPE.PERSONAL]: {
-          data: {
-            postAppliedFor: activeJob3.title,
-            departmentDiscipline: getDeptName(activeJob3.department),
-            category: JOB_CATEGORY.GEN,
-            name: 'Applicant Three',
-            dob: '1995-10-10',
-            gender: 'Female',
-          },
-          savedAt: new Date(),
-          isComplete: true,
+        personal: {
+          data: { name: 'Priya Sharma', gender: 'Female', category: 'OBC', mobile: '8876543211' },
+          isComplete: true
         },
-      },
+        education: {
+            data: { items: [{ examPassed: 'PhD', boardUniversity: 'Delhi University', yearOfPassing: '2021' }] },
+            isComplete: true
+        },
+        declaration: { data: { declareInfoTrue: true, agreeToTerms: true, photoUploaded: true, detailsVerified: true }, isComplete: true }
+      }
     });
 
-    // APP-2026-00005 — DRAFT (same user as 00001, different job, section incomplete)
+    // 3. Amit Das - DRAFT (Partial Data)
     await Application.create({
-      applicationNumber: 'APP-2026-00005',
-      userId: standardApplicant._id,
-      jobId: activeJob2._id,
-      jobSnapshot: {
-        title: activeJob2.title,
-        jobCode: activeJob2.advertisementNo,
-        department: getDeptName(activeJob2.department),
-        requiredSections: activeJob2.requiredSections,
+      applicationNumber: 'APP-2026-EC-003',
+      userId: users.find(u => u.email === 'amit.sc@gmail.com')._id,
+      jobId: jobs[1]._id,
+      jobSnapshot: { 
+        title: jobs[1].title, 
+        jobCode: jobs[1].advertisementNo, 
+        department: ecDept.name, 
+        requiredSections: jobs[1].requiredSections 
       },
       status: APPLICATION_STATUS.DRAFT,
+      paymentStatus: PAYMENT_STATUS.PENDING,
       sections: {
-        [JOB_SECTION_TYPE.PERSONAL]: {
-          data: {
-            postAppliedFor: activeJob2.title,
-            departmentDiscipline: getDeptName(activeJob2.department),
-            category: JOB_CATEGORY.OBC,
-            name: 'Standard Applicant - Second Try',
-          },
-          savedAt: new Date(),
-          isComplete: false,
-        },
-      },
+        personal: {
+          data: { name: 'Amit Das', gender: 'Male', category: 'SC' },
+          isComplete: false
+        }
+      }
     });
 
-    // APP-2026-00006 — REJECTED (same user as 00002, different job)
-    await Application.create({
-      applicationNumber: 'APP-2026-00006',
-      userId: submittedApplicant._id,
-      jobId: activeJob3._id,
-      jobSnapshot: {
-        title: activeJob3.title,
-        jobCode: activeJob3.advertisementNo,
-        department: getDeptName(activeJob3.department),
-        requiredSections: activeJob3.requiredSections,
-      },
-      status: APPLICATION_STATUS.REJECTED,
-      paymentStatus: PAYMENT_STATUS.PAID,
-      paymentRef: 'pi_test_old_000001',
-      submittedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-      sections: {
-        [JOB_SECTION_TYPE.PERSONAL]: {
-          data: {
-            postAppliedFor: activeJob3.title,
-            departmentDiscipline: getDeptName(activeJob3.department),
-            category: JOB_CATEGORY.OBC,
-            name: 'Submitted User',
-          },
-          savedAt: new Date(),
-          isComplete: true,
-        },
-      },
+    // ── Reviews ───────────────────────────────────────────────────
+    console.log('  ⚖️  performing peer evaluations...');
+    await Review.create({
+      reviewerId: revCS._id,
+      applicationId: appVikram._id,
+      status: 'SUBMITTED',
+      scorecard: {
+        academicScore: 49,
+        researchScore: 30,
+        experienceScore: 15,
+        recommendation: 'RECOMMENDED',
+        comments: 'Strong candidate. Research papers in high-impact journals. PhD from a Tier-1 institute.'
+      }
     });
 
-    // ── Final Summary ─────────────────────────────────────────────
-    const [jobsByStatus, allApps] = await Promise.all([
-      Job.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
-      Application.find().populate('userId', 'email').lean(),
+    // ── Audit Logs ───────────────────────────────────────────────
+    console.log('  📝 initializing audit trails...');
+    await AuditLog.create([
+      {
+        userId: admin._id,
+        action: 'JOB_CREATED',
+        resourceType: 'Job',
+        resourceId: jobs[0]._id,
+        ipAddress: '127.0.0.1',
+        userAgent: 'SeedScript/3.0'
+      },
+      {
+        userId: revCS._id,
+        action: 'REVIEW_SUBMITTED',
+        resourceType: 'Application',
+        resourceId: appVikram._id,
+        ipAddress: '127.0.0.1',
+        userAgent: 'SeedScript/3.0'
+      }
     ]);
 
-    const jobStatusMap = Object.fromEntries(
-      jobsByStatus.map((s) => [s._id, s.count])
-    );
-
     divider('═');
-    console.log('  🌱  MEGA SEED — NIT KKR Recruitment Portal');
+    console.log('  ✅  SENSATIONAL SEED COMPLETE');
+    console.log(`  📊 Stats:`);
+    console.log(`     - Actors: ${users.length}`);
+    console.log(`     - Portals: ${jobs.length} (CS & EC)`);
+    console.log(`     - Applications: 3 (lifecycle tested)`);
+    console.log(`     - Review Data: Initialized`);
     divider('═');
 
-    console.log('\n  COLLECTIONS\n');
-    row('Users', '11');
-    row('Departments', '7');
-    row('Notices', '6  (5 active, 1 archived)');
-    row(
-      'Jobs',
-      `15  ·  published: ${jobStatusMap[JOB_STATUS.PUBLISHED] ?? 0}  closed: ${jobStatusMap[JOB_STATUS.CLOSED] ?? 0}  draft: ${jobStatusMap[JOB_STATUS.DRAFT] ?? 0}`
-    );
-    row('Applications', '6');
-
-    console.log('\n  APPLICATIONS\n');
-    console.log(
-      `  ${'APP NO'.padEnd(18)} ${'USER'.padEnd(32)} ${'STATUS'.padEnd(12)} ${'PAYMENT'.padEnd(10)} JOB CODE`
-    );
-    divider('-', 90);
-    allApps.forEach((app) =>
-      console.log(
-        `  ${app.applicationNumber.padEnd(18)} ${(app.userId?.email || 'Unknown').padEnd(32)} ${app.status.padEnd(12)} ${(app.paymentStatus || 'N/A').padEnd(10)} ${app.jobSnapshot?.jobCode || 'N/A'}`
-      )
-    );
-
-    console.log('\n  TEST ACCOUNTS  (password: Password@123)\n');
-    console.log(`  ${'ROLE'.padEnd(14)} EMAIL`);
-    divider('-', 50);
-    [
-      ['SUPER_ADMIN', 'superadmin@nitkkr.ac.in'],
-      ['ADMIN', 'admin@nitkkr.ac.in'],
-      ['ADMIN', 'admin2@nitkkr.ac.in'],
-      ['ADMIN', 'admin3@nitkkr.ac.in'],
-      ['REVIEWER', 'reviewer@nitkkr.ac.in'],
-      ['REVIEWER', 'reviewer2@nitkkr.ac.in'],
-      ['REVIEWER', 'reviewer3@nitkkr.ac.in'],
-      ['APPLICANT', 'applicant@nitkkr.ac.in'],
-      ['APPLICANT', 'submitted@gmail.com'],
-      ['APPLICANT', 'applicant2@gmail.com'],
-      ['APPLICANT', 'applicant3@gmail.com'],
-    ].forEach(([role, email]) => console.log(`  ${role.padEnd(14)} ${email}`));
-
-    divider('═');
-    console.log('  ✅  Seed complete.');
-    divider('═');
     process.exit(0);
   } catch (error) {
-    divider('═');
-    console.error('  ❌  Seed failed:', error);
-    divider('═');
+    console.error('  ❌ SEED TERMINATED:', error);
     process.exit(1);
   }
 };

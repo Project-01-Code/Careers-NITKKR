@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-// eslint-disable-next-line no-unused-vars
-import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import AdminLayout from '../../layouts/AdminLayout';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const StatCard = ({ title, value, icon, color, delay }) => (
   <motion.div
@@ -28,38 +29,34 @@ const StatCard = ({ title, value, icon, color, delay }) => (
 );
 
 const AdminDashboard = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [deptStats, setDeptStats] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+
+  const hours = new Date().getHours();
+  const greeting = hours < 12 ? 'Good Morning' : hours < 17 ? 'Good Afternoon' : 'Good Evening';
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch dashboard stats and jobs list in parallel
-        const [statsRes, jobsRes] = await Promise.all([
-          api.get('/admin/dashboard/stats'),
-          api.get('/admin/jobs', { params: { limit: 100 } }),
-        ]);
+        const statsRes = await api.get('/admin/dashboard/stats');
+        setStats(statsRes.data.data);
 
-        const dashboardData = statsRes.data.data;
-        const jobsList = jobsRes.data.data.jobs || [];
-
-        // Compute department distribution client-side
-        const deptMap = {};
-        jobsList.forEach((job) => {
-          const deptName = job.department?.name || 'Unassigned';
-          deptMap[deptName] = (deptMap[deptName] || 0) + 1;
-        });
-
-        const computedDeptStats = Object.entries(deptMap)
-          .map(([name, count]) => ({
-            name,
-            count,
-          }))
-          .sort((a, b) => b.count - a.count);
-
-        setStats(dashboardData);
-        setDeptStats(computedDeptStats);
+        if (isAdmin) {
+          const jobsRes = await api.get('/admin/jobs', { params: { limit: 100 } });
+          const jobsList = jobsRes.data.data.jobs || [];
+          const deptMap = {};
+          jobsList.forEach((job) => {
+            const deptName = job.department?.name || 'Unassigned';
+            deptMap[deptName] = (deptMap[deptName] || 0) + 1;
+          });
+          setDeptStats(Object.entries(deptMap)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count));
+        }
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
       } finally {
@@ -67,13 +64,21 @@ const AdminDashboard = () => {
       }
     };
     fetchDashboardData();
-  }, []);
+  }, [isAdmin]);
+
+  const cardStyles = [
+    { bg: 'bg-gradient-to-br from-blue-500 to-indigo-600', shadow: 'shadow-blue-200' },
+    { bg: 'bg-gradient-to-br from-emerald-400 to-teal-600', shadow: 'shadow-emerald-200' },
+    { bg: 'bg-gradient-to-br from-purple-500 to-pink-600', shadow: 'shadow-purple-200' },
+    { bg: 'bg-gradient-to-br from-amber-400 to-orange-600', shadow: 'shadow-amber-200' },
+  ];
 
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <p className="text-sm font-medium text-gray-400 animate-pulse">Syncing Portal Data...</p>
         </div>
       </AdminLayout>
     );
@@ -81,51 +86,83 @@ const AdminDashboard = () => {
 
   return (
     <AdminLayout>
-      <div className="space-y-8">
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        
+        {/* Welcome Header */}
+        <div className="relative overflow-hidden bg-secondary rounded-3xl p-8 text-white shadow-2xl">
+          <div className="relative z-10">
+            <h2 className="text-3xl font-black tracking-tight">{greeting}, {user?.profile?.firstName || 'Admin'}! 👋</h2>
+            <p className="text-white/60 mt-1 font-medium">Here's what's happening in the NIT KKR Careers Portal today.</p>
+            
+            <div className="flex flex-wrap gap-3 mt-6">
+              <Link to="/admin/jobs/new" className="px-4 py-2 bg-white text-secondary rounded-xl text-sm font-bold shadow-lg hover:shadow-white/20 transition-all flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">add_circle</span> New Job
+              </Link>
+              <Link to="/admin/applicants" className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">groups</span> View Applicants
+              </Link>
+            </div>
+          </div>
+          
+          {/* Abstract background shapes */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -mr-20 -mt-20 shrink-0" />
+          <div className="absolute bottom-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl -mb-10 mr-20 shrink-0" />
+        </div>
+
         {/* Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
-            title="Total Applications"
+            title={isAdmin ? 'Total Applications' : 'My Assigned'}
             value={stats?.applications?.total || 0}
             icon="description"
-            color="bg-blue-500"
+            color={cardStyles[0].bg}
+            shadow={cardStyles[0].shadow}
             delay={0.1}
           />
+          {isAdmin && (
+            <StatCard
+              title="Active Jobs"
+              value={stats?.jobs?.byStatus?.published || 0}
+              icon="work"
+              color={cardStyles[1].bg}
+              shadow={cardStyles[1].shadow}
+              delay={0.2}
+            />
+          )}
+          {isAdmin && (
+            <StatCard
+              title="Total Applicants"
+              value={stats?.users?.totalApplicants || 0}
+              icon="person_search"
+              color={cardStyles[2].bg}
+              shadow={cardStyles[2].shadow}
+              delay={0.3}
+            />
+          )}
           <StatCard
-            title="Active Jobs"
-            value={stats?.jobs?.byStatus?.published || 0}
-            icon="work"
-            color="bg-green-500"
-            delay={0.2}
-          />
-          <StatCard
-            title="Total Applicants"
-            value={stats?.users?.totalApplicants || 0}
-            icon="groups"
-            color="bg-purple-500"
-            delay={0.3}
-          />
-          <StatCard
-            title="Avg. Apps per Job"
-            value={
-              stats?.jobs?.total > 0
-                ? (stats.applications.total / stats.jobs.total).toFixed(1)
-                : 0
-            }
-            icon="analytics"
-            color="bg-orange-500"
+            title="Total Submitted"
+            value={stats?.applications?.totalSubmitted || 0}
+            icon="bolt"
+            color={cardStyles[3].bg}
+            shadow={cardStyles[3].shadow}
             delay={0.4}
           />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Recent Applications */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="font-bold text-secondary">Recent Applications</h3>
-              <button className="text-primary text-sm font-medium hover:underline">
-                View All
-              </button>
+          {/* Recent Applications Feed */}
+          <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h3 className="font-bold text-secondary flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">history</span>
+                {isAdmin ? 'Recent Activity' : 'Incoming Queue'}
+              </h3>
+              <Link
+                to={isAdmin ? '/admin/applicants' : '/admin/queue'}
+                className="text-primary text-xs font-black uppercase tracking-widest hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-all"
+              >
+                Full List
+              </Link>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -144,7 +181,12 @@ const AdminDashboard = () => {
                       className="hover:bg-gray-50/50 transition-colors"
                     >
                       <td className="p-4 font-medium text-secondary">
-                        {app.applicationNumber}
+                        <Link
+                          to={`/admin/applicants/${app._id}/review`}
+                          className="text-primary hover:underline"
+                        >
+                          {app.applicationNumber}
+                        </Link>
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col">

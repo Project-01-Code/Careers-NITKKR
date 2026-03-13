@@ -9,7 +9,7 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isStaff } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -109,10 +109,10 @@ const Navbar = () => {
 
 
 
-                      {isAdmin && (
-                        <Link to="/admin/jobs" className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">
+                      {isStaff && (
+                        <Link to="/admin/dashboard" className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">
                           <span className="material-symbols-outlined text-lg">admin_panel_settings</span>
-                          Admin Panel
+                          {isAdmin ? 'Admin Panel' : 'Review Panel'}
                         </Link>
                       )}
                     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useApplication } from '../../context/ApplicationContext';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -49,8 +49,7 @@ const SECTION_ICONS = {
   declaration: 'verified',
 };
 
-// eslint-disable-next-line no-unused-vars
-const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
+const ReviewSubmit = ({ onBack, onGoToSection }) => {
   const { formData, jobSnapshot, applicationId, applicationNumber, validateAll, paymentStatus } = useApplication();
   const [submitting, setSubmitting] = useState(false);
   const [validating, setValidating] = useState(false);
@@ -75,7 +74,9 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
       EWS: feeConfig.ews,
       PwD: feeConfig.pwd,
     };
-    return categoryFeeMap[category] ?? feeConfig.general ?? 0;
+    const isPwd = formData.personalDetails?.disability;
+    const baseFee = isPwd ? feeConfig.pwd : (categoryFeeMap[category] ?? feeConfig.general ?? 0);
+    return baseFee > 0 ? baseFee + 50 : 0; // Add 50 INR transaction fee if base > 0
   };
   const feeAmount = getUserFee();
 
@@ -105,8 +106,10 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
     return sectionMap[sectionType]?.() || false;
   }, [formData]);
 
-  // Count completed mandatory sections — only count known sections
-  const knownSections = sections.filter(s => SECTION_LABELS[s.sectionType]);
+  // Combine job-specific requirements
+  const allTrackedSections = [...sections];
+
+  const knownSections = allTrackedSections.filter(s => SECTION_LABELS[s.sectionType]);
   const mandatorySections = knownSections.filter(s => s.isMandatory);
   const completedCount = mandatorySections.filter(s => hasSectionData(s.sectionType)).length;
   const totalMandatory = mandatorySections.length;
@@ -119,8 +122,15 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
     try {
       const result = await validateAll();
       setValidationRun(true);
-      if (!result.canSubmit) {
+      
+      const nonPaymentErrors = (result.errors || []).filter(e => e.field !== 'payment' && e.section !== 'payment');
+      
+      if (nonPaymentErrors.length > 0) {
         setValidationErrors(result.errors || []);
+      } else if (!result.canSubmit) {
+        // This means canSubmit is false ONLY because of payment
+        setValidationErrors(result.errors || []);
+        toast.success('All sections verified! Only payment is pending.');
       } else {
         toast.success('All validations passed! You are ready to submit.');
       }
@@ -139,7 +149,12 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
       // Step 1: Validate all
       const validation = await validateAll();
       setValidationRun(true);
-      if (!validation.canSubmit) {
+      
+      // Filter out payment error for the initial check - we'll handle payment in Step 2
+      const nonPaymentErrors = (validation.errors || []).filter(e => e.field !== 'payment' && e.section !== 'payment');
+      const hasRealErrors = nonPaymentErrors.length > 0;
+
+      if (hasRealErrors) {
         setValidationErrors(validation.errors || []);
         toast.error('Please fix the issues listed below before submitting.');
         setSubmitting(false);
@@ -151,6 +166,10 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
         const res = await api.post('/payments/create-order', { applicationId });
         if (res.data.data?.url) {
           window.location.href = res.data.data.url;
+          return;
+        } else if (res.data.data?.bypassed) {
+          toast.success('Application fee exempted. Submitted successfully!');
+          navigate('/profile');
           return;
         }
       }
@@ -199,16 +218,17 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
     <div className="max-w-4xl mx-auto py-8">
 
       {/* Header */}
-      <header className="mb-10 text-center">
+      <header className="mb-10 text-center animate-fade-in">
         <h1 className="text-3xl font-extrabold text-secondary mb-2">Review Your Application</h1>
         <p className="text-gray-500">Please verify all information before final submission.</p>
         <div className="mt-4 inline-flex items-center gap-3">
           <span className="px-4 py-1 bg-primary/10 text-primary rounded-full text-sm font-bold">
             App No: {applicationNumber || 'Draft'}
           </span>
-          {paymentStatus === 'paid' && (
+          {(paymentStatus === 'paid' || paymentStatus === 'exempted') && (
             <span className="px-4 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px]">check_circle</span> Payment Complete
+              <span className="material-symbols-outlined text-[16px]">check_circle</span> 
+              {paymentStatus === 'exempted' ? 'Fee Exempted' : 'Payment Complete'}
             </span>
           )}
         </div>
@@ -252,8 +272,8 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
                       : 'bg-gray-50 border-gray-200 text-gray-500'
                   }`}
               >
-                <span className={`material-symbols-outlined text-[18px] ${done ? 'text-green-500' : sec.isMandatory ? 'text-red-400' : 'text-gray-400'}`}>
-                  {done ? 'check_circle' : sec.isMandatory ? 'error' : 'radio_button_unchecked'}
+                <span className={`material-symbols-outlined text-[18px] flex-shrink-0 ${done ? 'text-green-500' : sec.isMandatory ? 'text-red-400' : 'text-gray-400'}`}>
+                  {done ? 'check_circle' : sec.isMandatory ? 'error' : icon}
                 </span>
                 <span className="font-medium flex-1 truncate">{label}</span>
                 {!sec.isMandatory && <span className="text-[10px] uppercase text-gray-400 font-bold">Optional</span>}
@@ -268,18 +288,20 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
       {/* ═══════════════════════════════════ */}
 
       {/* Personal Details */}
-      <SummarySection title="Personal Details" icon="person" sectionKey="personal">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12">
-          <DataRow label="Full Name" value={formData.personalDetails?.name} />
-          <DataRow label="Date of Birth" value={formData.personalDetails?.dob} />
-          <DataRow label="Gender" value={formData.personalDetails?.gender} />
-          <DataRow label="Category" value={formData.personalDetails?.category} />
-          <DataRow label="Mobile" value={formData.personalDetails?.mobile} />
-          <DataRow label="Nationality" value={formData.personalDetails?.nationality} />
-          <DataRow label="Aadhar No." value={formData.personalDetails?.aadhar} />
-          <DataRow label="Marital Status" value={formData.personalDetails?.maritalStatus} />
-        </div>
-      </SummarySection>
+      {isRequired('personal') && (
+        <SummarySection title="Personal Details" icon="person" sectionKey="personalDetails">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12">
+            <DataRow label="Full Name" value={formData.personalDetails?.name} />
+            <DataRow label="Date of Birth" value={formData.personalDetails?.dob} />
+            <DataRow label="Gender" value={formData.personalDetails?.gender} />
+            <DataRow label="Category" value={formData.personalDetails?.category} />
+            <DataRow label="Mobile" value={formData.personalDetails?.mobile} />
+            <DataRow label="Nationality" value={formData.personalDetails?.nationality} />
+            <DataRow label="Aadhar No." value={formData.personalDetails?.aadhar} />
+            <DataRow label="Marital Status" value={formData.personalDetails?.maritalStatus} />
+          </div>
+        </SummarySection>
+      )}
 
       {/* Education */}
       {isRequired('education') && (
@@ -349,68 +371,154 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
                 <DataRow label="Email" value={ref.officialEmail} />
               </div>
             ))}
+            {(!formData.referees || formData.referees.length === 0) && (
+              <p className="text-sm text-gray-400 italic">No referee records added.</p>
+            )}
           </div>
         </SummarySection>
       )}
 
       {/* Documents & Uploads */}
-      <SummarySection title="Uploads" icon="cloud_upload" sectionKey="final_documents">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Photo */}
-          <div className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 ${formData.photo?.imageUrl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-            {formData.photo?.imageUrl ? (
-              <img src={formData.photo.imageUrl} alt="Photo" className="w-20 h-20 rounded-full object-cover border-2 border-green-300" />
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
-                <span className="material-symbols-outlined text-3xl text-gray-400">person</span>
+      {(isRequired('final_documents') || isRequired('photo') || isRequired('signature')) && (
+        <SummarySection title="Uploads" icon="cloud_upload" sectionKey="documents">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Photo */}
+            {isRequired('photo') && (
+              <div className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 ${formData.photo?.imageUrl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                {formData.photo?.imageUrl ? (
+                  <img src={formData.photo.imageUrl} alt="Photo" className="w-20 h-20 rounded-full object-cover border-2 border-green-300" />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-3xl text-gray-400">person</span>
+                  </div>
+                )}
+                <span className="text-xs font-bold flex items-center gap-1">
+                  <span className={`material-symbols-outlined text-[14px] ${formData.photo?.imageUrl ? 'text-green-500' : 'text-red-500'}`}>
+                    {formData.photo?.imageUrl ? 'check_circle' : 'error'}
+                  </span>
+                  Photograph
+                </span>
               </div>
             )}
-            <span className="text-xs font-bold flex items-center gap-1">
-              <span className={`material-symbols-outlined text-[14px] ${formData.photo?.imageUrl ? 'text-green-500' : 'text-red-500'}`}>
-                {formData.photo?.imageUrl ? 'check_circle' : 'error'}
-              </span>
-              Photograph
-            </span>
-          </div>
 
-          {/* Signature */}
-          <div className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 ${formData.signature?.imageUrl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-            {formData.signature?.imageUrl ? (
-              <img src={formData.signature.imageUrl} alt="Signature" className="w-20 h-16 object-contain border-2 border-green-300 rounded bg-white p-1" />
-            ) : (
-              <div className="w-20 h-16 bg-gray-200 flex items-center justify-center rounded">
-                <span className="material-symbols-outlined text-3xl text-gray-400">draw</span>
+            {/* Signature */}
+            {isRequired('signature') && (
+              <div className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 ${formData.signature?.imageUrl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                {formData.signature?.imageUrl ? (
+                  <img src={formData.signature.imageUrl} alt="Signature" className="w-20 h-16 object-contain border-2 border-green-300 rounded bg-white p-1" />
+                ) : (
+                  <div className="w-20 h-16 bg-gray-200 flex items-center justify-center rounded">
+                    <span className="material-symbols-outlined text-3xl text-gray-400">draw</span>
+                  </div>
+                )}
+                <span className="text-xs font-bold flex items-center gap-1">
+                  <span className={`material-symbols-outlined text-[14px] ${formData.signature?.imageUrl ? 'text-green-500' : 'text-red-500'}`}>
+                    {formData.signature?.imageUrl ? 'check_circle' : 'error'}
+                  </span>
+                  Signature
+                </span>
               </div>
             )}
-            <span className="text-xs font-bold flex items-center gap-1">
-              <span className={`material-symbols-outlined text-[14px] ${formData.signature?.imageUrl ? 'text-green-500' : 'text-red-500'}`}>
-                {formData.signature?.imageUrl ? 'check_circle' : 'error'}
-              </span>
-              Signature
-            </span>
-          </div>
 
-          {/* Final PDF */}
-          <div className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 ${formData.documents?.pdfUrl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-            <div className={`w-20 h-20 rounded-xl flex items-center justify-center ${formData.documents?.pdfUrl ? 'bg-green-100' : 'bg-gray-200'}`}>
-              <span className={`material-symbols-outlined text-3xl ${formData.documents?.pdfUrl ? 'text-green-600' : 'text-gray-400'}`}>
-                picture_as_pdf
-              </span>
+            {/* Final PDF */}
+            {isRequired('final_documents') && (
+              <div className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 ${formData.documents?.pdfUrl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                <div className={`w-20 h-20 rounded-xl flex items-center justify-center ${formData.documents?.pdfUrl ? 'bg-green-100' : 'bg-gray-200'}`}>
+                  <span className={`material-symbols-outlined text-3xl ${formData.documents?.pdfUrl ? 'text-green-600' : 'text-gray-400'}`}>
+                    picture_as_pdf
+                  </span>
+                </div>
+                <span className="text-xs font-bold flex items-center gap-1">
+                  <span className={`material-symbols-outlined text-[14px] ${formData.documents?.pdfUrl ? 'text-green-500' : 'text-red-500'}`}>
+                    {formData.documents?.pdfUrl ? 'check_circle' : 'error'}
+                  </span>
+                  Merged PDF
+                </span>
+                {formData.documents?.pdfUrl && (
+                  <a href={formData.documents.pdfUrl} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">
+                    View Document
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        </SummarySection>
+      )}
+
+      {/* Credit Points */}
+      {isRequired('credit_points') && (
+        <SummarySection title="Credit Point Calculation" icon="calculate" sectionKey="credit_points">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
+                <p className="text-xs text-primary font-bold uppercase mb-1">Total Credits Claimed</p>
+                <p className="text-2xl font-black text-primary">{formData.credit_points?.totalCreditsClaimed || '0.0'}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 font-bold uppercase mb-1">Manual Activities</p>
+                <p className="text-2xl font-black text-gray-700">{formData.credit_points?.manualActivities?.length || 0} Entries</p>
+              </div>
             </div>
-            <span className="text-xs font-bold flex items-center gap-1">
-              <span className={`material-symbols-outlined text-[14px] ${formData.documents?.pdfUrl ? 'text-green-500' : 'text-red-500'}`}>
-                {formData.documents?.pdfUrl ? 'check_circle' : 'error'}
-              </span>
-              Merged PDF
-            </span>
-            {formData.documents?.pdfUrl && (
-              <a href={formData.documents.pdfUrl} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">
-                View Document
-              </a>
+
+            {formData.credit_points?.manualActivities?.length > 0 && (
+              <div className="mt-4 border border-gray-100 rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase">Activity</th>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase">Points</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {formData.credit_points.manualActivities.map((act, i) => (
+                      <tr key={i}>
+                        <td className="px-4 py-2">
+                          <p className="font-medium text-gray-800">Activity {act.activityId}</p>
+                          <p className="text-xs text-gray-500 line-clamp-1">{act.description}</p>
+                        </td>
+                        <td className="px-4 py-2 font-bold text-primary">{act.claimedPoints}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
-        </div>
-      </SummarySection>
+        </SummarySection>
+      )}
+
+      {/* Declaration */}
+      {isRequired('declaration') && (
+        <SummarySection title="Declaration" icon="gavel" sectionKey="declaration">
+          <div className="space-y-4">
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-start gap-3">
+              <span className={`material-symbols-outlined ${formData.declaration?.declareInfoTrue && formData.declaration?.agreeToTerms && formData.declaration?.photoUploaded && formData.declaration?.detailsVerified ? 'text-green-500' : 'text-amber-500'}`}>
+                {formData.declaration?.declareInfoTrue && formData.declaration?.agreeToTerms && formData.declaration?.photoUploaded && formData.declaration?.detailsVerified ? 'verified' : 'pending_actions'}
+              </span>
+              <div>
+                <p className="text-sm text-gray-700 leading-relaxed italic">
+                  "I hereby declare that all statements made and information furnished in this application are true and complete..."
+                </p>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    { key: 'declareInfoTrue', label: 'Info is True' },
+                    { key: 'agreeToTerms', label: 'Agree to Terms' },
+                    { key: 'photoUploaded', label: 'Photo Confirmed' },
+                    { key: 'detailsVerified', label: 'Details Verified' },
+                  ].map(item => (
+                    <div key={item.key} className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg bg-white border border-gray-100">
+                      <span className={`material-symbols-outlined text-[16px] ${formData.declaration?.[item.key] ? 'text-green-500' : 'text-gray-300'}`}>
+                        {formData.declaration?.[item.key] ? 'check_box' : 'check_box_outline_blank'}
+                      </span>
+                      <span className={formData.declaration?.[item.key] ? 'text-green-700' : 'text-gray-400'}>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </SummarySection>
+      )}
 
       {/* ═══════════════════════════════════ */}
       {/* Validate All Button                 */}
@@ -489,9 +597,9 @@ const ReviewSubmit = ({ onBack, onGoToStep, onGoToSection }) => {
                 <div className="px-6 py-2 bg-white rounded-xl border border-indigo-200 shadow-sm">
                   <span className="text-2xl font-extrabold text-indigo-900">₹{feeAmount.toLocaleString('en-IN')}</span>
                   <span className="text-xs text-indigo-500 ml-1">INR</span>
-                  {formData.personalDetails?.category && (
-                    <span className="text-[10px] text-indigo-400 block">for {formData.personalDetails.category} category</span>
-                  )}
+                  <span className="text-[10px] text-indigo-400 block mt-1">
+                    {formData.personalDetails?.category ? `for ${formData.personalDetails.category}` : 'Base Fee'} {formData.personalDetails?.disability ? '+ PwD' : ''} {feeAmount > 0 ? '+ ₹50 txn fee' : ''}
+                  </span>
                 </div>
                 {paymentStatus === 'paid' || paymentStatus === 'exempted' ? (
                   <span className="px-4 py-2 bg-green-100 text-green-700 rounded-xl text-sm font-bold flex items-center gap-2">

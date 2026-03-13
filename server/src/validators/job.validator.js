@@ -153,7 +153,15 @@ const jobBaseSchema = {
   designation: z.enum(JOB_DESIGNATIONS),
   grade: z.enum(JOB_GRADES).optional(),
   payLevel: z.enum(JOB_PAY_LEVELS),
-  positions: z.number().int().min(1, 'At least one position is required'),
+  vacancies: z.object({
+    UR: z.number().int().min(0).default(0),
+    OBC: z.number().int().min(0).default(0),
+    SC: z.number().int().min(0).default(0),
+    ST: z.number().int().min(0).default(0),
+    EWS: z.number().int().min(0).default(0),
+    PwBD: z.number().int().min(0).default(0),
+    total: z.number().int().min(0).default(0),
+  }),
   recruitmentType: z.enum(JOB_RECRUITMENT_TYPES).default('external'),
   categories: z.array(z.enum(JOB_CATEGORIES)).optional().default([]),
   applicationFee: applicationFeeSchema,
@@ -176,6 +184,9 @@ const jobBaseSchema = {
   applicationEndDate: z
     .string()
     .refine((val) => !isNaN(Date.parse(val)), 'Invalid date format'),
+  assignedReviewers: z
+    .array(z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid reviewer ID format'))
+    .optional(),
 };
 
 /** Create Job Schema */

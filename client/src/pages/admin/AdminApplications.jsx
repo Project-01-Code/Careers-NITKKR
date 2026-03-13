@@ -3,33 +3,44 @@ import { Link, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../../layouts/AdminLayout';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-// eslint-disable-next-line no-unused-vars
-import { motion } from 'framer-motion';
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
+import AssignReviewersModal from '../../components/admin/AssignReviewersModal';
+import { useAuth } from '../../context/AuthContext';
 
 const AdminApplications = () => {
+  const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
+  const [departments, setDepartments] = useState([]);
   
   const page = parseInt(searchParams.get('page') || '1');
   const status = searchParams.get('status') || '';
   const jobId = searchParams.get('jobId') || '';
   const search = searchParams.get('search') || '';
+  const departmentId = searchParams.get('departmentId') || '';
+  const sortBy = searchParams.get('sortBy') || 'submittedAt';
+  const sortOrder = searchParams.get('sortOrder') || 'desc';
   const [totalPages, setTotalPages] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
 
   useEffect(() => {
-    const fetchJobs = async () => {
+    const fetchJobsAndDepts = async () => {
       try {
-        const res = await api.get('/admin/jobs', { params: { limit: 100 } });
-        setJobs(res.data.data.jobs || []);
+        const [jobsRes, deptsRes] = await Promise.all([
+          api.get('/admin/jobs', { params: { limit: 100 } }),
+          api.get('/departments'),
+        ]);
+        setJobs(jobsRes.data.data.jobs || []);
+        setDepartments(deptsRes.data?.data || []);
       } catch (err) {
-        console.error('Failed to fetch jobs', err);
+        console.error('Failed to fetch data', err);
       }
     };
-    fetchJobs();
+    fetchJobsAndDepts();
   }, []);
 
   useEffect(() => {
@@ -38,7 +49,7 @@ const AdminApplications = () => {
       setSelectedIds([]);
       try {
         const res = await api.get('/admin/applications', {
-          params: { page, status, jobId, search, limit: 10 }
+          params: { page, status, jobId, search, departmentId, sortBy, sortOrder, limit: 10 }
         });
         const data = res.data.data;
         setApplications(data.applications || (Array.isArray(data) ? data : []));
@@ -51,12 +62,20 @@ const AdminApplications = () => {
       }
     };
     fetchApplications();
-  }, [page, status, jobId, search]);
+  }, [page, status, jobId, search, departmentId, sortBy, sortOrder]);
 
   const handleFilterChange = (key, value) => {
     const newParams = new URLSearchParams(searchParams);
     if (value) newParams.set(key, value);
     else newParams.delete(key);
+    newParams.set('page', '1');
+    setSearchParams(newParams);
+  };
+
+  const handleSortChange = (sortByVal, sortOrderVal) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('sortBy', sortByVal);
+    newParams.set('sortOrder', sortOrderVal);
     newParams.set('page', '1');
     setSearchParams(newParams);
   };
@@ -107,7 +126,7 @@ const AdminApplications = () => {
       setSelectedIds([]);
       // Refresh data
       const res = await api.get('/admin/applications', {
-        params: { page, status, jobId, search, limit: 10 }
+        params: { page, status, jobId, search, departmentId, sortBy, sortOrder, limit: 10 }
       });
       const data = res.data.data;
       setApplications(data.applications || (Array.isArray(data) ? data : []));
@@ -136,70 +155,128 @@ const AdminApplications = () => {
           </button>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white p-5 rounded-3xl border border-gray-100 flex flex-wrap lg:flex-nowrap gap-4 items-center shadow-sm">
-          <div className="flex-grow min-w-[280px] relative">
-            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
-            <input
-              type="text"
-              placeholder="Search by ID, Applicant Name or Email..."
-              className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm transition-all"
-              value={search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
-            />
+        {/* Search and Filters */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+            {/* Primary Search */}
+            <div className="flex-grow w-full relative">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+              <input
+                type="text"
+                placeholder="Search by ID, Applicant Name or Email..."
+                className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-100 focus:outline-none focus:ring-4 focus:ring-primary/5 text-sm transition-all"
+                value={search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+              />
+            </div>
+            
+            {/* Main Primary Filters */}
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+              {(search || jobId || status || departmentId) && (
+                <button 
+                  onClick={() => {
+                    handleFilterChange('search', '');
+                    handleFilterChange('jobId', '');
+                    handleFilterChange('status', '');
+                    handleFilterChange('departmentId', '');
+                  }}
+                  className="px-4 py-3 rounded-2xl bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all flex items-center gap-2 text-xs font-bold ring-1 ring-primary/20"
+                  title="Clear all filters"
+                >
+                  <span className="material-symbols-outlined text-sm">filter_alt_off</span>
+                  Reset Filters
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            <div className="relative flex-grow sm:flex-grow-0 min-w-[160px]">
-              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg">work</span>
-              <select
-                className="w-full pl-11 pr-10 py-3 rounded-2xl border border-gray-100 bg-white text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm"
-                value={jobId}
-                onChange={(e) => handleFilterChange('jobId', e.target.value)}
-              >
-                <option value="">All Job Postings</option>
-                {jobs.map(j => (
-                  <option key={j._id} value={j._id}>{j.title}</option>
-                ))}
-              </select>
-              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-gray-50 text-gray-500">
+            {/* Job Filter */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest px-1">Job Posting</label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg">work</span>
+                <select
+                  className="w-full pl-11 pr-10 py-2.5 rounded-xl border border-gray-100 bg-gray-50/50 text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                  value={jobId}
+                  onChange={(e) => handleFilterChange('jobId', e.target.value)}
+                >
+                  <option value="">All Positions</option>
+                  {jobs.map(j => (
+                    <option key={j._id} value={j._id}>{j.title}</option>
+                  ))}
+                </select>
+                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">expand_more</span>
+              </div>
             </div>
 
-            <div className="relative flex-grow sm:flex-grow-0 min-w-[140px]">
-              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg">flag</span>
-              <select
-                className="w-full pl-11 pr-10 py-3 rounded-2xl border border-gray-100 bg-white text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm"
-                value={status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-              >
-                <option value="">All Statuses</option>
-                <option value="submitted">Submitted</option>
-                <option value="reviewed">Reviewed</option>
-                <option value="shortlisted">Shortlisted</option>
-                <option value="rejected">Rejected</option>
-                <option value="selected">Selected</option>
-              </select>
-              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+            {/* Department Filter */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest px-1">Department</label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg">account_tree</span>
+                <select
+                  className="w-full pl-11 pr-10 py-2.5 rounded-xl border border-gray-100 bg-gray-50/50 text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                  value={departmentId}
+                  onChange={(e) => handleFilterChange('departmentId', e.target.value)}
+                >
+                  <option value="">All Departments</option>
+                  {departments.map(d => (
+                    <option key={d._id} value={d._id}>{d.name || d.code || d._id}</option>
+                  ))}
+                </select>
+                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">expand_more</span>
+              </div>
             </div>
 
-            {(search || jobId || status) && (
-              <button 
-                onClick={() => {
-                  handleFilterChange('search', '');
-                  handleFilterChange('jobId', '');
-                  handleFilterChange('status', '');
-                }}
-                className="p-3 rounded-2xl bg-primary/5 text-primary hover:bg-primary/10 transition-all flex items-center justify-center"
-                title="Reset Filters"
-              >
-                <span className="material-symbols-outlined text-lg">restart_alt</span>
-              </button>
-            )}
+            {/* Status Filter */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest px-1">Current Status</label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg">flag</span>
+                <select
+                  className="w-full pl-11 pr-10 py-2.5 rounded-xl border border-gray-100 bg-gray-50/50 text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                  value={status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                >
+                  <option value="">All Statuses</option>
+                  <option value="submitted">Submitted</option>
+                  <option value="under_review">Under Review</option>
+                  <option value="reviewed">Reviewed</option>
+                  <option value="shortlisted">Shortlisted</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">expand_more</span>
+              </div>
+            </div>
+
+            {/* Sort Filter */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest px-1">Sort & Order</label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg">sort</span>
+                <select
+                  className="w-full pl-11 pr-10 py-2.5 rounded-xl border border-gray-100 bg-gray-50/50 text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                  value={`${sortBy}-${sortOrder}`}
+                  onChange={(e) => {
+                    const [s, o] = e.target.value.split('-');
+                    handleSortChange(s, o);
+                  }}
+                >
+                  <option value="submittedAt-desc">Newest First</option>
+                  <option value="submittedAt-asc">Oldest First</option>
+                  <option value="createdAt-desc">Created (Newest)</option>
+                  <option value="applicationNumber-asc">App Number (A-Z)</option>
+                  <option value="applicationNumber-desc">App Number (Z-A)</option>
+                </select>
+                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">expand_more</span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Bulk Action Bar */}
-        {selectedIds.length > 0 && (
+        {isAdmin && selectedIds.length > 0 && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -212,7 +289,13 @@ const AdminApplications = () => {
               <p className="text-sm font-medium">Bulk Actions:</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {['submitted', 'under_review', 'shortlisted', 'rejected', 'selected'].filter(s => s !== status).map(s => (
+              <button
+                onClick={() => setAssignModalOpen(true)}
+                className="px-3 py-1.5 bg-primary hover:bg-primary/90 rounded-lg text-xs font-bold transition-all"
+              >
+                Assign Reviewers
+              </button>
+              {['submitted', 'under_review', 'shortlisted', 'rejected'].filter(s => s !== status).map(s => (
                 <button
                   key={s}
                   disabled={bulkUpdating}
@@ -287,7 +370,7 @@ const AdminApplications = () => {
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col">
-                          <span className="font-medium text-secondary">{app.userId?.profile?.fullName || 'Untitled'}</span>
+                          <span className="font-medium text-secondary">{app.userId?.profile?.fullName || app.userId?.email}</span>
                           <span className="text-xs text-gray-400">{app.userId?.email}</span>
                         </div>
                       </td>
@@ -347,6 +430,28 @@ const AdminApplications = () => {
           </div>
         )}
         
+        <AssignReviewersModal
+          isOpen={assignModalOpen}
+          onClose={() => setAssignModalOpen(false)}
+          applicationIds={selectedIds}
+          onSuccess={() => {
+            setSelectedIds([]);
+            const fetchApplications = async () => {
+              try {
+                const res = await api.get('/admin/applications', {
+                  params: { page, status, jobId, search, departmentId, sortBy, sortOrder, limit: 10 }
+                });
+                const data = res.data.data;
+                setApplications(data.applications || (Array.isArray(data) ? data : []));
+                setTotalPages(data.pagination?.totalPages || data.totalPages || 1);
+              } catch {
+                // ignore
+              }
+            };
+            fetchApplications();
+          }}
+        />
+
         {/* Bulk Operations Loading Overlay */}
         {bulkUpdating && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

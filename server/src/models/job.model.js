@@ -255,10 +255,14 @@ const jobSchema = new Schema(
       enum: JOB_PAY_LEVELS,
     },
 
-    positions: {
-      type: Number,
-      required: true,
-      min: 1,
+    vacancies: {
+      UR: { type: Number, default: 0, min: 0 },
+      OBC: { type: Number, default: 0, min: 0 },
+      SC: { type: Number, default: 0, min: 0 },
+      ST: { type: Number, default: 0, min: 0 },
+      EWS: { type: Number, default: 0, min: 0 },
+      PwBD: { type: Number, default: 0, min: 0 },
+      total: { type: Number, default: 0, min: 0 },
     },
 
     // Recruitment Classification
@@ -346,6 +350,12 @@ const jobSchema = new Schema(
       ref: 'User',
       required: true,
     },
+    assignedReviewers: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     timestamps: true,

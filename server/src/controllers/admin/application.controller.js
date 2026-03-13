@@ -12,8 +12,9 @@ import {
   RESOURCE_TYPES,
   HTTP_STATUS,
   PAGINATION,
+  USER_ROLES,
 } from '../../constants.js';
-import { generateFullApplicationPDF } from '../../services/adminExport.service.js';
+import { generateApplicationPDF } from '../../services/pdfExport.service.js';
 import { sendApplicationStatusUpdate } from '../../services/email.service.js';
 
 /**
@@ -28,17 +29,46 @@ export const getAllApplications = asyncHandler(async (req, res) => {
     search,
     dateFrom,
     dateTo,
-    sortBy = 'createdAt',
+    departmentId,
+    sortBy = 'submittedAt',
     sortOrder = 'desc',
     page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
   } = req.query;
 
-  // Build query
-  const query = {};
+  // Build query: Always exclude drafts from admin panel
+  const query = {
+    status: { $ne: APPLICATION_STATUS.DRAFT },
+  };
 
-  if (jobId) query.jobId = jobId;
-  if (status) query.status = status;
+  // Reviewers only see applications assigned to them
+  if (req.user.role === USER_ROLES.REVIEWER) {
+    query.assignedReviewers = req.user._id;
+  }
+
+  if (status) {
+    // If a status is requested, it must not be DRAFT
+    if (status === APPLICATION_STATUS.DRAFT) {
+      throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Draft applications cannot be viewed in the admin panel');
+    }
+    query.status = status;
+  }
+
+  // Filter by department and/or job
+  if (departmentId) {
+    const jobsInDept = await Job.find({ department: departmentId }).select('_id').lean();
+    const jobIds = jobsInDept.map((j) => j._id);
+    if (jobIds.length === 0) {
+      query.jobId = { $in: [] };
+    } else if (jobId) {
+      const inDept = jobIds.some((id) => id.toString() === jobId.toString());
+      query.jobId = inDept ? jobId : { $in: [] };
+    } else {
+      query.jobId = { $in: jobIds };
+    }
+  } else if (jobId) {
+    query.jobId = jobId;
+  }
 
   // Date range filter on submittedAt
   if (dateFrom || dateTo) {
@@ -121,10 +151,21 @@ export const getApplicationById = asyncHandler(async (req, res) => {
     .populate('userId', 'email profile')
     .populate('jobId')
     .populate('reviewedBy', 'email profile')
+    .populate('assignedReviewers', 'email profile')
     .populate('statusHistory.changedBy', 'email profile');
 
   if (!application) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
+  }
+
+  // Reviewers can only access applications assigned to them
+  if (req.user.role === USER_ROLES.REVIEWER) {
+    const isAssigned = application.assignedReviewers?.some(
+      (r) => r._id.toString() === req.user._id.toString()
+    );
+    if (!isAssigned) {
+      throw new ApiError(HTTP_STATUS.FORBIDDEN, 'You are not assigned to review this application');
+    }
   }
 
   res
@@ -231,6 +272,15 @@ export const addReviewNotes = asyncHandler(async (req, res) => {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
   }
 
+  if (req.user.role === USER_ROLES.REVIEWER) {
+    const isAssigned = application.assignedReviewers?.some(
+      (r) => r.toString() === req.user._id.toString()
+    );
+    if (!isAssigned) {
+      throw new ApiError(HTTP_STATUS.FORBIDDEN, 'You are not assigned to review this application');
+    }
+  }
+
   if (application.status === APPLICATION_STATUS.WITHDRAWN) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
@@ -269,6 +319,79 @@ export const addReviewNotes = asyncHandler(async (req, res) => {
         'Review notes added successfully'
       )
     );
+});
+
+/**
+ * @route   PATCH /api/v1/admin/applications/bulk-assign
+ * @desc    Bulk assign reviewers to applications
+ * @access  Admin only
+ */
+export const bulkAssignReviewers = asyncHandler(async (req, res) => {
+  const { applicationIds, reviewerIds } = req.body;
+
+  if (
+    !applicationIds ||
+    !Array.isArray(applicationIds) ||
+    applicationIds.length === 0 ||
+    !reviewerIds ||
+    !Array.isArray(reviewerIds) ||
+    reviewerIds.length === 0
+  ) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'applicationIds and reviewerIds must be non-empty arrays'
+    );
+  }
+
+  const result = await Application.updateMany(
+    { _id: { $in: applicationIds } },
+    { $addToSet: { assignedReviewers: { $each: reviewerIds } } }
+  );
+
+  // Create initial Review documents for each reviewer-application pair
+  const { Review } = await import('../../models/review.model.js');
+  const bulkOps = [];
+  for (const appId of applicationIds) {
+    for (const revId of reviewerIds) {
+      bulkOps.push({
+        updateOne: {
+          filter: { applicationId: appId, reviewerId: revId },
+          update: {
+            $setOnInsert: {
+              reviewerId: revId,
+              applicationId: appId,
+              status: 'PENDING',
+            },
+          },
+          upsert: true,
+        },
+      });
+    }
+  }
+  if (bulkOps.length > 0) {
+    await Review.bulkWrite(bulkOps);
+  }
+
+  await logAction({
+    userId: req.user._id,
+    action: AUDIT_ACTIONS.APPLICATION_ASSIGNED,
+    resourceType: RESOURCE_TYPES.APPLICATION,
+    resourceId: null,
+    changes: { applicationIds, reviewerIds, updatedCount: result.modifiedCount },
+    req,
+  });
+
+  res.status(HTTP_STATUS.OK).json(
+    new ApiResponse(
+      HTTP_STATUS.OK,
+      {
+        modifiedCount: result.modifiedCount,
+        applicationIds,
+        reviewerIds,
+      },
+      `Reviewers assigned to ${result.modifiedCount} application(s)`
+    )
+  );
 });
 
 /**
@@ -380,10 +503,16 @@ export const bulkUpdateStatus = asyncHandler(async (req, res) => {
 export const exportApplications = asyncHandler(async (req, res) => {
   const { jobId, status, dateFrom, dateTo } = req.query;
 
-  // Build filter
-  const query = {};
+  // Build filter: Always exclude drafts from exports
+  const query = {
+    status: { $ne: APPLICATION_STATUS.DRAFT },
+  };
   if (jobId) query.jobId = jobId;
-  if (status) query.status = status;
+  if (status) {
+    if (status !== APPLICATION_STATUS.DRAFT) {
+      query.status = status;
+    }
+  }
   if (dateFrom || dateTo) {
     query.submittedAt = {};
     if (dateFrom) query.submittedAt.$gte = new Date(dateFrom);
@@ -474,6 +603,9 @@ export const getApplicationsByJob = asyncHandler(async (req, res) => {
 
   // Build query
   const query = { jobId };
+  if (req.user.role === USER_ROLES.REVIEWER) {
+    query.assignedReviewers = req.user._id;
+  }
   if (status) query.status = status;
 
   // Pagination
@@ -527,6 +659,15 @@ export const verifySectionDocuments = asyncHandler(async (req, res) => {
 
   if (!application) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
+  }
+
+  if (req.user.role === USER_ROLES.REVIEWER) {
+    const isAssigned = application.assignedReviewers?.some(
+      (r) => r.toString() === req.user._id.toString()
+    );
+    if (!isAssigned) {
+      throw new ApiError(HTTP_STATUS.FORBIDDEN, 'You are not assigned to review this application');
+    }
   }
 
   if (application.status === APPLICATION_STATUS.WITHDRAWN) {
@@ -608,10 +749,10 @@ export const exemptApplicationFee = asyncHandler(async (req, res) => {
 
   const { reason } = req.body || {};
 
-  if (!reason || !reason.trim()) {
+  if (!reason || !String(reason).trim()) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
-      'Reason for exemption is required'
+      'Reason for exemption is required (min 5 characters)'
     );
   }
 
@@ -662,13 +803,22 @@ export const exportFullApplicationPDF = asyncHandler(async (req, res) => {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
   }
 
+  if (req.user.role === USER_ROLES.REVIEWER) {
+    const isAssigned = application.assignedReviewers?.some(
+      (r) => r.toString() === req.user._id.toString()
+    );
+    if (!isAssigned) {
+      throw new ApiError(HTTP_STATUS.FORBIDDEN, 'You are not assigned to review this application');
+    }
+  }
+
   // Generate PDF buffer
-  const pdfBuffer = await generateFullApplicationPDF(application);
+  const pdfBuffer = await generateApplicationPDF(id, { includeReviews: true, title: 'Application Docket' });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
     'Content-Disposition',
-    `attachment; filename=application-${application.applicationNumber}-full.pdf`
+    `attachment; filename=docket-${application.applicationNumber}.pdf`
   );
   res.send(pdfBuffer);
 });
