@@ -14,13 +14,16 @@ const paymentSchema = new Schema(
       index: true,
       sparse: true,
     },
+    // Amount in INR (whole rupees, NOT paise)
     amount: {
       type: Number,
       required: true,
     },
+    // Always stored lowercase to match Stripe's convention ('inr')
     currency: {
       type: String,
-      default: 'INR',
+      default: 'inr',
+      lowercase: true,
     },
     status: {
       type: String,
@@ -40,11 +43,13 @@ const paymentSchema = new Schema(
       required: true,
       index: true,
     },
+    // e.g. 'card', 'upi', 'netbanking' — populated from webhook
     paymentMethod: {
-      type: String, // e.g., 'upi', 'card', 'netbanking'
+      type: String,
     },
+    // Full Stripe webhook event stored for audit / dispute resolution
     rawWebhookData: {
-      type: Schema.Types.Mixed, // Store complete webhook response for audit
+      type: Schema.Types.Mixed,
     },
   },
   {
@@ -52,10 +57,17 @@ const paymentSchema = new Schema(
   }
 );
 
-// Prevent multiple successful payments for the same application
+/**
+ * Prevent duplicate successful payments for the same application.
+ * A partial unique index only fires when status === PAID, so pending/failed
+ * records for the same application are still allowed (e.g. retry after failure).
+ */
 paymentSchema.index(
   { applicationId: 1, status: 1 },
-  { unique: true, partialFilterExpression: { status: PAYMENT_STATUS.PAID } }
+  {
+    unique: true,
+    partialFilterExpression: { status: PAYMENT_STATUS.PAID },
+  }
 );
 
 export const Payment = mongoose.model('Payment', paymentSchema);
