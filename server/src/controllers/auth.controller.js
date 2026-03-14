@@ -194,6 +194,9 @@ const loginUser = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email, deletedAt: null });
 
   if (!user || !(await user.isPasswordCorrect(password))) {
+    if (IS_DEV) {
+      console.log(`[Login Debug] Failure for ${email}. User found: ${!!user}`);
+    }
     await logAction({
       userId: user?._id ?? null,
       action: AUDIT_ACTIONS.LOGIN_FAILED,

@@ -6,9 +6,19 @@ import { Application } from '../models/application.model.js';
 import { Payment } from '../models/payment.model.js';
 import mongoose from 'mongoose';
 import { stripeService } from '../services/stripe.service.js';
+import { calculateApplicationFee, markApplicationSubmitted } from '../services/payment.service.js';
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/payments/create-order
+// ---------------------------------------------------------------------------
 
 /**
- * Create a specialized Stripe checkout session and record a pending payment.
+ * Calculate the correct fee for the applicant's category, create a Stripe
+ * Checkout Session, and persist a PENDING Payment record.
+ *
+ * If the resolved fee is 0 (exempt category or fee not required) the
+ * application is immediately marked EXEMPTED + submitted — no Stripe session
+ * is created.
  *
  * @route   POST /api/v1/payments/create-order
  * @access  Private (Applicant only)
@@ -17,19 +27,18 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
   const { applicationId } = req.body;
   const userId = req.user._id;
 
-  if (!applicationId) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Application ID is required');
+  // ── Validate applicationId format ─────────────────────────────────────────
+  if (!applicationId || !mongoose.Types.ObjectId.isValid(applicationId)) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Valid Application ID is required');
   }
 
-  const application = await Application.findOne({
-    _id: applicationId,
-    userId: userId,
-  });
-
+  // ── 1. Load application (must belong to the requesting user) ─────────────
+  const application = await Application.findOne({ _id: applicationId, userId });
   if (!application) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
   }
 
+  // ── 2. Guard: already in a terminal payment state ─────────────────────────
   if (
     application.paymentStatus === PAYMENT_STATUS.PAID ||
     application.paymentStatus === PAYMENT_STATUS.EXEMPTED
@@ -40,172 +49,311 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     );
   }
 
-  // Fetch Job to get fee configuration
+  // ── 3. Guard: already submitted ───────────────────────────────────────────
+  if (application.status === 'submitted') {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Application is already submitted');
+  }
+
+  // ── 4. Guard: existing PENDING session — prevent duplicate Stripe sessions ─
+  const existingPending = await Payment.findOne({
+    applicationId: application._id,
+    status: PAYMENT_STATUS.PENDING,
+  });
+  if (existingPending) {
+    return res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        {
+          sessionId: existingPending.sessionId,
+          alreadyPending: true,
+        },
+        'A payment session already exists for this application. Please complete the existing payment.'
+      )
+    );
+  }
+
+  // ── 5. Load the associated job (fee config lives here) ────────────────────
   const job = await mongoose.model('Job').findById(application.jobId).lean();
   if (!job) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Job not found');
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Associated job not found');
   }
 
-  // Retrieve applicant's category
-  const personalData = application.sections?.get('personal')?.data;
-  const category = personalData?.category?.toUpperCase() || 'GEN';
-  const isPwd = personalData?.disability;
+  // ── 6. Derive candidate category & disability status ─────────────────────
+  const personalData = application.sections?.get('personal')?.data ?? {};
+  const rawCategory  = personalData.category ?? 'GEN';
+  const isPwd        = Boolean(personalData.disability);
 
-  const appFeeConfig = job.applicationFee || {};
-  let baseFee = appFeeConfig.general || 0;
+  // ── 7. Calculate the fee ──────────────────────────────────────────────────
+  const { totalAmount, baseFee, transactionFee, isFeeRequired } =
+    calculateApplicationFee(job.applicationFee, rawCategory, isPwd);
 
-  if (isPwd) {
-    baseFee = appFeeConfig.pwd || 0;
-  } else if (['SC', 'ST'].includes(category)) {
-    baseFee = appFeeConfig.sc_st || 0;
-  } else if (category === 'OBC' || category === 'OBC-NCL') {
-    baseFee = appFeeConfig.obc || 0;
-  } else if (category === 'EWS') {
-    baseFee = appFeeConfig.ews || 0;
-  }
-
-  const TRANSACTION_FEE = 50; // Hardcoded transaction fee
-  const amountToCharge = baseFee > 0 ? baseFee + TRANSACTION_FEE : 0;
-
-  // Zero-Fee application
-  if (amountToCharge === 0 || !appFeeConfig.isRequired) {
-    application.paymentStatus = PAYMENT_STATUS.EXEMPTED;
-    application.status = 'submitted';
-    application.submittedAt = new Date();
-
-    // Add to status history
-    application.statusHistory.push({
-      status: 'submitted',
-      changedBy: req.user._id,
-      changedAt: new Date(),
-      remarks: 'Application submitted (Fee Exempted)',
-    });
-
+  // ── 8. Exempt path — no Stripe session needed ─────────────────────────────
+  if (totalAmount === 0 || !isFeeRequired) {
+    markApplicationSubmitted(application, PAYMENT_STATUS.EXEMPTED);
     await application.save();
 
-    return res
-      .status(HTTP_STATUS.OK)
-      .json(
-        new ApiResponse(
-          HTTP_STATUS.OK,
-          { bypassed: true, status: application.paymentStatus },
-          'Application fee exempted based on category. Submission complete.'
-        )
-      );
+    return res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        {
+          exempted:          true,
+          isFeeRequired,
+          paymentStatus:     application.paymentStatus,
+          applicationStatus: application.status,
+        },
+        'Application fee exempted. Submission complete.'
+      )
+    );
   }
 
-  const origin = req.get('origin') || 'http://localhost:3000';
+  // ── 9. Build redirect URLs ────────────────────────────────────────────────
+  const origin     = req.get('origin') || 'http://localhost:3000';
   const successUrl = `${origin}/applications/${applicationId}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${origin}/applications/${applicationId}/payment-cancel`;
+  const cancelUrl  = `${origin}/applications/${applicationId}/payment-cancel`;
 
-  // Create Stripe Checkout Session
-  const session = await stripeService.createCheckoutSession(
-    amountToCharge,
-    application._id,
-    successUrl,
-    cancelUrl
-  );
+  // ── 10. Create Stripe Checkout Session ────────────────────────────────────
+  let session;
+  try {
+    session = await stripeService.createCheckoutSession(
+      totalAmount,
+      application._id,
+      successUrl,
+      cancelUrl
+    );
+  } catch (stripeError) {
+    console.error('Failed to create Stripe session:', stripeError);
+    throw new ApiError(
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      'Failed to create payment session. Please try again.'
+    );
+  }
 
-  // Store payment record in DB with PENDING status
-  await Payment.create({
-    sessionId: session.id,
-    amount: amountToCharge,
-    currency: session.currency?.toLowerCase() || 'inr',
-    status: PAYMENT_STATUS.PENDING,
-    applicationId: application._id,
-    userId: userId,
-  });
+  // ── 11. Persist a PENDING payment record ──────────────────────────────────
+  try {
+    await Payment.create({
+      sessionId:     session.id,
+      amount:        totalAmount,
+      currency:      session.currency?.toLowerCase() ?? 'inr',
+      status:        PAYMENT_STATUS.PENDING,
+      applicationId: application._id,
+      userId,
+    });
+  } catch (dbError) {
+    console.error('Failed to create payment record:', dbError);
+    throw new ApiError(
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      'Failed to save payment record. Please try again.'
+    );
+  }
 
-  res.status(HTTP_STATUS.CREATED).json(
+  return res.status(HTTP_STATUS.CREATED).json(
     new ApiResponse(
       HTTP_STATUS.CREATED,
       {
-        sessionId: session.id,
-        url: session.url, // URL to redirect the user to Stripe Checkout
-        amount: amountToCharge,
-        currency: session.currency || 'inr',
+        sessionId:      session.id,
+        url:            session.url,
+        baseFee,
+        transactionFee,
+        totalAmount,
+        currency:       session.currency ?? 'inr',
       },
       'Payment session created successfully'
     )
   );
 });
 
+// ---------------------------------------------------------------------------
+// GET /api/v1/payments/status/:applicationId
+// ---------------------------------------------------------------------------
+
+/**
+ * Poll for current payment status and reconcile with Stripe if needed.
+ */
+export const getPaymentStatus = asyncHandler(async (req, res) => {
+  const { applicationId } = req.params;
+  const userId = req.user._id;
+
+  const application = await Application.findOne({ _id: applicationId, userId });
+  if (!application) {
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
+  }
+
+  if (
+    application.paymentStatus === PAYMENT_STATUS.PAID ||
+    application.paymentStatus === PAYMENT_STATUS.EXEMPTED
+  ) {
+    return res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        {
+          paymentStatus:     application.paymentStatus,
+          applicationStatus: application.status,
+        },
+        'Payment status fetched successfully'
+      )
+    );
+  }
+
+  const paymentRecord = await Payment.findOne({ applicationId }).sort({ createdAt: -1 });
+
+  if (!paymentRecord) {
+    return res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        { paymentStatus: PAYMENT_STATUS.PENDING },
+        'No payment record found'
+      )
+    );
+  }
+
+  if (paymentRecord.status === PAYMENT_STATUS.PENDING) {
+    try {
+      const stripeSession = await stripeService.retrieveCheckoutSession(
+        paymentRecord.sessionId
+      );
+
+      if (stripeSession.payment_status === 'paid') {
+        paymentRecord.status          = PAYMENT_STATUS.PAID;
+        paymentRecord.paymentIntentId = stripeSession.payment_intent;
+        paymentRecord.paymentMethod   = stripeSession.payment_method_types?.[0] ?? 'card';
+        await paymentRecord.save();
+
+        markApplicationSubmitted(application, PAYMENT_STATUS.PAID);
+        await application.save();
+      }
+    } catch (err) {
+      console.error('getPaymentStatus: Stripe session retrieval failed', err.message);
+    }
+  }
+
+  return res.status(HTTP_STATUS.OK).json(
+    new ApiResponse(
+      HTTP_STATUS.OK,
+      {
+        paymentStatus:     paymentRecord.status,
+        applicationStatus: application.status,
+      },
+      'Payment status fetched successfully'
+    )
+  );
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/payments/webhook
+// ---------------------------------------------------------------------------
+
 export const verifyWebhook = asyncHandler(async (req, res) => {
-  // req.body is a raw Buffer set by express.raw() in app.js
   const signature = req.headers['stripe-signature'];
 
   if (!signature) {
-    return res.status(400).send('Webhook signature missing');
+    return res.status(HTTP_STATUS.BAD_REQUEST).send('Webhook signature missing');
   }
 
   let event;
   try {
     event = stripeService.verifyWebhookSignature(req.body, signature);
   } catch (err) {
-    console.error('Webhook signature verification failed.', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(HTTP_STATUS.BAD_REQUEST).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
   switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object;
-
-      const sessionId = session.id;
-      const paymentIntentId = session.payment_intent;
-
-      const paymentRecord = await Payment.findOne({ sessionId: sessionId });
-
-      if (!paymentRecord) {
-        console.error(`Payment record not found for session ${sessionId}`);
-        return res.status(400).send('Payment record not found');
-      }
-
-      if (paymentRecord.status === PAYMENT_STATUS.PAID) {
-        return res.status(200).send('Already processed');
-      }
-
-      paymentRecord.rawWebhookData = event;
-
-      paymentRecord.status = PAYMENT_STATUS.PAID;
-      paymentRecord.paymentIntentId = paymentIntentId;
-      paymentRecord.paymentMethod = session.payment_method_types?.[0] || 'card';
-      await paymentRecord.save();
-
-      // Update application
-      const application = await Application.findById(
-        paymentRecord.applicationId
-      );
-      if (application) {
-        application.paymentStatus = PAYMENT_STATUS.PAID;
-        await application.save();
-      }
+    case 'checkout.session.completed':
+      await handleSessionCompleted(event);
       break;
-    }
 
     case 'checkout.session.expired':
-    case 'payment_intent.payment_failed': {
-      const failedSession = event.data.object;
-      const failedSessionId =
-        failedSession.id || failedSession.metadata?.sessionId;
-
-      if (failedSessionId) {
-        const failedPayment = await Payment.findOne({
-          sessionId: failedSessionId,
-        });
-        if (failedPayment && failedPayment.status !== PAYMENT_STATUS.PAID) {
-          failedPayment.status = PAYMENT_STATUS.FAILED;
-          failedPayment.rawWebhookData = event;
-          await failedPayment.save();
-        }
-      }
+      await handleSessionExpired(event);
       break;
-    }
+
+    case 'payment_intent.payment_failed':
+      await handlePaymentIntentFailed(event);
+      break;
 
     default:
-      console.log(`Unhandled event type ${event.type}`);
+      console.log(`Unhandled Stripe event type: ${event.type}`);
   }
 
-  // Return a 200 response to acknowledge receipt of the event
-  res.status(200).send('OK');
+  return res.status(HTTP_STATUS.OK).send('OK');
 });
+
+// ---------------------------------------------------------------------------
+// Private webhook sub-handlers
+// ---------------------------------------------------------------------------
+
+async function handleSessionCompleted(event) {
+  const session   = event.data.object;
+  const sessionId = session.id;
+
+  const paymentRecord = await Payment.findOneAndUpdate(
+    { sessionId, status: { $ne: PAYMENT_STATUS.PAID } },
+    {
+      $set: {
+        status:          PAYMENT_STATUS.PAID,
+        paymentIntentId: session.payment_intent,
+        paymentMethod:   session.payment_method_types?.[0] ?? 'card',
+        rawWebhookData:  event,
+      },
+    },
+    { new: true }
+  );
+
+  if (!paymentRecord) {
+    console.warn(`checkout.session.completed: no actionable record for session ${sessionId}`);
+    return;
+  }
+
+  const application = await Application.findById(paymentRecord.applicationId);
+  if (application) {
+    markApplicationSubmitted(application, PAYMENT_STATUS.PAID);
+    await application.save();
+  } else {
+    console.error(`checkout.session.completed: application ${paymentRecord.applicationId} not found`);
+  }
+}
+
+async function handleSessionExpired(event) {
+  const sessionId = event.data.object.id;
+
+  try {
+    const result = await Payment.findOneAndUpdate(
+      { sessionId, status: { $nin: [PAYMENT_STATUS.PAID, PAYMENT_STATUS.FAILED] } },
+      { $set: { status: PAYMENT_STATUS.FAILED, rawWebhookData: event } },
+      { new: true }
+    );
+    if (!result) {
+      console.warn(`handleSessionExpired: no pending record for session ${sessionId}`);
+    } else {
+      console.log(`handleSessionExpired: payment ${result._id} marked FAILED`);
+    }
+  } catch (err) {
+    console.error(`handleSessionExpired: DB update failed for session ${sessionId}:`, err);
+  }
+}
+
+async function handlePaymentIntentFailed(event) {
+  const applicationId = event.data.object.metadata?.applicationId;
+
+  if (!applicationId) {
+    console.warn('payment_intent.payment_failed: no applicationId in PaymentIntent metadata');
+    return;
+  }
+
+  try {
+    const result = await Payment.findOneAndUpdate(
+      {
+        applicationId,
+        status: { $nin: [PAYMENT_STATUS.PAID, PAYMENT_STATUS.FAILED] },
+      },
+      { $set: { status: PAYMENT_STATUS.FAILED, rawWebhookData: event } },
+      { sort: { createdAt: -1 }, new: true }
+    );
+    if (!result) {
+      console.warn(`handlePaymentIntentFailed: no pending record for application ${applicationId}`);
+    } else {
+      console.log(`handlePaymentIntentFailed: payment ${result._id} marked FAILED`);
+    }
+  } catch (err) {
+    console.error(`handlePaymentIntentFailed: DB update failed for application ${applicationId}:`, err);
+  }
+}

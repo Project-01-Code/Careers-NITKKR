@@ -71,10 +71,10 @@ export const refreshTokenSchema = z
     (data) => {
       const bodyToken = data.body?.refreshToken;
       const cookieToken = data.cookies?.refreshToken;
-      return (
-        (typeof bodyToken === 'string' && bodyToken.trim().length > 0) ||
-        (typeof cookieToken === 'string' && cookieToken.trim().length > 0)
-      );
+      
+      const hasToken = (token) => typeof token === 'string' && token.trim().length > 0;
+      
+      return hasToken(bodyToken) || hasToken(cookieToken);
     },
     {
       message: 'Refresh token is required (must be a non-empty string)',
