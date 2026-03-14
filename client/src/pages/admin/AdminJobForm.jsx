@@ -378,39 +378,43 @@ const AdminJobForm = () => {
                   {payLevels.map((p) => <option key={p} value={p}>Level {p}</option>)}
                 </select>
               </div>
-              <div className="md:col-span-2">
-                <Label>Vacancies</Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  {['UR', 'OBC', 'SC', 'ST', 'EWS', 'PwBD'].map((cat) => (
-                    <div key={cat}>
-                      <span className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{cat}</span>
-                      <input
-                        type="number"
-                        name={cat}
-                        value={form.vacancies[cat]}
-                        onChange={handleVacancyChange}
-                        min="0"
-                        className={`${inputClass} !py-1.5 !px-3 font-semibold`}
-                      />
-                    </div>
-                  ))}
-                  <div className="md:border-l border-gray-200 md:pl-3">
-                    <span className="text-[10px] font-bold text-primary uppercase mb-1 block">Total</span>
-                    <input
-                      type="number"
-                      value={form.vacancies.total}
-                      readOnly
-                      className={`${inputClass} !py-1.5 !px-3 bg-white font-bold text-primary border-primary/20`}
-                    />
-                  </div>
-                </div>
-              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Recruitment Type</Label>
                 <select name="recruitmentType" value={form.recruitmentType} onChange={handleChange} className={inputClass}>
                   <option value="external">External</option>
                   <option value="internal">Internal</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <Label>Vacancies (Breakdown)</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                {['UR', 'OBC', 'SC', 'ST', 'EWS', 'PwBD'].map((cat) => (
+                  <div key={cat}>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">{cat}</label>
+                    <input
+                      type="number"
+                      name={cat}
+                      value={form.vacancies[cat]}
+                      onChange={handleVacancyChange}
+                      min="0"
+                      className={`${inputClass} !py-1.5 !px-3 font-semibold`}
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-[10px] font-bold text-primary uppercase mb-1">Total</label>
+                  <input
+                    type="number"
+                    value={form.vacancies.total}
+                    readOnly
+                    className={`${inputClass} !py-1.5 !px-3 bg-primary/5 border-primary/20 text-primary font-bold focus:ring-0`}
+                  />
+                </div>
               </div>
             </div>
           </Section>
