@@ -28,10 +28,13 @@ const forcePay = async () => {
   try {
     await connectDB();
 
-    // 1. Find the application
-    const application = await Application.findOne({ applicationNumber });
+    // 1. Find the application (by applicationNumber or by _id)
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationNumber);
+    const query = isObjectId ? { _id: applicationNumber } : { applicationNumber };
+    
+    const application = await Application.findOne(query);
     if (!application) {
-      console.error(`❌  Application "${applicationNumber}" not found.`);
+      console.error(`❌  Application with ${isObjectId ? '_id' : 'number'} "${applicationNumber}" not found.`);
       process.exit(1);
     }
 

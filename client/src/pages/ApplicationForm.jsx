@@ -107,11 +107,31 @@ const ApplicationForm = () => {
   }, [jobSnapshot, SECTION_TYPE_MAP]);
 
   // Map completedSections to step indices
-  const completedSteps = new Set(
-    steps
-      .filter(s => completedSections.has(s.key))
-      .map(s => s.id)
-  );
+  const completedSteps = React.useMemo(() => {
+    const completed = new Set();
+    
+    steps.forEach(s => {
+      if (s.key === 'documents') {
+        // Documents step is complete if all required sub-sections are complete
+        const reqSecTypes = jobSnapshot?.requiredSections?.map(rs => rs.sectionType) || [];
+        const photoNeeded = reqSecTypes.includes('photo');
+        const signatureNeeded = reqSecTypes.includes('signature');
+        const finalDocNeeded = reqSecTypes.includes('final_documents');
+
+        const photoDone = !photoNeeded || completedSections.has('photo');
+        const signatureDone = !signatureNeeded || completedSections.has('signature');
+        const finalDocDone = !finalDocNeeded || completedSections.has('documents');
+
+        if (photoDone && signatureDone && finalDocDone) {
+          completed.add(s.id);
+        }
+      } else if (completedSections.has(s.key)) {
+        completed.add(s.id);
+      }
+    });
+    
+    return completed;
+  }, [steps, completedSections, jobSnapshot]);
 
   const hasAutoAdvanced = React.useRef(false);
 

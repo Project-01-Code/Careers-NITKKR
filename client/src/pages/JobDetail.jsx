@@ -126,7 +126,31 @@ const JobDetail = () => {
                 <span className="material-symbols-outlined text-primary">description</span>
                 Description
               </h2>
-              <p className="text-gray-600 leading-relaxed whitespace-pre-line">{job.description}</p>
+              <p className="text-gray-600 leading-relaxed whitespace-pre-line mb-6">{job.description}</p>
+
+              {/* Vacancy Breakdown */}
+              {job.vacancies && job.vacancies.total > 0 && (
+                <div className="mt-8 pt-6 border-t border-gray-100">
+                  <h3 className="text-lg font-bold text-secondary mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">groups</span>
+                    Vacancy Breakdown
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {Object.entries(job.vacancies).map(([cat, count]) => (
+                      cat !== 'total' && count > 0 && (
+                        <div key={cat} className="bg-gray-50 rounded-xl p-3 border border-gray-100 text-center">
+                          <span className="text-xs font-bold text-gray-500 uppercase block mb-1">{cat}</span>
+                          <span className="text-xl font-bold text-secondary">{count}</span>
+                        </div>
+                      )
+                    ))}
+                    <div className="bg-primary/5 rounded-xl p-3 border border-primary/20 text-center">
+                      <span className="text-xs font-bold text-primary uppercase block mb-1">Total</span>
+                      <span className="text-xl font-bold text-primary">{job.vacancies.total}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Eligibility */}
@@ -272,7 +296,7 @@ const JobDetail = () => {
 
               {/* Key Details */}
               <div className="space-y-4 mb-6">
-                <InfoItem label="Positions" value={job.positions} />
+                <InfoItem label="Positions" value={job.vacancies?.total || job.positions} />
                 {job.payLevel && <InfoItem label="Pay Level" value={`Level ${job.payLevel}`} />}
                 {job.grade && <InfoItem label="Grade" value={job.grade} />}
                 {job.recruitmentType && <InfoItem label="Type" value={job.recruitmentType} />}

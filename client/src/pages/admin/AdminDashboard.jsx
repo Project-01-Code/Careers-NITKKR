@@ -36,8 +36,7 @@ const AdminDashboard = () => {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
-  const hours = new Date().getHours();
-  const greeting = hours < 12 ? 'Good Morning' : hours < 17 ? 'Good Afternoon' : 'Good Evening';
+  const greeting = 'Welcome back';
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -45,7 +44,10 @@ const AdminDashboard = () => {
         const statsRes = await api.get('/admin/dashboard/stats');
         setStats(statsRes.data.data);
 
-        if (isAdmin) {
+        if (statsRes.data.data.jobsByDepartment) {
+          setDeptStats(statsRes.data.data.jobsByDepartment);
+        } else if (isAdmin) {
+          // Fallback if backend doesn't provide it yet
           const jobsRes = await api.get('/admin/jobs', { params: { limit: 100 } });
           const jobsList = jobsRes.data.data.jobs || [];
           const deptMap = {};
@@ -87,23 +89,25 @@ const AdminDashboard = () => {
   return (
     <AdminLayout>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        
+
         {/* Welcome Header */}
         <div className="relative overflow-hidden bg-secondary rounded-3xl p-8 text-white shadow-2xl">
           <div className="relative z-10">
             <h2 className="text-3xl font-black tracking-tight">{greeting}, {user?.profile?.firstName || 'Admin'}! 👋</h2>
             <p className="text-white/60 mt-1 font-medium">Here's what's happening in the NIT KKR Careers Portal today.</p>
-            
+
             <div className="flex flex-wrap gap-3 mt-6">
-              <Link to="/admin/jobs/new" className="px-4 py-2 bg-white text-secondary rounded-xl text-sm font-bold shadow-lg hover:shadow-white/20 transition-all flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">add_circle</span> New Job
-              </Link>
+              {isAdmin && (
+                <Link to="/admin/jobs/new" className="px-4 py-2 bg-white text-secondary rounded-xl text-sm font-bold shadow-lg hover:shadow-white/20 transition-all flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px]">add_circle</span> New Job
+                </Link>
+              )}
               <Link to="/admin/applicants" className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px]">groups</span> View Applicants
               </Link>
             </div>
           </div>
-          
+
           {/* Abstract background shapes */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -mr-20 -mt-20 shrink-0" />
           <div className="absolute bottom-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl -mb-10 mr-20 shrink-0" />
@@ -203,13 +207,12 @@ const AdminDashboard = () => {
                       </td>
                       <td className="p-4 text-center">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                            app.status === 'submitted'
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${app.status === 'submitted'
                               ? 'bg-blue-100 text-blue-700'
                               : app.status === 'reviewed'
                                 ? 'bg-purple-100 text-purple-700'
                                 : 'bg-gray-100 text-gray-700'
-                          }`}
+                            }`}
                         >
                           {app.status}
                         </span>
@@ -218,12 +221,12 @@ const AdminDashboard = () => {
                   ))}
                   {(!stats?.recentApplications ||
                     stats.recentApplications.length === 0) && (
-                    <tr>
-                      <td colSpan="4" className="p-8 text-center text-gray-400">
-                        No recent applications found
-                      </td>
-                    </tr>
-                  )}
+                      <tr>
+                        <td colSpan="4" className="p-8 text-center text-gray-400">
+                          No recent applications found
+                        </td>
+                      </tr>
+                    )}
                 </tbody>
               </table>
             </div>

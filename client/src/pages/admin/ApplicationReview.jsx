@@ -10,8 +10,6 @@ import ReviewScorecard from '../../components/admin/ReviewScorecard';
 const STATUS_COLORS = {
   draft: 'bg-gray-100 text-gray-700',
   submitted: 'bg-blue-100 text-blue-700',
-  under_review: 'bg-purple-100 text-purple-700',
-  reviewed: 'bg-indigo-100 text-indigo-700',
   shortlisted: 'bg-yellow-100 text-yellow-700',
   rejected: 'bg-red-100 text-red-700',
   selected: 'bg-green-100 text-green-700',
@@ -20,15 +18,19 @@ const STATUS_COLORS = {
 
 const ApplicationReview = () => {
   const renderSectionValue = (val) => {
-    if (val === null || val === undefined) return '—';
+    if (val === null || val === undefined || val === '') return <span className="text-gray-300">—</span>;
     if (Array.isArray(val)) {
-      if (val.length === 0) return '—';
+      if (val.length === 0) return <span className="text-gray-300">—</span>;
       return (
-        <div className="space-y-4 mt-2">
+        <div className="grid grid-cols-1 gap-4 mt-4">
           {val.map((item, idx) => (
-            <div key={idx} className="relative p-4 pl-12 bg-white rounded-xl border border-gray-100 shadow-sm text-xs">
-              <div className="absolute left-3 top-4 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-[10px]">
-                {idx + 1}
+            <div key={idx} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-1 h-full bg-primary/20 group-hover:bg-primary transition-colors" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-xs">
+                  {idx + 1}
+                </div>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">Entry #{idx + 1}</h4>
               </div>
               {renderSectionValue(item)}
             </div>
@@ -38,19 +40,24 @@ const ApplicationReview = () => {
     }
     if (typeof val === 'object') {
       return (
-        <div className="grid grid-cols-1 gap-1">
-          {Object.entries(val).map(([k, v]) => (
-            <div key={k} className="flex gap-2">
-              <span className="text-gray-400 font-bold uppercase text-[9px] min-w-[80px]">{k.replace(/([A-Z])/g, ' $1')}:</span>
-              <span className="text-secondary italic">
-                {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-              </span>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+          {Object.entries(val).map(([k, v]) => {
+            if (k === '_id' || k === 'id') return null;
+            return (
+              <div key={k} className="space-y-1">
+                <span className="text-[10px] text-gray-400 font-black uppercase tracking-wider block">
+                  {k.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+                </span>
+                <div className="text-secondary font-semibold text-sm">
+                  {typeof v === 'object' ? renderSectionValue(v) : String(v)}
+                </div>
+              </div>
+            );
+          })}
         </div>
       );
     }
-    return <span className="whitespace-pre-wrap">{String(val)}</span>;
+    return <span className="text-secondary font-medium whitespace-pre-wrap">{String(val)}</span>;
   };
 
   const { id } = useParams();
@@ -73,7 +80,7 @@ const ApplicationReview = () => {
     try {
       const res = await api.get(`/admin/applications/${id}`);
       setApp(res.data.data);
-    // eslint-disable-next-line no-unused-vars
+      // eslint-disable-next-line no-unused-vars
     } catch (err) {
       toast.error('Failed to load application');
       navigate(isReviewerOnly ? '/admin/queue' : '/admin/applicants');
@@ -91,6 +98,15 @@ const ApplicationReview = () => {
     }
   };
 
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'PENDING': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'IN_PROGRESS': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'SUBMITTED': return 'bg-green-100 text-green-700 border-green-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+
   useEffect(() => {
     fetchApplication();
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -99,6 +115,12 @@ const ApplicationReview = () => {
     if (app?._id) fetchExpertReviews();
   }, [app?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sync section notes when tab changes
+  useEffect(() => {
+    const sectionData = app?.sections?.get ? app.sections.get(activeTab) : app?.sections?.[activeTab];
+    setVerifyNotes(sectionData?.verificationNotes || '');
+  }, [activeTab, app]);
+
   const handleVerifySection = async (sectionType, isVerified, notes) => {
     try {
       await api.patch(`/admin/applications/${id}/verify-section`, {
@@ -106,24 +128,26 @@ const ApplicationReview = () => {
       });
       toast.success(`${sectionType} updated`);
       fetchApplication();
-    // eslint-disable-next-line no-unused-vars
+      // eslint-disable-next-line no-unused-vars
     } catch (err) {
       toast.error('Failed to verify section');
     }
   };
 
   const handleUpdateStatus = async (status) => {
-    if (!statusRemarks) {
-      toast.error('Please provide remarks/notes for status change');
+    const finalRemarks = statusRemarks || reviewNotes || app.reviewNotes;
+    if (!finalRemarks) {
+      toast.error('Please provide remarks/notes in Final Decision Notes for status change');
       return;
     }
     setSubmitting(true);
     try {
       await api.patch(`/admin/applications/${id}/status`, {
-        status, remarks: statusRemarks
+        status, remarks: finalRemarks
       });
       toast.success(`Status updated to ${status}`);
       setStatusRemarks('');
+      setReviewNotes('');
       fetchApplication();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update status');
@@ -166,8 +190,8 @@ const ApplicationReview = () => {
   const backHref = isReviewerOnly ? '/admin/queue' : '/admin/applicants';
 
   const activeSection = app.sections?.get ? app.sections.get(activeTab) : app.sections?.[activeTab];
-  const sections = app.sections 
-    ? (typeof app.sections.keys === 'function' ? Array.from(app.sections.keys()) : Object.keys(app.sections)) 
+  const sections = app.sections
+    ? (typeof app.sections.keys === 'function' ? Array.from(app.sections.keys()) : Object.keys(app.sections))
     : [];
 
   return (
@@ -181,7 +205,7 @@ const ApplicationReview = () => {
         <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm relative overflow-hidden">
           {/* Subtle Background Pattern */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl" />
-          
+
           <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-6">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white shadow-xl shadow-primary/20">
@@ -212,20 +236,47 @@ const ApplicationReview = () => {
                 </div>
               </div>
             </div>
-            
-            <div className="flex flex-col items-end gap-4 w-full md:w-auto">
-              <div className="text-right hidden sm:block">
-                <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest px-1">APPLIED FOR</p>
-                <p className="text-secondary font-bold text-lg">{app.jobId?.title}</p>
-                <p className="text-xs text-gray-500 font-medium">{app.jobId?.advertisementNo}</p>
-              </div>
 
-              <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="flex flex-col items-end gap-3 w-full md:w-[450px]">
+              {/* Final Verdict Action (Admin Only) */}
+              {isAdmin && (
+                <div className="flex items-center gap-4 w-full">
+                  <div className="flex items-center gap-4 w-[97px]">
+                    <div className="text-right flex-1">
+                      <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest px-1">Status</p>
+                      <p className="text-secondary font-bold text-[11px] leading-tight">{app.status.toUpperCase()}</p>
+                    </div>
+                    <div className="h-8 w-px bg-gray-100" />
+                  </div>
+                  <div className="flex gap-2 flex-1">
+                    <button
+                      onClick={() => handleUpdateStatus('shortlisted')}
+                      disabled={submitting || app.status === 'shortlisted'}
+                      className="flex-1 px-4 py-3 bg-green-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-wider hover:bg-green-700 transition-all shadow-lg shadow-green-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-sm">star</span>
+                      SHORTLIST
+                    </button>
+                    <button
+                      onClick={() => handleUpdateStatus('rejected')}
+                      disabled={submitting || app.status === 'rejected'}
+                      className="px-4 py-3 flex-1 bg-red-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-wider hover:bg-red-600 transition-all shadow-lg shadow-red-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                      REJECT
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-4 w-full">
+                {/* Spacer to match status + separator width (97px) */}
+                {isAdmin && <div className="w-[97px]" />}
                 <a
                   href={`${api.defaults.baseURL}/admin/applications/${id}/export-full`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-secondary text-white rounded-2xl text-xs font-black hover:bg-black transition-all shadow-lg shadow-secondary/20 group"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-secondary text-white rounded-2xl text-xs font-black hover:bg-black transition-all shadow-lg shadow-secondary/20 group"
                 >
                   <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">picture_as_pdf</span>
                   DOCKET (FULL REPORT + RECEIPT)
@@ -244,6 +295,88 @@ const ApplicationReview = () => {
               onSubmit={handleSubmitScorecard}
               readOnly={false}
             />
+          </div>
+        )}
+
+        {/* Admin: Expert Feedback Summary - Prominent for decision makers */}
+        {isAdmin && expertReviews.length > 0 && (
+          <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-gray-50 pb-4">
+               <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                  <span className="material-symbols-outlined">analytics</span>
+                </div>
+                <div>
+                  <h3 className="font-black text-secondary text-sm uppercase tracking-widest">Expert Evaluation Summary</h3>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Aggregated recommendations from assigned reviewers</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">SUBMITTED</p>
+                  <p className="text-xl font-black text-secondary leading-none">
+                    {expertReviews.filter(r => r.status === 'SUBMITTED').length} / {expertReviews.length}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {expertReviews.map((r) => (
+                <div key={r._id} className="bg-gray-50/50 rounded-2xl border border-gray-100 p-5 hover:bg-white hover:shadow-xl transition-all group overflow-hidden relative">
+                  {/* Status Indicator Bar */}
+                  <div className={`absolute top-0 left-0 w-full h-1 ${
+                    r.status === 'SUBMITTED' ? (
+                      r.scorecard?.recommendation === 'RECOMMENDED' ? 'bg-green-500' :
+                      r.scorecard?.recommendation === 'NOT_RECOMMENDED' ? 'bg-red-500' :
+                      'bg-amber-500'
+                    ) : 'bg-gray-200'
+                  }`} />
+
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h4 className="font-black text-secondary text-xs uppercase truncate max-w-[150px]">
+                        {[r.reviewer?.profile?.firstName, r.reviewer?.profile?.lastName].filter(Boolean).join(' ') || r.reviewer?.email?.split('@')[0] || 'Expert Reviewer'}
+                      </h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{r.reviewer?.profile?.designation || 'Reviewer'}</p>
+                    </div>
+                    {r.status === 'SUBMITTED' ? (
+                      <div className="bg-white px-2.5 py-1.5 rounded-xl border border-gray-100 shadow-sm text-center">
+                        <p className="text-sm font-black text-primary leading-none">{r.scorecard?.totalScore ?? 0}</p>
+                        <p className="text-[8px] font-black text-gray-300 uppercase mt-0.5">SCORE</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white px-2 py-1.5 rounded-xl border border-gray-100 shadow-sm">
+                        <p className="text-[9px] font-black text-gray-400 uppercase">PENDING</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {r.status === 'SUBMITTED' ? (
+                    <div className="space-y-4">
+                      <div className={`text-[10px] font-black uppercase tracking-widest text-center py-2 rounded-xl border ${
+                        r.scorecard?.recommendation === 'RECOMMENDED' ? 'bg-green-50 text-green-700 border-green-100' :
+                        r.scorecard?.recommendation === 'NOT_RECOMMENDED' ? 'bg-red-50 text-red-700 border-red-100' :
+                        'bg-amber-50 text-amber-700 border-amber-100'
+                      }`}>
+                        {r.scorecard?.recommendation}
+                      </div>
+                      {r.scorecard?.comments && (
+                        <div className="relative">
+                          <span className="material-symbols-outlined text-[10px] absolute -top-1 -left-1 text-gray-300">format_quote</span>
+                          <p className="text-[11px] text-gray-500 font-medium leading-relaxed italic pl-3 line-clamp-3">&ldquo;{r.scorecard.comments}&rdquo;</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="py-8 flex flex-col items-center justify-center gap-3 opacity-40">
+                      <div className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 animate-spin" />
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Assessment in Progress</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -322,58 +455,77 @@ const ApplicationReview = () => {
                       </div>
                     )}
 
-                    {/* Dynamic Data Display - for non-image sections or when no image */}
+                    {/* Dynamic Data Display */}
                     {!['photo', 'signature'].includes(activeTab) && (
                       <div className="space-y-6">
                         {activeTab === 'credit_points' ? (
                           <div className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10">
-                                <p className="text-[10px] text-primary font-black uppercase mb-2">Total Credits Claimed</p>
-                                <p className="text-3xl font-black text-primary">{activeSection?.data?.totalCreditsClaimed || '0.0'}</p>
+                              <div className="bg-gradient-to-br from-primary/5 to-primary/10 p-5 rounded-2xl border border-primary/10 shadow-sm relative overflow-hidden">
+                                <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-1">Claimed Credits</p>
+                                <div className="flex items-baseline gap-1">
+                                  <p className="text-3xl font-black text-primary">{Number(activeSection?.data?.totalCreditsClaimed || 0).toFixed(1)}</p>
+                                  <span className="text-[10px] font-bold text-primary/60 uppercase">pts</span>
+                                </div>
                               </div>
-                              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                <p className="text-[10px] text-gray-400 font-black uppercase mb-2">Total Credits Allowed (Admin)</p>
-                                <p className="text-3xl font-black text-gray-700">{activeSection?.data?.totalCreditsAllowed || '0.0'}</p>
+                              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
+                                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Allowed Credits</p>
+                                <div className="flex items-baseline gap-1">
+                                  <p className="text-3xl font-black text-secondary group-hover:text-primary transition-colors">{Number(activeSection?.data?.totalCreditsAllowed || 0).toFixed(1)}</p>
+                                  <span className="text-[10px] font-bold text-gray-400 uppercase">pts</span>
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-gray-50 flex items-center gap-2">
+                                  <div className="h-1 flex-1 bg-gray-100 rounded-full overflow-hidden">
+                                     <div 
+                                      className="h-full bg-primary transition-all duration-500" 
+                                      style={{ width: `${Math.min(100, (Number(activeSection?.data?.totalCreditsAllowed || 0) / (Number(activeSection?.data?.totalCreditsClaimed) || 1)) * 100)}%` }} 
+                                     />
+                                  </div>
+                                  <span className="text-[9px] font-black text-gray-400">
+                                    {Math.round((Number(activeSection?.data?.totalCreditsAllowed || 0) / (Number(activeSection?.data?.totalCreditsClaimed) || 1)) * 100)}% Verified
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                            
+
                             {activeSection?.data?.manualActivities?.length > 0 && (
                               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                                <div className="bg-gray-50 px-6 py-3 border-b border-gray-100">
-                                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Manual Activities</h4>
+                                <div className="bg-gray-50/50 px-6 py-3 border-b border-gray-100 flex items-center justify-between">
+                                  <h4 className="text-[10px] font-black text-secondary uppercase tracking-widest">Manual Activities</h4>
+                                  <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[9px] font-black uppercase">
+                                    {activeSection.data.manualActivities.length} Items
+                                  </span>
                                 </div>
-                                <table className="w-full text-sm">
-                                  <thead>
-                                    <tr className="border-b border-gray-50 bg-gray-50/30">
-                                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase">Activity</th>
-                                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase">Description</th>
-                                      <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase">Points</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-gray-50">
-                                    {activeSection.data.manualActivities.map((act, i) => (
-                                      <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-6 py-4 font-bold text-secondary">Activity {act.activityId}</td>
-                                        <td className="px-6 py-4 text-gray-600 text-xs">{act.description}</td>
-                                        <td className="px-6 py-4 text-right font-black text-primary">{act.claimedPoints}</td>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b border-gray-50 bg-gray-50/30">
+                                        <th className="px-6 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">ID</th>
+                                        <th className="px-6 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Description</th>
+                                        <th className="px-6 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Pts</th>
                                       </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                      {activeSection.data.manualActivities.map((act, i) => (
+                                        <tr key={i} className="hover:bg-gray-50/50 transition-colors group">
+                                          <td className="px-6 py-3 font-black text-secondary">#{act.activityId}</td>
+                                          <td className="px-6 py-3 text-gray-500 font-medium line-clamp-2">{act.description}</td>
+                                          <td className="px-6 py-3 text-right font-black text-primary">{act.claimedPoints}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-                            {Object.entries(activeSection?.data || {}).map(([key, val]) => (
-                              <div key={key}>
-                                <p className="text-[10px] text-gray-400 uppercase font-black mb-1">{key.replace(/([A-Z])/g, ' $1')}</p>
-                                <div className="text-secondary font-medium text-sm">
-                                  {renderSectionValue(val)}
-                                </div>
-                              </div>
-                            ))}
+                          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                            <div className="mb-4 flex items-center gap-2 border-b border-gray-50 pb-4">
+                              <span className="material-symbols-outlined text-primary text-xl">data_object</span>
+                              <h4 className="text-xs font-black text-secondary uppercase tracking-widest">{activeTab.replace(/_/g, ' ')} Information</h4>
+                            </div>
+                            {renderSectionValue(activeSection?.data)}
                           </div>
                         )}
                       </div>
@@ -393,60 +545,26 @@ const ApplicationReview = () => {
 
           {/* Sidebar Actions */}
           <div className="space-y-6">
-            {/* Admin: Expert Assessments */}
-            {isAdmin && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
-                <h3 className="font-bold text-secondary text-sm uppercase">Expert Assessments</h3>
-                <p className="text-xs text-gray-500">Structured scorecards from assigned reviewers</p>
-                {expertReviews.length === 0 ? (
-                  <p className="text-sm text-gray-500 py-4">
-                    No expert assessments yet. Select applications on the Applicants page and use &quot;Assign Reviewers&quot; to delegate evaluation.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {expertReviews.map((r) => (
-                      <div key={r._id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <p className="text-xs font-bold text-gray-500 mb-2">
-                          {[r.reviewerId?.profile?.firstName, r.reviewerId?.profile?.lastName].filter(Boolean).join(' ') || r.reviewerId?.email || 'Reviewer'}
-                        </p>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-lg font-black text-primary">{r.scorecard?.totalScore ?? 0}</span>
-                          <span className="text-xs text-gray-500">/ 100</span>
-                          <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${
-                            r.scorecard?.recommendation === 'RECOMMENDED' ? 'bg-green-100 text-green-700' :
-                            r.scorecard?.recommendation === 'NOT_RECOMMENDED' ? 'bg-red-100 text-red-700' :
-                            'bg-amber-100 text-amber-700'
-                          }`}>
-                            {r.scorecard?.recommendation || '—'}
-                          </span>
-                        </div>
-                        {r.scorecard?.comments && (
-                          <p className="text-xs text-gray-600 mt-2 line-clamp-3">{r.scorecard.comments}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+            {/* Section Verification (Highest priority for evaluation) */}
+            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-black text-secondary text-xs uppercase tracking-widest">Section Verification</h3>
+                <span className="material-symbols-outlined text-primary/40">verified</span>
               </div>
-            )}
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Verify <strong>{activeTab.replace(/_/g, ' ')}</strong> section</p>
 
-            {/* Section Verification */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
-              <h3 className="font-bold text-secondary text-sm">SECTION VERIFICATION</h3>
-              <p className="text-xs text-gray-500">Verify <strong>{activeTab.toUpperCase()}</strong> section</p>
-
-              <div className="flex items-center gap-4 py-2">
+              <div className="flex items-center gap-2 py-1">
                 <button
-                  onClick={() => handleVerifySection(activeTab, true)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${app.sections[activeTab]?.isVerified ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-green-50'
+                  onClick={() => handleVerifySection(activeTab, true, verifyNotes)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${app.sections[activeTab]?.isVerified ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' : 'bg-gray-50 text-gray-400 hover:bg-green-50 hover:text-green-600'
                     }`}
                 >
                   <span className="material-symbols-outlined text-lg">check_circle</span>
                   APPROVE
                 </button>
                 <button
-                  onClick={() => handleVerifySection(activeTab, false)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${app.sections[activeTab]?.isVerified === false && app.sections[activeTab]?.verificationNotes ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-50'
+                  onClick={() => handleVerifySection(activeTab, false, verifyNotes)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${app.sections[activeTab]?.isVerified === false && app.sections[activeTab]?.verificationNotes ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-600'
                     }`}
                 >
                   <span className="material-symbols-outlined text-lg">cancel</span>
@@ -454,94 +572,87 @@ const ApplicationReview = () => {
                 </button>
               </div>
 
-              <textarea
-                placeholder="Add verification notes for this section..."
-                className="w-full h-24 p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                value={verifyNotes}
-                onChange={(e) => setVerifyNotes(e.target.value)}
-              />
+              <div className="space-y-2">
+                <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest ml-1">Verification Notes</p>
+                <textarea
+                  placeholder="Notes for this section..."
+                  className="w-full h-20 p-3 rounded-2xl border border-gray-100 bg-gray-50/30 text-xs font-medium focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all"
+                  value={verifyNotes}
+                  onChange={(e) => setVerifyNotes(e.target.value)}
+                />
+              </div>
               <button
                 onClick={() => handleVerifySection(activeTab, app.sections[activeTab]?.isVerified || false, verifyNotes)}
                 disabled={!verifyNotes.trim()}
-                className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-40"
+                className="w-full py-2.5 bg-secondary text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 shadow-md hover:bg-black"
               >
-                Save Section Notes
+                Save Notes
               </button>
             </div>
+
+            {/* Admin: Expert Assessments / Review Progress (Removed for admins as it is now in main area) */}
 
             {/* Review Notes (Admin only) */}
             {isAdmin && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
-              <h3 className="font-bold text-secondary text-sm">REVIEW NOTES</h3>
-              <textarea
-                placeholder="Add overall review notes for this application..."
-                className="w-full h-24 p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-              />
-              <button
-                onClick={handleAddReviewNotes}
-                disabled={!reviewNotes.trim()}
-                className="w-full py-2.5 bg-primary hover:bg-primary-dark text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-40"
-              >
-                Save Review Notes
-              </button>
-              {app.reviewNotes && (
-                <div className="bg-gray-50 rounded-xl p-3 mt-2">
-                  <p className="text-xs text-gray-400 font-bold mb-1">EXISTING NOTES</p>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{app.reviewNotes}</p>
-                </div>
-              )}
-            </div>
-            )}
-
-            {/* Status Update (Admin only) */}
-            {isAdmin && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
-              <h3 className="font-bold text-secondary text-sm">UPDATE APPLICATION STATUS</h3>
-
-              <textarea
-                placeholder="Enter remarks for status change..."
-                className="w-full h-24 p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                value={statusRemarks}
-                onChange={(e) => setStatusRemarks(e.target.value)}
-              />
-
-              <div className="grid grid-cols-1 gap-2">
+              <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4">
+                <h3 className="font-black text-secondary text-xs uppercase tracking-widest">Final Decision Notes</h3>
+                <textarea
+                  placeholder="Record final decision remarks here. These notes will be used for status changes..."
+                  className="w-full h-32 p-4 rounded-2xl border border-gray-100 bg-gray-50/30 text-xs font-medium focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all"
+                  value={reviewNotes}
+                  onChange={(e) => setReviewNotes(e.target.value)}
+                />
                 <button
-                  onClick={() => handleUpdateStatus('shortlisted')}
-                  disabled={submitting}
-                  className="bg-yellow-500 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-yellow-600 transition-colors shadow-lg shadow-yellow-500/20 disabled:opacity-50"
+                  onClick={handleAddReviewNotes}
+                  disabled={!reviewNotes.trim()}
+                  className="w-full py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 shadow-md hover:bg-primary-dark"
                 >
-                  SHORTLIST CANDIDATE
+                  Save Decision Notes
                 </button>
-                <button
-                  onClick={() => handleUpdateStatus('rejected')}
-                  disabled={submitting}
-                  className="bg-red-500 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20 disabled:opacity-50"
-                >
-                  REJECT APPLICATION
-                </button>
+                {app.reviewNotes && (
+                  <div className="bg-gray-50/50 rounded-xl p-4 mt-2 border border-gray-100">
+                    <p className="text-[8px] text-gray-400 font-black mb-1 text-center uppercase tracking-widest">Decision History</p>
+                    <p className="text-[11px] text-gray-600 leading-relaxed italic text-center">&ldquo;{app.reviewNotes}&rdquo;</p>
+                  </div>
+                )}
               </div>
-            </div>
             )}
 
-            {/* History */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
-              <h3 className="font-bold text-secondary text-sm uppercase">Status History</h3>
-              <div className="space-y-4 relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-gray-100">
-                {app.statusHistory?.map((h, i) => (
-                  <div key={i} className="relative pl-8">
-                    <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-white border-2 border-primary flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-primary" />
+            {/* Application Journey - Timeline */}
+            <div className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm space-y-5">
+              <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                <h3 className="font-black text-secondary text-xs uppercase tracking-widest">Application Journey</h3>
+                <span className="material-symbols-outlined text-gray-300 text-lg">route</span>
+              </div>
+              
+              <div className="space-y-0 relative before:absolute before:inset-y-0 before:left-[11px] before:w-0.5 before:bg-gradient-to-b before:from-primary/30 before:to-gray-100">
+                {app.statusHistory?.slice(0, 5).map((h, i) => (
+                  <div key={i} className="relative pl-8 pb-8 last:pb-0 group">
+                    <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-white border-[3px] border-gray-50 flex items-center justify-center z-10 shadow-sm transition-all duration-300 group-hover:border-primary/20">
+                      <div className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-primary ring-4 ring-primary/10' : 'bg-gray-300'}`} />
                     </div>
-                    <p className="text-xs font-bold text-secondary uppercase">{h.status}</p>
-                    <p className="text-[10px] text-gray-400">{new Date(h.changedAt).toLocaleString()}</p>
-                    <p className="text-xs text-gray-500 mt-1 italic">"{h.remarks}"</p>
+                    
+                    <div className="space-y-1">
+                      <div className="flex flex-col">
+                        <span className={`text-[9px] font-black uppercase tracking-tighter ${
+                          i === 0 ? 'text-primary' : 'text-gray-400'
+                        }`}>
+                          {h.status.replace(/_/g, ' ')}
+                        </span>
+                        <p className="text-[8px] font-bold text-gray-300">
+                          {new Date(h.changedAt).toLocaleDateString()} • {new Date(h.changedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <p className={`text-[11px] font-medium leading-tight ${i === 0 ? 'text-secondary' : 'text-gray-500'}`}>
+                        {h.remarks}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Status updates moved to header */}
           </div>
         </div>
       </div>

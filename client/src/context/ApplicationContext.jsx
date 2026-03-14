@@ -205,6 +205,37 @@ export const ApplicationProvider = ({ children }) => {
     const serverSectionType = SECTION_TYPE_MAP[sectionName];
     if (!serverSectionType) return true;
 
+    // If section is not required for this job, return true immediately
+    if (jobSnapshot?.requiredSections) {
+      const isRequired = jobSnapshot.requiredSections.some(
+        (s) => s.sectionType === serverSectionType
+      );
+      
+      // Special case: 'documents' frontend key covers photo, signature, AND final_documents
+      // If photo or signature is required but final_documents isn't, we still want to allow proceeding
+      // frontend validator in DocumentUpload.jsx handles the photo/signature presence.
+      if (!isRequired && sectionName !== 'documents') {
+        setCompletedSections((prev) => {
+          const next = new Set(prev);
+          next.add(sectionName);
+          return next;
+        });
+        return true;
+      }
+
+      // If it's the documents section and final_documents specifically isn't required,
+      // we still need to check if photo/signature are required.
+      // But since we are here, we are validating the 'documents' step.
+      if (sectionName === 'documents' && !isRequired) {
+         setCompletedSections((prev) => {
+           const next = new Set(prev);
+           next.add(sectionName);
+           return next;
+         });
+         return true;
+      }
+    }
+
     try {
       const res = await api.post(
         `/applications/${applicationId}/sections/${serverSectionType}/validate`
@@ -217,6 +248,14 @@ export const ApplicationProvider = ({ children }) => {
         toast.error(nonPdfErrors[0]?.message || 'Section validation failed');
         return false;
       }
+
+      // Mark as completed if valid
+      setCompletedSections((prev) => {
+        const next = new Set(prev);
+        next.add(sectionName);
+        return next;
+      });
+
       return true;
     } catch (err) {
       toast.error(err.response?.data?.message || 'Section validation failed');
@@ -291,6 +330,18 @@ export const ApplicationProvider = ({ children }) => {
   const updateSection = useCallback(async (sectionName, data) => {
     return saveSection(sectionName, data);
   }, [saveSection]);
+
+  /**
+   * Manually update the completion status of a section (for individual uploads)
+   */
+  const setSectionStatus = useCallback((sectionName, isComplete) => {
+    setCompletedSections((prev) => {
+      const next = new Set(prev);
+      if (isComplete) next.add(sectionName);
+      else next.delete(sectionName);
+      return next;
+    });
+  }, []);
 
   /**
    * Updates only the local application context state without firing a server API call.
@@ -395,6 +446,7 @@ export const ApplicationProvider = ({ children }) => {
         loadApplication,
         updateSection,
         updateLocalSection,
+        setSectionStatus,
         saveSection,
         validateAll,
         validateSection,

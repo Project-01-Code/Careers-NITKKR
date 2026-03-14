@@ -1,4 +1,12 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Setup __dirname for ESM
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load environment variables from server/.env
+config({ path: path.join(__dirname, '../../.env') });
 import { connectDB } from '../db/connectDB.js';
 import { User } from '../models/user.model.js';
 import { Job } from '../models/job.model.js';
@@ -7,6 +15,8 @@ import { Department } from '../models/department.model.js';
 import { Application } from '../models/application.model.js';
 import { Review } from '../models/review.model.js';
 import { AuditLog } from '../models/auditLog.model.js';
+import { Payment } from '../models/payment.model.js';
+import { VerificationToken } from '../models/verificationToken.model.js';
 import {
   USER_ROLES,
   JOB_STATUS,
@@ -17,10 +27,15 @@ import {
   JOB_SECTION_TYPE,
   APPLICATION_STATUS,
   PAYMENT_STATUS,
+  AUDIT_ACTIONS,
+  RESOURCE_TYPES,
 } from '../constants.js';
 
 const PLACEHOLDER_PDF = 'https://res.cloudinary.com/demo/image/upload/sample_pdf.pdf';
 const PLACEHOLDER_IMAGE = 'https://res.cloudinary.com/demo/image/upload/sample.jpg';
+
+// Password follows rules: 8+ chars, uppercase, lowercase, number
+const SEED_PASSWORD = 'Password@12';
 
 const divider = (char = '─', len = 80) => console.log(char.repeat(len));
 
@@ -32,6 +47,12 @@ const megaSeed = async () => {
     console.log('  🚀  ULTIMATE SEED V3 — NIT KKR Recruitment Ecosystem');
     divider('═');
 
+    // ── Safety Check ─────────────────────────────────────────────
+    if (process.env.NODE_ENV === 'production') {
+      console.error('  ⚠️  FATAL: Attempting to seed in PRODUCTION environment. Aborting.');
+      process.exit(1);
+    }
+
     // ── Wipe Everything ──────────────────────────────────────────
     console.log('  🧹 purging legacy data...');
     await Promise.all([
@@ -42,6 +63,8 @@ const megaSeed = async () => {
       Notice.deleteMany({}),
       Department.deleteMany({}),
       User.deleteMany({}),
+      Payment.deleteMany({}),
+      VerificationToken.deleteMany({}),
     ]);
 
     // ── Users ────────────────────────────────────────────────────
@@ -49,54 +72,54 @@ const megaSeed = async () => {
     const users = await User.create([
       {
         email: 'superadmin@nitkkr.ac.in',
-        password: 'Password@123',
+        password: SEED_PASSWORD,
         role: USER_ROLES.SUPER_ADMIN,
-        profile: { firstName: 'Director', lastName: 'Office', phone: '9000000001' },
+        profile: { firstName: 'Director', lastName: 'NIT KKR', phone: '9000000001', nationality: 'Indian' },
       },
       {
         email: 'admin@nitkkr.ac.in',
-        password: 'Password@123',
+        password: SEED_PASSWORD,
         role: USER_ROLES.ADMIN,
-        profile: { firstName: 'Recruitment', lastName: 'Coordinator', phone: '9000000002' },
+        profile: { firstName: 'Recruitment', lastName: 'Cell', phone: '9000000002', nationality: 'Indian' },
       },
       // Reviewers for different departments
       {
         email: 'rev.cs@nitkkr.ac.in',
-        password: 'Password@123',
+        password: SEED_PASSWORD,
         role: USER_ROLES.REVIEWER,
-        profile: { firstName: 'Dr. Ramesh', lastName: 'Kaur', phone: '9000000003' },
+        profile: { firstName: 'Dr. Ramesh', lastName: 'Kaur', phone: '9000000003', nationality: 'Indian' },
       },
       {
         email: 'rev.ec@nitkkr.ac.in',
-        password: 'Password@123',
+        password: SEED_PASSWORD,
         role: USER_ROLES.REVIEWER,
-        profile: { firstName: 'Dr. Sunita', lastName: 'Gupta', phone: '9000000004' },
+        profile: { firstName: 'Dr. Sunita', lastName: 'Gupta', phone: '9000000004', nationality: 'Indian' },
       },
       // Applicants
       {
         email: 'applicant@gmail.com',
-        password: 'Password@123',
+        password: SEED_PASSWORD,
         role: USER_ROLES.APPLICANT,
-        profile: { firstName: 'Vikram', lastName: 'Aditya', phone: '9876543210' },
+        profile: { firstName: 'Vikram', lastName: 'Aditya', phone: '9876543210', nationality: 'Indian' },
       },
       {
         email: 'priya.research@gmail.com',
-        password: 'Password@123',
+        password: SEED_PASSWORD,
         role: USER_ROLES.APPLICANT,
-        profile: { firstName: 'Priya', lastName: 'Sharma', phone: '8876543211' },
+        profile: { firstName: 'Priya', lastName: 'Sharma', phone: '8876543211', nationality: 'Indian' },
       },
       {
         email: 'amit.sc@gmail.com',
-        password: 'Password@123',
+        password: SEED_PASSWORD,
         role: USER_ROLES.APPLICANT,
-        profile: { firstName: 'Amit', lastName: 'Das', phone: '7876543212' },
+        profile: { firstName: 'Amit', lastName: 'Das', phone: '7876543212', nationality: 'Indian' },
       }
     ]);
 
     const admin = users.find(u => u.role === USER_ROLES.ADMIN);
     const revCS = users.find(u => u.email === 'rev.cs@nitkkr.ac.in');
     const revEC = users.find(u => u.email === 'rev.ec@nitkkr.ac.in');
-    
+
     // ── Departments ───────────────────────────────────────────────
     console.log('  🏛️  founding institutions...');
     const departments = await Department.insertMany([
@@ -128,30 +151,30 @@ const megaSeed = async () => {
 
     // 💼 ──────────────────────────────────────────────
     console.log('  💼 launching job postings with dynamic constraints...');
-    
+
     // Complex Faculty Job (Most sections required)
     const facultySections = [
-      { sectionType: 'personal', isMandatory: true },
-      { sectionType: 'photo', isMandatory: true },
-      { sectionType: 'signature', isMandatory: true },
-      { sectionType: 'education', isMandatory: true, minItems: 3 },
-      { sectionType: 'experience', isMandatory: true },
-      { sectionType: 'publications_journal', isMandatory: false },
-      { sectionType: 'publications_conference', isMandatory: false },
-      { sectionType: 'phd_supervision', isMandatory: false },
-      { sectionType: 'subjects_taught', isMandatory: false },
-      { sectionType: 'credit_points', isMandatory: true },
-      { sectionType: 'referees', isMandatory: true, minItems: 2 },
-      { sectionType: 'declaration', isMandatory: true },
+      { sectionType: JOB_SECTION_TYPE.PERSONAL, isMandatory: true },
+      { sectionType: JOB_SECTION_TYPE.PHOTO, isMandatory: true },
+      { sectionType: JOB_SECTION_TYPE.SIGNATURE, isMandatory: true },
+      { sectionType: JOB_SECTION_TYPE.EDUCATION, isMandatory: true, requiresPDF: true, pdfLabel: 'Consolidated Degree' },
+      { sectionType: JOB_SECTION_TYPE.EXPERIENCE, isMandatory: true, requiresPDF: true, pdfLabel: 'Experience Certificates' },
+      { sectionType: JOB_SECTION_TYPE.PUBLICATIONS_JOURNAL, isMandatory: false },
+      { sectionType: JOB_SECTION_TYPE.PUBLICATIONS_CONFERENCE, isMandatory: false },
+      { sectionType: JOB_SECTION_TYPE.PHD_SUPERVISION, isMandatory: false },
+      { sectionType: JOB_SECTION_TYPE.SUBJECTS_TAUGHT, isMandatory: false },
+      { sectionType: JOB_SECTION_TYPE.CREDIT_POINTS, isMandatory: true, requiresPDF: true, pdfLabel: 'Credit Calculation Sheet' },
+      { sectionType: JOB_SECTION_TYPE.REFEREES, isMandatory: true },
+      { sectionType: JOB_SECTION_TYPE.DECLARATION, isMandatory: true },
     ];
 
     // Minimal Profile Job (e.g. for Ad-hoc/Temp positions)
     const minimalSections = [
-      { sectionType: 'personal', isMandatory: true },
-      { sectionType: 'education', isMandatory: true, minItems: 2 },
-      { sectionType: 'experience', isMandatory: false },
-      { sectionType: 'photo', isMandatory: true },
-      { sectionType: 'declaration', isMandatory: true },
+      { sectionType: JOB_SECTION_TYPE.PERSONAL, isMandatory: true },
+      { sectionType: JOB_SECTION_TYPE.EDUCATION, isMandatory: true },
+      { sectionType: JOB_SECTION_TYPE.EXPERIENCE, isMandatory: false },
+      { sectionType: JOB_SECTION_TYPE.PHOTO, isMandatory: true },
+      { sectionType: JOB_SECTION_TYPE.DECLARATION, isMandatory: true },
     ];
 
     const jobs = await Job.create([
@@ -162,9 +185,9 @@ const megaSeed = async () => {
         designation: JOB_DESIGNATION.ASSISTANT_PROFESSOR_GRADE_II,
         payLevel: JOB_PAY_LEVEL.LEVEL_11,
         positions: 8,
-        vacancies: { UR: 4, OBC: 2, SC: 1, EWS: 1, total: 8 },
+        vacancies: { UR: 4, OBC: 3, SC: 1, ST: 0, EWS: 0, PwBD: 0, total: 8 },
         recruitmentType: JOB_RECRUITMENT_TYPE.EXTERNAL,
-        categories: [JOB_CATEGORY.GEN, JOB_CATEGORY.OBC, JOB_CATEGORY.SC, JOB_CATEGORY.EWS],
+        categories: [JOB_CATEGORY.GEN, JOB_CATEGORY.OBC, JOB_CATEGORY.SC],
         applicationFee: { general: 1500, sc_st: 750, obc: 1500, ews: 1000, pwd: 0, isRequired: true },
         description: 'Applications are invited for the post of Assistant Professor (Grade-II) in the Department of Computer Engineering. Candidates should have a strong academic record and research potential.',
         eligibilityCriteria: {
@@ -190,9 +213,9 @@ const megaSeed = async () => {
         designation: JOB_DESIGNATION.ASSISTANT_PROFESSOR_GRADE_II, // Using valid enum value
         payLevel: JOB_PAY_LEVEL.LEVEL_10,
         positions: 4,
-        vacancies: { UR: 4, total: 4 },
-        recruitmentType: JOB_RECRUITMENT_TYPE.INTERNAL, 
-        categories: [JOB_CATEGORY.GEN],
+        vacancies: { UR: 2, OBC: 1, SC: 1, ST: 0, EWS: 0, PwBD: 0, total: 4 },
+        recruitmentType: JOB_RECRUITMENT_TYPE.INTERNAL,
+        categories: [JOB_CATEGORY.GEN, JOB_CATEGORY.OBC, JOB_CATEGORY.SC],
         applicationFee: { general: 0, sc_st: 0, obc: 0, ews: 0, pwd: 0, isRequired: false },
         description: 'Walk-in interview for Guest Faculty in Electronics and Communication Engineering for the upcoming semester.',
         eligibilityCriteria: {
@@ -221,28 +244,31 @@ const megaSeed = async () => {
       applicationNumber: 'APP-2026-CS-001',
       userId: users.find(u => u.email === 'applicant@gmail.com')._id,
       jobId: jobs[0]._id,
-      jobSnapshot: { 
-        title: jobs[0].title, 
-        jobCode: jobs[0].advertisementNo, 
-        department: csDept.name, 
-        requiredSections: jobs[0].requiredSections 
+      jobSnapshot: {
+        title: jobs[0].title,
+        jobCode: jobs[0].advertisementNo,
+        department: csDept.name,
+        requiredSections: jobs[0].requiredSections
       },
       status: APPLICATION_STATUS.SUBMITTED,
       paymentStatus: PAYMENT_STATUS.PAID,
-      paymentRef: 'PI_MOCK_SUCCESS_101',
       submittedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
       assignedReviewers: [revCS._id],
+      statusHistory: [
+        { status: APPLICATION_STATUS.DRAFT, changedBy: users.find(u => u.email === 'applicant@gmail.com')._id, remarks: 'Started application' },
+        { status: APPLICATION_STATUS.SUBMITTED, changedBy: users.find(u => u.email === 'applicant@gmail.com')._id, remarks: 'Submitted and fee paid' }
+      ],
       sections: {
         personal: {
-          data: { 
-            name: 'Vikram Aditya', dob: '1990-05-15', gender: 'Male', category: 'GEN', 
+          data: {
+            name: 'Vikram Aditya', dob: '1990-05-15', gender: 'Male', category: 'GEN',
             mobile: '9876543210', nationality: 'Indian', corrAddress: 'Flat 402, Green Valley, Kurukshetra',
             phdTitle: 'Optimization in Distributed Systems', phdUniversity: 'IIT Bombay', phdDate: '2019-08-12'
           },
           isComplete: true
         },
         education: {
-          data: { 
+          data: {
             items: [
               { examPassed: 'PhD', discipline: 'CSE', boardUniversity: 'IIT B', yearOfPassing: '2019', marks: '9.5' },
               { examPassed: 'M.Tech', discipline: 'CSE', boardUniversity: 'NIT KKR', yearOfPassing: '2014', marks: '88%' }
@@ -266,11 +292,11 @@ const megaSeed = async () => {
       applicationNumber: 'APP-2026-CS-002',
       userId: users.find(u => u.email === 'priya.research@gmail.com')._id,
       jobId: jobs[0]._id,
-      jobSnapshot: { 
-        title: jobs[0].title, 
-        jobCode: jobs[0].advertisementNo, 
-        department: csDept.name, 
-        requiredSections: jobs[0].requiredSections 
+      jobSnapshot: {
+        title: jobs[0].title,
+        jobCode: jobs[0].advertisementNo,
+        department: csDept.name,
+        requiredSections: jobs[0].requiredSections
       },
       status: APPLICATION_STATUS.SUBMITTED,
       paymentStatus: PAYMENT_STATUS.EXEMPTED,
@@ -282,8 +308,8 @@ const megaSeed = async () => {
           isComplete: true
         },
         education: {
-            data: { items: [{ examPassed: 'PhD', boardUniversity: 'Delhi University', yearOfPassing: '2021' }] },
-            isComplete: true
+          data: { items: [{ examPassed: 'PhD', boardUniversity: 'Delhi University', yearOfPassing: '2021' }] },
+          isComplete: true
         },
         declaration: { data: { declareInfoTrue: true, agreeToTerms: true, photoUploaded: true, detailsVerified: true }, isComplete: true }
       }
@@ -294,11 +320,11 @@ const megaSeed = async () => {
       applicationNumber: 'APP-2026-EC-003',
       userId: users.find(u => u.email === 'amit.sc@gmail.com')._id,
       jobId: jobs[1]._id,
-      jobSnapshot: { 
-        title: jobs[1].title, 
-        jobCode: jobs[1].advertisementNo, 
-        department: ecDept.name, 
-        requiredSections: jobs[1].requiredSections 
+      jobSnapshot: {
+        title: jobs[1].title,
+        jobCode: jobs[1].advertisementNo,
+        department: ecDept.name,
+        requiredSections: jobs[1].requiredSections
       },
       status: APPLICATION_STATUS.DRAFT,
       paymentStatus: PAYMENT_STATUS.PENDING,
@@ -317,12 +343,28 @@ const megaSeed = async () => {
       applicationId: appVikram._id,
       status: 'SUBMITTED',
       scorecard: {
-        academicScore: 49,
+        academicScore: 48,
         researchScore: 30,
-        experienceScore: 15,
+        experienceScore: 18,
         recommendation: 'RECOMMENDED',
-        comments: 'Strong candidate. Research papers in high-impact journals. PhD from a Tier-1 institute.'
+        comments: 'Outstanding profile. Top-tier PhD and publications.'
+      },
+      sectionVerifications: {
+        personal: { status: 'verified', notes: 'Matches ID' },
+        education: { status: 'verified', notes: 'Degrees authenticated' }
       }
+    });
+
+    // ── Payments ──────────────────────────────────────────────────
+    console.log('  💳 processing legacy transactions...');
+    await Payment.create({
+      sessionId: 'sess_mock_vikram_2026',
+      paymentIntentId: 'pi_mock_vikram_2026',
+      amount: 1500,
+      status: PAYMENT_STATUS.PAID,
+      applicationId: appVikram._id,
+      userId: appVikram.userId,
+      paymentMethod: 'card'
     });
 
     // ── Audit Logs ───────────────────────────────────────────────
@@ -330,16 +372,16 @@ const megaSeed = async () => {
     await AuditLog.create([
       {
         userId: admin._id,
-        action: 'JOB_CREATED',
-        resourceType: 'Job',
+        action: AUDIT_ACTIONS.JOB_CREATED,
+        resourceType: RESOURCE_TYPES.JOB,
         resourceId: jobs[0]._id,
         ipAddress: '127.0.0.1',
         userAgent: 'SeedScript/3.0'
       },
       {
         userId: revCS._id,
-        action: 'REVIEW_SUBMITTED',
-        resourceType: 'Application',
+        action: AUDIT_ACTIONS.REVIEW_SUBMITTED,
+        resourceType: RESOURCE_TYPES.APPLICATION,
         resourceId: appVikram._id,
         ipAddress: '127.0.0.1',
         userAgent: 'SeedScript/3.0'

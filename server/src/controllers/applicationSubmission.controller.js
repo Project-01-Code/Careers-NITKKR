@@ -232,10 +232,10 @@ export const withdrawApplication = asyncHandler(async (req, res) => {
 export const downloadReceipt = asyncHandler(async (req, res) => {
   const application = req.application; // Loaded by checkApplicationOwnership middleware
 
-  if (application.status !== APPLICATION_STATUS.SUBMITTED) {
+  if (application.status === APPLICATION_STATUS.DRAFT) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
-      'Receipt is only available for submitted applications'
+      'Receipt is not available for draft applications'
     );
   }
 

@@ -6,7 +6,7 @@ import PdfUpload from '../PdfUpload';
 import toast from 'react-hot-toast';
 
 const DocumentUpload = ({ onNext, onBack }) => {
-  const { formData, applicationId, updateLocalSection, jobSnapshot } =
+  const { formData, applicationId, updateLocalSection, setSectionStatus, jobSnapshot } =
     useApplication();
 
   // Derive values directly from formData (source of truth)
@@ -123,6 +123,7 @@ const DocumentUpload = ({ onNext, onBack }) => {
                   value={photoUrl}
                   onChange={(url) => {
                     updateLocalSection('photo', { imageUrl: url });
+                    setSectionStatus('photo', !!url);
                   }}
                   placeholder="Recent color photo. JPG/PNG, max 200KB."
                   applicationId={applicationId}
@@ -163,6 +164,7 @@ const DocumentUpload = ({ onNext, onBack }) => {
                   value={signatureUrl}
                   onChange={(url) => {
                     updateLocalSection('signature', { imageUrl: url });
+                    setSectionStatus('signature', !!url);
                   }}
                   placeholder="Sign on white paper. JPG/PNG, max 200KB."
                   applicationId={applicationId}
@@ -238,6 +240,7 @@ const DocumentUpload = ({ onNext, onBack }) => {
                 updateLocalSection('documents', {
                   pdfUrl: fileObj?.url || null,
                 });
+                setSectionStatus('documents', !!fileObj?.url);
               }}
               applicationId={applicationId}
               sectionType="final_documents"

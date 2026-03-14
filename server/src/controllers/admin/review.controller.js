@@ -14,21 +14,25 @@ import {
   REVIEW_RECOMMENDATION,
 } from '../../constants.js';
 
-/**
- * @route   GET /api/v1/admin/reviews/queue
- * @desc    Get applications assigned to the logged-in reviewer
- * @access  Reviewer
- */
 export const getReviewerQueue = asyncHandler(async (req, res) => {
   const reviewerId = req.user._id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 12; // Default to 12 as per frontend layout
+  const skip = (page - 1) * limit;
 
-  const applications = await Application.find({
+  const filter = {
     assignedReviewers: reviewerId,
-    status: { $in: ['submitted', 'under_review'] }, // Only submitted/under_review can be reviewed
-  })
+    status: { $in: ['submitted', 'under_review'] },
+  };
+
+  const totalApplications = await Application.countDocuments(filter);
+
+  const applications = await Application.find(filter)
     .populate('userId', 'email profile')
     .populate('jobId', 'title advertisementNo department')
     .sort({ submittedAt: -1 })
+    .skip(skip)
+    .limit(limit)
     .lean();
 
   // Attach review status for each application
@@ -48,7 +52,19 @@ export const getReviewerQueue = asyncHandler(async (req, res) => {
   }));
 
   res.status(HTTP_STATUS.OK).json(
-    new ApiResponse(HTTP_STATUS.OK, { applications: queue }, 'Reviewer queue fetched successfully')
+    new ApiResponse(
+      HTTP_STATUS.OK,
+      {
+        applications: queue,
+        pagination: {
+          total: totalApplications,
+          page,
+          limit,
+          totalPages: Math.ceil(totalApplications / limit),
+        },
+      },
+      'Reviewer queue fetched successfully'
+    )
   );
 });
 
@@ -143,16 +159,38 @@ export const getReviewDetails = asyncHandler(async (req, res) => {
     }
   }
 
-  const query = { applicationId: id };
-  if (!isAdmin) query.reviewerId = req.user._id;
-
-  const reviews = await Review.find(query)
+  const reviews = await Review.find({ applicationId: id })
     .populate('reviewerId', 'email profile')
-    .sort({ updatedAt: -1 })
     .lean();
 
+  if (isAdmin) {
+    // Return all assigned reviewers for admin, showing their status even if no Review doc exists/is pending
+    const statusMap = {};
+    reviews.forEach((r) => {
+      statusMap[r.reviewerId._id.toString()] = r;
+    });
+
+    const populatedApp = await Application.findById(id).populate('assignedReviewers', 'email profile');
+    const allReviewersStatus = (populatedApp.assignedReviewers || []).map((rev) => {
+      const review = statusMap[rev._id.toString()];
+      return {
+        reviewer: rev,
+        status: review?.status || 'PENDING',
+        scorecard: review?.scorecard || null,
+        updatedAt: review?.updatedAt || null,
+        _id: review?._id || rev._id, // fallback to reviewer user id if no review doc
+      };
+    });
+
+    return res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(HTTP_STATUS.OK, { reviews: allReviewersStatus }, 'Expert reviews fetched successfully')
+    );
+  }
+
+  // For reviewers, keep existing logic (only see own review)
+  const ownReview = reviews.filter(r => r.reviewerId._id.toString() === req.user._id.toString());
   res.status(HTTP_STATUS.OK).json(
-    new ApiResponse(HTTP_STATUS.OK, { reviews }, 'Expert reviews fetched successfully')
+    new ApiResponse(HTTP_STATUS.OK, { reviews: ownReview }, 'Expert reviews fetched successfully')
   );
 });
 

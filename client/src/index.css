@@ -23,3 +23,22 @@
 @utility glass-card {
   @apply bg-white/80 backdrop-blur-lg border border-white/50 shadow-md hover:shadow-xl transition-all duration-300;
 }
+
+/* Toast Animations */
+@keyframes enter {
+  0% { transform: scale(0.9); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes leave {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+
+.animate-enter {
+  animation: enter 0.2s ease-out forwards;
+}
+
+.animate-leave {
+  animation: leave 0.1s ease-in forwards;
+}
