@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 
 const RECOMMENDATION_LABELS = {
   RECOMMENDED: 'Recommended',
@@ -11,6 +12,36 @@ const RECOMMENDATION_COLORS = {
   NOT_RECOMMENDED: 'bg-red-500',
   HOLD: 'bg-amber-500',
 };
+
+const ScoreInputRow = ({ label, value, max, onChange, readOnly }) => (
+  <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 transition-all hover:bg-white hover:shadow-lg hover:shadow-gray-200/30 group">
+    <div className="flex justify-between items-center">
+      <div className="space-y-0.5">
+        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">{label}</span>
+        <span className="text-[10px] font-bold text-secondary">Expert Score</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <input
+            type="number"
+            min={0}
+            max={max}
+            step={0.5}
+            value={value}
+            onChange={(e) => onChange(Math.min(max, Math.max(0, Number(e.target.value))))}
+            disabled={readOnly}
+            placeholder="0"
+            className="w-16 px-2 py-2 bg-white rounded-xl border border-gray-200 text-base font-black text-primary text-center focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+          />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[8px] font-black text-gray-300 uppercase leading-none">MAX</span>
+          <span className="text-xs font-black text-gray-400">{max}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 const ReviewScorecard = ({ initialData, onSubmit, readOnly = false }) => {
   const [academicScore, setAcademicScore] = useState(initialData?.scorecard?.academicScore ?? 0);
@@ -51,130 +82,116 @@ const ReviewScorecard = ({ initialData, onSubmit, readOnly = false }) => {
     }
   };
 
-  const SliderRow = ({ label, value, max, onChange }) => (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center">
-        <span className="text-sm font-medium text-gray-600">{label}</span>
-        <span className="text-xs font-bold text-secondary">{value} / {max}</span>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={max}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        disabled={readOnly}
-        className={`w-full h-2 rounded-lg appearance-none cursor-pointer accent-primary ${readOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
-      />
-    </div>
-  );
-
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-6">
-      <h3 className="font-bold text-secondary text-sm uppercase tracking-wider">
-        Structured Assessment Report
-      </h3>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-2xl border border-gray-100 p-4 shadow-lg shadow-gray-200/30 space-y-4"
+    >
+      <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+        <div>
+          <h3 className="font-black text-secondary text-xs uppercase tracking-widest">
+            Structured Assessment
+          </h3>
+          <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tight mt-0.5">Evaluation Report</p>
+        </div>
+        <div className="flex items-center gap-2 bg-gray-50 px-2.5 py-1 rounded-xl border border-gray-100">
+          <div className="text-right">
+            <p className="text-[8px] font-black text-secondary leading-none">SCORE</p>
+          </div>
+          <div className="w-px h-4 bg-gray-200" />
+          <span className="text-xl font-black text-primary">{totalScore}<span className="text-[9px] text-gray-300 ml-0.5">/100</span></span>
+        </div>
+      </div>
 
-      {/* Score sliders */}
-      <div className="space-y-4">
-        <SliderRow
-          label="Academic (Max 50)"
+      {/* Score Sections */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <ScoreInputRow
+          label="Academic"
           value={academicScore}
           max={50}
           onChange={setAcademicScore}
+          readOnly={readOnly}
         />
-        <SliderRow
-          label="Research (Max 30)"
+        <ScoreInputRow
+          label="Research"
           value={researchScore}
           max={30}
           onChange={setResearchScore}
+          readOnly={readOnly}
         />
-        <SliderRow
-          label="Experience (Max 20)"
+        <ScoreInputRow
+          label="Experience"
           value={experienceScore}
           max={20}
           onChange={setExperienceScore}
+          readOnly={readOnly}
         />
       </div>
 
-      {/* Total Score Gauge */}
-      <div className="flex flex-col items-center py-4">
-        <div
-          className="relative w-32 h-32 rounded-full border-4 border-gray-100 flex items-center justify-center"
-          style={{
-            background: `conic-gradient(#c21717 0deg ${(totalScore / 100) * 360}deg, #f3f4f6 ${(totalScore / 100) * 360}deg 360deg)`,
-          }}
-        >
-          <div className="absolute inset-2 rounded-full bg-white flex items-center justify-center">
-            <span className="text-2xl font-black text-secondary">{totalScore}</span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-gray-50">
+        {/* Recommendation */}
+        <div className="space-y-2">
+          <p className="text-[9px] font-black text-secondary uppercase tracking-widest">Recommendation</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {Object.entries(RECOMMENDATION_LABELS).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => !readOnly && setRecommendation(key)}
+                disabled={readOnly}
+                className={`relative px-1 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-tight transition-all overflow-hidden ${recommendation === key
+                    ? `${RECOMMENDATION_COLORS[key]} text-white shadow-md`
+                    : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                  } ${readOnly ? 'cursor-default' : 'active:scale-95'}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-2 font-medium">Total Score / 100</p>
-      </div>
 
-      {/* Verdict selector */}
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase mb-2">Recommendation</p>
-        <div className="flex gap-2 flex-wrap">
-          {Object.entries(RECOMMENDATION_LABELS).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => !readOnly && setRecommendation(key)}
-              disabled={readOnly}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                recommendation === key
-                  ? `${RECOMMENDATION_COLORS[key]} text-white shadow-lg`
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              } ${readOnly ? 'cursor-default' : ''}`}
-            >
-              {label}
-            </button>
-          ))}
+        {/* Comments */}
+        <div className="space-y-2">
+          <p className="text-[9px] font-black text-secondary uppercase tracking-widest">Verification Notes</p>
+          <textarea
+            value={comments}
+            onChange={(e) => setComments(e.target.value)}
+            placeholder="Notes..."
+            rows={2}
+            readOnly={readOnly}
+            className={`w-full p-2.5 rounded-xl border border-gray-100 text-[11px] font-medium focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all outline-none ${readOnly ? 'bg-gray-50/50 cursor-not-allowed text-gray-500' : 'bg-gray-50/30 hover:bg-white focus:bg-white border-gray-200/50'
+              }`}
+          />
         </div>
-      </div>
-
-      {/* Comments */}
-      <div>
-        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Comments</label>
-        <textarea
-          value={comments}
-          onChange={(e) => setComments(e.target.value)}
-          placeholder="Add detailed assessment comments..."
-          rows={4}
-          readOnly={readOnly}
-          className={`w-full p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 ${
-            readOnly ? 'bg-gray-50 cursor-not-allowed' : ''
-          }`}
-        />
       </div>
 
       {!readOnly && (
-        <div className="flex gap-3 pt-2">
+        <div className="flex gap-2 pt-2 border-t border-gray-50">
           <button
             onClick={() => handleSubmit()}
             disabled={submitting}
-            className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-primary/20 group"
           >
             {submitting ? (
-              <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <span className="material-symbols-outlined text-lg">send</span>
-                Submit Assessment
+                <span className="material-symbols-outlined text-base group-hover:scale-110 transition-transform">verified</span>
+                Submit
               </>
             )}
           </button>
           <button
             onClick={() => handleSubmit('IN_PROGRESS')}
             disabled={submitting}
-            className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-bold transition-colors disabled:opacity-50"
+            className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
           >
-            Save Draft
+            Draft
           </button>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

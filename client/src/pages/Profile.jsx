@@ -280,7 +280,7 @@ const Profile = () => {
                               </div>
 
                               <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                                {app.status === 'draft' && (
+                                {app.status === 'draft' ? (
                                   <>
                                     <button
                                       onClick={() => handleResume(app)}
@@ -297,9 +297,9 @@ const Profile = () => {
                                       Delete
                                     </button>
                                   </>
-                                )}
-                                {app.status === 'submitted' && (
+                                ) : (
                                   <>
+                                    {/* Receipt available for everything else */}
                                     <button
                                       onClick={() => handleDownloadReceipt(app._id)}
                                       className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
@@ -307,26 +307,22 @@ const Profile = () => {
                                       <span className="material-symbols-outlined text-[16px]">download</span>
                                       Receipt
                                     </button>
-                                    <button
-                                      onClick={() => handleWithdraw(app._id)}
-                                      className="bg-orange-50 text-orange-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-orange-100 transition-colors flex items-center gap-1.5"
-                                    >
-                                      <span className="material-symbols-outlined text-[16px]">undo</span>
-                                      Withdraw
-                                    </button>
+
+                                    {/* Withdraw only for submitted */}
+                                    {app.status === 'submitted' && (
+                                      <button
+                                        onClick={() => handleWithdraw(app._id)}
+                                        className="bg-orange-50 text-orange-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-orange-100 transition-colors flex items-center gap-1.5"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px]">undo</span>
+                                        Withdraw
+                                      </button>
+                                    )}
+
+                                    {app.status === 'withdrawn' && (
+                                      <span className="text-sm text-gray-400 italic px-4 py-2">Withdrawn</span>
+                                    )}
                                   </>
-                                )}
-                                {['under_review', 'shortlisted', 'selected', 'rejected'].includes(app.status) && (
-                                  <button
-                                    onClick={() => handleDownloadReceipt(app._id)}
-                                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">download</span>
-                                    Receipt
-                                  </button>
-                                )}
-                                {app.status === 'withdrawn' && (
-                                  <span className="text-sm text-gray-400 italic px-4 py-2">Withdrawn</span>
                                 )}
                               </div>
                             </div>

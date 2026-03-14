@@ -31,6 +31,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     totalUsers,
     recentApplications,
     paymentRevenue,
+    jobsByDepartment,
   ] = await Promise.all([
     // Application counts (always exclude drafts, reviewers see only assigned)
     Application.aggregate([
@@ -67,10 +68,27 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
       .select('applicationNumber status createdAt submittedAt')
       .lean(),
 
-    // Total payment revenue (admin only - omit for reviewers)
+    // Payment revenue (admin only)
     isReviewer ? null : Payment.aggregate([
       { $match: { status: PAYMENT_STATUS.PAID } },
       { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
+    ]),
+
+    // Jobs by Department
+    Job.aggregate([
+      { $match: { deletedAt: null } },
+      {
+        $lookup: {
+          from: 'departments',
+          localField: 'department',
+          foreignField: '_id',
+          as: 'deptInfo',
+        },
+      },
+      { $unwind: { path: '$deptInfo', preserveNullAndEmptyArrays: true } },
+      { $group: { _id: '$deptInfo.name', count: { $sum: 1 } } },
+      { $project: { name: { $ifNull: ['$_id', 'Unassigned'] }, count: 1, _id: 0 } },
+      { $sort: { count: -1 } },
     ]),
   ]);
 
@@ -114,6 +132,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
           totalTransactions: revenue.count ?? 0,
         },
         recentApplications: recentApplications || [],
+        jobsByDepartment: jobsByDepartment || [],
       },
       'Dashboard statistics fetched successfully'
     )
@@ -134,31 +153,31 @@ export const getJobStats = asyncHandler(async (req, res) => {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
   }
 
-    const [applicationsByStatus, totalApplications, paymentStats] =
-      await Promise.all([
-        Application.aggregate([
-          {
-            $match: {
-              jobId: job._id,
-              status: { $ne: APPLICATION_STATUS.DRAFT },
-            },
+  const [applicationsByStatus, totalApplications, paymentStats] =
+    await Promise.all([
+      Application.aggregate([
+        {
+          $match: {
+            jobId: job._id,
+            status: { $ne: APPLICATION_STATUS.DRAFT },
           },
-          { $group: { _id: '$status', count: { $sum: 1 } } },
-        ]),
-        Application.countDocuments({
-          jobId: job._id,
-          status: { $ne: APPLICATION_STATUS.DRAFT },
-        }),
-        Application.aggregate([
-          {
-            $match: {
-              jobId: job._id,
-              status: { $ne: APPLICATION_STATUS.DRAFT },
-            },
+        },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+      Application.countDocuments({
+        jobId: job._id,
+        status: { $ne: APPLICATION_STATUS.DRAFT },
+      }),
+      Application.aggregate([
+        {
+          $match: {
+            jobId: job._id,
+            status: { $ne: APPLICATION_STATUS.DRAFT },
           },
-          { $group: { _id: '$paymentStatus', count: { $sum: 1 } } },
-        ]),
-      ]);
+        },
+        { $group: { _id: '$paymentStatus', count: { $sum: 1 } } },
+      ]),
+    ]);
 
   const statusBreakdown = {};
   Object.values(APPLICATION_STATUS).forEach((s) => {

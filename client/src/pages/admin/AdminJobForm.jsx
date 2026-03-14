@@ -11,7 +11,7 @@ const emptyForm = {
   designation: '',
   grade: '',
   payLevel: '',
-  positions: 1,
+  vacancies: { UR: 0, OBC: 0, SC: 0, ST: 0, EWS: 0, PwBD: 0, total: 0 },
   recruitmentType: 'external',
   categories: [],
   applicationFee: { general: 0, sc_st: 0, obc: 0, ews: 0, pwd: 0, isRequired: true },
@@ -30,6 +30,7 @@ const emptyForm = {
   requiredSections: [
     { sectionType: 'personal', isMandatory: true },
     { sectionType: 'education', isMandatory: true },
+    { sectionType: 'declaration', isMandatory: true },
   ],
 };
 
@@ -94,7 +95,7 @@ const AdminJobForm = () => {
           applicationEndDate: job.applicationEndDate?.split('T')[0] || '',
           qualifications: job.qualifications?.length ? job.qualifications : [''],
           responsibilities: job.responsibilities?.length ? job.responsibilities : [''],
-          categories: job.categories || [],
+          vacancies: job.vacancies || { ...emptyForm.vacancies },
           applicationFee: { ...emptyForm.applicationFee, ...(job.applicationFee || {}) },
           eligibilityCriteria: { ...emptyForm.eligibilityCriteria, ...(job.eligibilityCriteria || {}) },
           requiredSections: job.requiredSections?.length ? job.requiredSections : emptyForm.requiredSections,
@@ -115,6 +116,39 @@ const AdminJobForm = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleVacancyChange = (e) => {
+    const { name, value } = e.target;
+    const val = Math.max(0, parseInt(value) || 0);
+
+    setForm((prev) => {
+      const newVacancies = { ...prev.vacancies, [name]: val };
+      
+      // Calculate total
+      const { total: _, ...rest } = newVacancies;
+      const newTotal = Object.values(rest).reduce((sum, v) => sum + v, 0);
+
+      // Sync categories mapping
+      const categoryMap = {
+        UR: 'GEN',
+        OBC: 'OBC',
+        SC: 'SC',
+        ST: 'ST',
+        EWS: 'EWS',
+        PwBD: 'PwD'
+      };
+      
+      const activeCategories = Object.entries(newVacancies)
+        .filter(([key, count]) => key !== 'total' && count > 0)
+        .map(([key]) => categoryMap[key]);
+
+      return { 
+        ...prev, 
+        vacancies: { ...newVacancies, total: newTotal },
+        categories: [...new Set(activeCategories)]
+      };
+    });
+  };
+
   const handleFeeChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({
@@ -128,15 +162,6 @@ const AdminJobForm = () => {
     setForm((prev) => ({
       ...prev,
       eligibilityCriteria: { ...prev.eligibilityCriteria, [name]: Number(value) || value },
-    }));
-  };
-
-  const handleCategoryToggle = (cat) => {
-    setForm((prev) => ({
-      ...prev,
-      categories: prev.categories.includes(cat)
-        ? prev.categories.filter((c) => c !== cat)
-        : [...prev.categories, cat],
     }));
   };
 
@@ -232,6 +257,7 @@ const AdminJobForm = () => {
   };
 
   const handleSectionToggle = (sectionType) => {
+    if (sectionType === 'declaration') return; // Cannot toggle declaration
     setForm((prev) => {
       const exists = prev.requiredSections.find((s) => s.sectionType === sectionType);
       if (exists) {
@@ -251,7 +277,6 @@ const AdminJobForm = () => {
     try {
       const payload = {
         ...form,
-        positions: Number(form.positions),
         grade: form.grade || undefined,
         qualifications: form.qualifications.filter(Boolean),
         responsibilities: form.responsibilities.filter(Boolean),
@@ -353,9 +378,32 @@ const AdminJobForm = () => {
                   {payLevels.map((p) => <option key={p} value={p}>Level {p}</option>)}
                 </select>
               </div>
-              <div>
-                <Label>Positions</Label>
-                <input type="number" name="positions" value={form.positions} onChange={handleChange} min="1" className={inputClass} />
+              <div className="md:col-span-2">
+                <Label>Vacancies</Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  {['UR', 'OBC', 'SC', 'ST', 'EWS', 'PwBD'].map((cat) => (
+                    <div key={cat}>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{cat}</span>
+                      <input
+                        type="number"
+                        name={cat}
+                        value={form.vacancies[cat]}
+                        onChange={handleVacancyChange}
+                        min="0"
+                        className={`${inputClass} !py-1.5 !px-3 font-semibold`}
+                      />
+                    </div>
+                  ))}
+                  <div className="md:border-l border-gray-200 md:pl-3">
+                    <span className="text-[10px] font-bold text-primary uppercase mb-1 block">Total</span>
+                    <input
+                      type="number"
+                      value={form.vacancies.total}
+                      readOnly
+                      className={`${inputClass} !py-1.5 !px-3 bg-white font-bold text-primary border-primary/20`}
+                    />
+                  </div>
+                </div>
               </div>
               <div>
                 <Label>Recruitment Type</Label>
@@ -367,23 +415,25 @@ const AdminJobForm = () => {
             </div>
           </Section>
 
-          {/* Categories */}
-          <Section title="Categories" icon="category">
+          {/* Categories (Auto-synced) */}
+          <Section title="Active Categories" icon="category">
+            <p className="text-xs text-gray-400 mb-3 italic">Categories are automatically selected based on added vacancies (&gt;0).</p>
             <div className="flex flex-wrap gap-3">
               {categoryOptions.map((cat) => (
-                <button
+                <div
                   key={cat}
-                  type="button"
-                  onClick={() => handleCategoryToggle(cat)}
                   className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
                     form.categories.includes(cat)
                       ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-primary'
+                      : 'bg-white text-gray-300 border-gray-100 opacity-50'
                   }`}
                 >
                   {cat}
-                </button>
+                </div>
               ))}
+              {form.categories.length === 0 && (
+                <p className="text-sm text-amber-600 font-medium">No categories active. Please enter vacancies above.</p>
+              )}
             </div>
           </Section>
 
@@ -530,18 +580,21 @@ const AdminJobForm = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {sectionTypes.map((st) => {
                 const active = form.requiredSections.some((s) => s.sectionType === st);
+                const isPermanent = st === 'declaration';
                 return (
                   <button
                     key={st}
                     type="button"
                     onClick={() => handleSectionToggle(st)}
-                    className={`px-3 py-2 rounded-xl text-sm font-medium capitalize transition-all border ${
+                    disabled={isPermanent}
+                    className={`px-3 py-2 rounded-xl text-sm font-medium capitalize transition-all border flex items-center justify-center gap-2 ${
                       active
                         ? 'bg-primary/10 text-primary border-primary/30'
                         : 'bg-white text-gray-500 border-gray-200 hover:border-primary/30'
-                    }`}
+                    } ${isPermanent ? 'opacity-70 cursor-not-allowed !bg-primary/5' : ''}`}
                   >
                     {st}
+                    {isPermanent && <span className="material-symbols-outlined text-xs">lock</span>}
                   </button>
                 );
               })}

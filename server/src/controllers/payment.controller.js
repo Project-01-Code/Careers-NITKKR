@@ -72,6 +72,15 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     application.paymentStatus = PAYMENT_STATUS.EXEMPTED;
     application.status = 'submitted';
     application.submittedAt = new Date();
+
+    // Add to status history
+    application.statusHistory.push({
+      status: 'submitted',
+      changedBy: req.user._id,
+      changedAt: new Date(),
+      remarks: 'Application submitted (Fee Exempted)',
+    });
+
     await application.save();
 
     return res

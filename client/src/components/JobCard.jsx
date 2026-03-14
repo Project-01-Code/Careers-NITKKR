@@ -78,12 +78,12 @@ const JobCard = ({ job }) => {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {job.positions && (
+            {(job.vacancies?.total || job.positions) > 0 && (
               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-md flex items-center gap-1">
                 <span className="material-symbols-outlined text-[12px]">
                   group
                 </span>
-                {job.positions} position{job.positions > 1 ? 's' : ''}
+                {job.vacancies?.total || job.positions} position{(job.vacancies?.total || job.positions) > 1 ? 's' : ''}
               </span>
             )}
             {job.payLevel && (
