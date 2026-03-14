@@ -29,9 +29,16 @@ export const verifyJWT = asyncHandler(async (req, _, next) => {
     req.user = user;
     next();
   } catch (error) {
-    throw new ApiError(
-      HTTP_STATUS.UNAUTHORIZED,
-      error?.message || 'Invalid access token'
+    // If it's already an ApiError, just pass it forward
+    if (error instanceof ApiError) {
+      return next(error);
+    }
+    // Otherwise wrap it (JWT errors usually fall here)
+    next(
+      new ApiError(
+        HTTP_STATUS.UNAUTHORIZED,
+        error?.message || 'Invalid access token'
+      )
     );
   }
 });

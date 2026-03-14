@@ -11,7 +11,7 @@ const emptyForm = {
   designation: '',
   grade: '',
   payLevel: '',
-  positions: 1,
+  vacancies: { UR: 0, OBC: 0, SC: 0, ST: 0, EWS: 0, PwBD: 0, total: 0 },
   recruitmentType: 'external',
   categories: [],
   applicationFee: { general: 0, sc_st: 0, obc: 0, ews: 0, pwd: 0, isRequired: true },
@@ -109,6 +109,25 @@ const AdminJobForm = () => {
     };
     fetchJob();
   }, [id, isEditing, navigate]);
+
+  const handleVacancyChange = (e) => {
+    const { name, value } = e.target;
+    const numValue = Math.max(0, parseInt(value, 10) || 0);
+
+    setForm((prev) => {
+      const updatedVacancies = {
+        ...prev.vacancies,
+        [name]: numValue,
+      };
+
+      // Recalculate total
+      const categories = ['UR', 'OBC', 'SC', 'ST', 'EWS', 'PwBD'];
+      const newTotal = categories.reduce((sum, cat) => sum + (updatedVacancies[cat] || 0), 0);
+      updatedVacancies.total = newTotal;
+
+      return { ...prev, vacancies: updatedVacancies };
+    });
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -251,7 +270,6 @@ const AdminJobForm = () => {
     try {
       const payload = {
         ...form,
-        positions: Number(form.positions),
         grade: form.grade || undefined,
         qualifications: form.qualifications.filter(Boolean),
         responsibilities: form.responsibilities.filter(Boolean),
@@ -353,16 +371,43 @@ const AdminJobForm = () => {
                   {payLevels.map((p) => <option key={p} value={p}>Level {p}</option>)}
                 </select>
               </div>
-              <div>
-                <Label>Positions</Label>
-                <input type="number" name="positions" value={form.positions} onChange={handleChange} min="1" className={inputClass} />
-              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Recruitment Type</Label>
                 <select name="recruitmentType" value={form.recruitmentType} onChange={handleChange} className={inputClass}>
                   <option value="external">External</option>
                   <option value="internal">Internal</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <Label>Vacancies (Breakdown)</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                {['UR', 'OBC', 'SC', 'ST', 'EWS', 'PwBD'].map((cat) => (
+                  <div key={cat}>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">{cat}</label>
+                    <input
+                      type="number"
+                      name={cat}
+                      value={form.vacancies[cat]}
+                      onChange={handleVacancyChange}
+                      min="0"
+                      className={`${inputClass} !py-1.5 !px-3 font-semibold`}
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-[10px] font-bold text-primary uppercase mb-1">Total</label>
+                  <input
+                    type="number"
+                    value={form.vacancies.total}
+                    readOnly
+                    className={`${inputClass} !py-1.5 !px-3 bg-primary/5 border-primary/20 text-primary font-bold focus:ring-0`}
+                  />
+                </div>
               </div>
             </div>
           </Section>
