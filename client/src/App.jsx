@@ -133,7 +133,7 @@ function App() {
         <Route
           path="/admin/applicants"
           element={
-            <ProtectedRoute roles={['admin', 'super_admin', 'reviewer']}>
+            <ProtectedRoute roles={['admin', 'super_admin']}>
               <AdminApplications />
             </ProtectedRoute>
           }

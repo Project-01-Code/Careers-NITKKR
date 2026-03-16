@@ -102,9 +102,7 @@ const AdminDashboard = () => {
                   <span className="material-symbols-outlined text-[18px]">add_circle</span> New Job
                 </Link>
               )}
-              <Link to="/admin/applicants" className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">groups</span> View Applicants
-              </Link>
+              
             </div>
           </div>
 
@@ -194,9 +192,7 @@ const AdminDashboard = () => {
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col">
-                          <span className="text-secondary">
-                            {app.userId?.profile?.fullName || 'N/A'}
-                          </span>
+                          <span className="font-medium text-secondary">{[app.userId?.profile?.firstName, app.userId?.profile?.lastName].filter(n => n && n !== 'N/A').join(' ') || 'Applicant'}</span>
                           <span className="text-xs text-gray-400">
                             {app.userId?.email}
                           </span>

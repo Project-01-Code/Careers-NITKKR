@@ -342,18 +342,79 @@ const JobDetail = () => {
                   Login to Apply
                 </Link>
               ) : (
-                <Link
-                  to={`/application/${job._id}`}
-                  className="block w-full text-center bg-gradient-to-r from-primary to-primary-dark text-white py-3 rounded-xl font-semibold transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5"
-                >
-                  Apply Now
-                </Link>
+                <ApplyButton jobId={job._id} />
               )}
             </div>
           </motion.div>
         </div>
       </div>
     </MainLayout>
+  );
+};
+
+const ApplyButton = ({ jobId }) => {
+  const [existingApp, setExistingApp] = React.useState(null);
+  const [checking, setChecking] = React.useState(true);
+
+  React.useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await api.get('/applications', { params: { jobId, limit: 1 } });
+        setExistingApp(res.data.data?.applications?.[0] || null);
+      } catch (err) {
+        console.error('Failed to check application status', err);
+      } finally {
+        setChecking(false);
+      }
+    };
+    checkStatus();
+  }, [jobId]);
+
+  if (checking) {
+    return (
+      <div className="w-full h-12 bg-gray-100 rounded-xl animate-pulse flex items-center justify-center">
+        <span className="text-xs text-gray-400">Checking status...</span>
+      </div>
+    );
+  }
+
+  // If application exists AND status is NOT withdrawn
+  if (existingApp && existingApp.status !== 'withdrawn') {
+    const isDraft = existingApp.status === 'draft';
+    return (
+      <div className="space-y-3">
+        <Link
+          to={`/application/${jobId}`}
+          className={`block w-full text-center py-3 rounded-xl font-bold transition-all shadow-md hover:-translate-y-0.5 ${
+            isDraft
+              ? 'bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200'
+              : 'bg-green-100 text-green-700 border border-green-200 hover:bg-green-200'
+          }`}
+        >
+          {isDraft ? 'Resume Application' : 'View Application'}
+        </Link>
+        <p className="text-[10px] text-center text-gray-400 flex items-center justify-center gap-1 uppercase font-bold tracking-widest">
+          <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isDraft ? 'bg-amber-500' : 'bg-green-500'}`}></span>
+          Current Status: <span className="text-secondary">{existingApp.status.replace('_', ' ')}</span>
+        </p>
+        <Link 
+          to="/profile" 
+          className="block w-full text-center text-primary text-xs font-bold hover:underline"
+        >
+          View My Applications
+        </Link>
+      </div>
+    );
+  }
+
+  // No application or withdrawn
+  return (
+    <Link
+      to={`/application/${jobId}`}
+      className="block w-full text-center bg-gradient-to-r from-primary to-primary-dark text-white py-3 rounded-xl font-semibold transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5"
+    >
+      {existingApp?.status === 'withdrawn' ? 'Apply Again' : 'Apply Now'}
+    </Link>
   );
 };
 

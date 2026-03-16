@@ -41,6 +41,34 @@ export const registerSchema = z.object({
       ),
 
     otp: otpField,
+
+    firstName: z
+      .string({ required_error: 'First name is required' })
+      .trim()
+      .min(2, 'First name must be at least 2 characters')
+      .max(50, 'First name must not exceed 50 characters'),
+
+    lastName: z
+      .string({ required_error: 'Last name is required' })
+      .trim()
+      .min(2, 'Last name must be at least 2 characters')
+      .max(50, 'Last name must not exceed 50 characters'),
+
+    phone: z
+      .string()
+      .regex(
+        /^\+?[1-9]\d{1,14}$/,
+        'Invalid phone number format (E.164 format expected, e.g., +919876543210)'
+      )
+      .optional(),
+
+    dateOfBirth: z
+      .string({ required_error: 'Date of birth is required' })
+      .refine(
+        (date) => !isNaN(Date.parse(date)),
+        'Invalid date format'
+      )
+      .transform((date) => new Date(date)),
   }),
 });
 
@@ -66,21 +94,7 @@ export const refreshTokenSchema = z
   .object({
     body: z.object({ refreshToken: z.string().optional() }).optional(),
     cookies: z.object({ refreshToken: z.string().optional() }).optional(),
-  })
-  .refine(
-    (data) => {
-      const bodyToken = data.body?.refreshToken;
-      const cookieToken = data.cookies?.refreshToken;
-      
-      const hasToken = (token) => typeof token === 'string' && token.trim().length > 0;
-      
-      return hasToken(bodyToken) || hasToken(cookieToken);
-    },
-    {
-      message: 'Refresh token is required (must be a non-empty string)',
-      path: ['refreshToken'],
-    }
-  );
+  });
 
 // Profile Schemas
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 const Stepper = ({ steps, currentStep, maxReachedStep, completedSteps, onStepClick }) => {
   return (
@@ -23,7 +24,7 @@ const Stepper = ({ steps, currentStep, maxReachedStep, completedSteps, onStepCli
                   ${isActive
                     ? 'bg-primary border-primary text-white ring-4 ring-primary/10'
                     : isCompleted
-                      ? 'bg-red-700 border-red-600 text-white'
+                      ? 'bg-primary border-primary text-white'
                       : isReachable
                         ? 'bg-white border-primary/30 text-primary'
                         : 'bg-white border-gray-200 text-gray-400'
@@ -42,14 +43,17 @@ const Stepper = ({ steps, currentStep, maxReachedStep, completedSteps, onStepCli
                 className={`flex flex-col pt-1 ${isReachable ? 'cursor-pointer' : ''}`}
                 onClick={() => isReachable && onStepClick?.(stepNumber)}
               >
-                <span className={`text-sm font-semibold transition-colors hover:text-primary
+                <span className={`text-sm font-semibold transition-colors hover:text-primary relative
                   ${isActive ? 'text-primary' : isReachable ? 'text-gray-900' : 'text-gray-400'}
                 `}>
                   {label}
+                  {isActive && (
+                    <motion.div 
+                      layoutId="stepper-underline"
+                      className="absolute -bottom-1 left-0 right-0 h-0.5 bg-primary rounded-full"
+                    />
+                  )}
                 </span>
-                {isActive && (
-                  <span className="text-[10px] text-primary/60 font-bold uppercase tracking-wider">Current Section</span>
-                )}
               </div>
             </li>
           );

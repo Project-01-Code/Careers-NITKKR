@@ -1,8 +1,16 @@
+import mongoose from 'mongoose';
 import { Job } from '../../models/job.model.js';
 import { ApiError } from '../../utils/apiError.js';
 import { ApiResponse } from '../../utils/apiResponse.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
-import { JOB_STATUS, HTTP_STATUS } from '../../constants.js';
+import {
+  JOB_STATUS,
+  HTTP_STATUS,
+  JOB_DESIGNATIONS,
+  JOB_PAY_LEVELS,
+  JOB_RECRUITMENT_TYPES,
+  JOB_CATEGORIES,
+} from '../../constants.js';
 
 /**
  * @route   GET /api/jobs
@@ -31,7 +39,9 @@ export const getActiveJobs = asyncHandler(async (req, res) => {
   };
 
   // Apply filters
-  if (designation) query.designation = designation;
+  if (designation) {
+    query.designation = { $regex: designation, $options: 'i' };
+  }
   if (payLevel) query.payLevel = payLevel;
   if (recruitmentType) query.recruitmentType = recruitmentType;
   if (department) query.department = department;
@@ -68,8 +78,28 @@ export const getActiveJobs = asyncHandler(async (req, res) => {
     Job.countDocuments(query),
   ]);
 
+  // If user is logged in, attach application status
+  let enrichedJobs = jobs;
+  if (req.user) {
+    const userApplications = await mongoose.model('Application').find({
+      userId: req.user._id,
+      jobId: { $in: jobs.map(j => j._id) }
+    }).select('jobId status').lean();
+
+    const appMap = {};
+    userApplications.forEach(app => {
+      appMap[app.jobId.toString()] = app;
+    });
+
+    enrichedJobs = jobs.map(job => ({
+      ...job,
+      alreadyApplied: !!appMap[job._id.toString()],
+      applicationStatus: appMap[job._id.toString()]?.status || null
+    }));
+  }
+
   const responseData = {
-    jobs,
+    jobs: enrichedJobs,
     pagination: {
       total,
       page,
@@ -143,4 +173,24 @@ export const getJobByAdvertisementNo = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(HTTP_STATUS.OK, job, 'Job details fetched successfully')
     );
+});
+
+/**
+ * @route   GET /api/jobs/meta
+ * @desc    Get job metadata (designations, pay levels, etc.)
+ * @access  Public
+ */
+export const getJobMeta = asyncHandler(async (req, res) => {
+  res.status(HTTP_STATUS.OK).json(
+    new ApiResponse(
+      HTTP_STATUS.OK,
+      {
+        designations: JOB_DESIGNATIONS,
+        payLevels: JOB_PAY_LEVELS,
+        recruitmentTypes: JOB_RECRUITMENT_TYPES,
+        categories: JOB_CATEGORIES,
+      },
+      'Job metadata fetched successfully'
+    )
+  );
 });

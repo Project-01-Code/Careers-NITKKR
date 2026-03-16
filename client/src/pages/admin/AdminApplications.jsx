@@ -146,13 +146,15 @@ const AdminApplications = () => {
             <h1 className="text-2xl font-bold text-secondary">Applications</h1>
             <p className="text-gray-500 text-sm">Review and manage recruitment applications</p>
           </div>
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            <span className="material-symbols-outlined text-lg">download</span>
-            Export CSV
-          </button>
+          {isAdmin && (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <span className="material-symbols-outlined text-lg">download</span>
+              Export CSV
+            </button>
+          )}
         </div>
 
         {/* Search and Filters */}
@@ -370,7 +372,7 @@ const AdminApplications = () => {
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col">
-                          <span className="font-medium text-secondary">{app.userId?.profile?.fullName || app.userId?.email}</span>
+                          <span className="font-medium text-secondary">{[app.userId?.profile?.firstName, app.userId?.profile?.lastName].filter(n => n && n !== 'N/A').join(' ') || 'Applicant'}</span>
                           <span className="text-xs text-gray-400">{app.userId?.email}</span>
                         </div>
                       </td>

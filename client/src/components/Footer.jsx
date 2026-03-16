@@ -16,37 +16,41 @@ const Footer = () => {
   };
 
   return (
-    <footer className="bg-secondary text-white pt-16 pb-8">
+    <footer className="bg-secondary text-white pt-20 pb-10">
       <div className="container mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           {/* Column 1: Institute Info */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-bold text-sm">
-                N
+          <div className="space-y-6">
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="w-12 h-12 rounded-2xl overflow-hidden bg-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                <img src="/logoforppt.png" alt="NIT Kurukshetra Logo" className="w-full h-full object-contain" />
               </div>
-              <span className="font-bold text-lg">NIT Kurukshetra</span>
-            </div>
-            <p className="text-gray-400 text-sm leading-relaxed">
-              National Institute of Technology Kurukshetra,<br />
-              Kurukshetra, Haryana, India - 136119
+              <div>
+                <span className="font-bold text-lg block leading-tight">NIT Kurukshetra</span>
+                <span className="text-xs text-gray-400">Recruitment Portal</span>
+              </div>
+            </Link>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              National Institute of Technology Kurukshetra. An Institute of National Importance under Ministry of Education, Govt. of India.
             </p>
-            <div className="pt-2">
-              <p className="text-sm text-gray-400">Email: recruitment@nitkkr.ac.in</p>
+            <div className="flex items-center gap-4">
+              <a href="https://nitkkr.ac.in" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-primary hover:border-primary transition-all group">
+                <span className="material-symbols-outlined text-gray-400 group-hover:text-white transition-colors">public</span>
+              </a>
+              <a href="mailto:recruitment@nitkkr.ac.in" className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-primary hover:border-primary transition-all group">
+                <span className="material-symbols-outlined text-gray-400 group-hover:text-white transition-colors">mail</span>
+              </a>
             </div>
           </div>
 
           {/* Column 2: Quick Links */}
           <div>
-            <h3 className="font-semibold text-lg mb-6 text-gray-100">Quick Links</h3>
-            <ul className="space-y-3">
-              {['About Institute', 'Academic Departments', 'Research', 'Faculty Directory', 'Tenders'].map((item) => (
-                <li key={item}>
-                  <a href="https://nitkkr.ac.in/" className="text-gray-400 hover:text-white text-sm transition-colors">
-                    {item}
-                  </a>
-                </li>
-              ))}
+            <h4 className="font-bold mb-6 text-white uppercase tracking-widest text-xs">Quick Links</h4>
+            <ul className="space-y-4">
+              <li><a href="https://nitkkr.ac.in/?page_id=237" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">About Institute</a></li>
+              <li><Link to="/jobs" className="text-gray-400 hover:text-white text-sm transition-colors">Active Openings</Link></li>
+              <li><Link to="/notices" className="text-gray-400 hover:text-white text-sm transition-colors">Recruitment Notices</Link></li>
+              <li><a href="https://nitkkr.ac.in/?page_id=648" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">Contact Administration</a></li>
             </ul>
           </div>
 

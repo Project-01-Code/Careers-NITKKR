@@ -5,9 +5,14 @@ import toast from 'react-hot-toast';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 
+import OtpInput from '../components/OtpInput';
 const Register = () => {
   const [step, setStep] = useState('email'); // 'email' or 'otp'
   const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -38,12 +43,8 @@ const Register = () => {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (!otp) {
-      toast.error('Please enter the verification code');
-      return;
-    }
-    if (!password || !confirmPassword) {
-      toast.error('Please fill in password fields');
+    if (!otp || !password || !confirmPassword || !firstName || !lastName || !phone || !dateOfBirth) {
+      toast.error('Please fill in all required fields');
       return;
     }
     if (password !== confirmPassword) {
@@ -66,7 +67,7 @@ const Register = () => {
     }
     setSubmitting(true);
     try {
-      await signup(email, password, otp);
+      await signup(email, password, otp, firstName, lastName, phone, dateOfBirth);
       toast.success('Account created successfully! Please sign in.');
       navigate('/login');
     } catch (err) {
@@ -149,21 +150,77 @@ const Register = () => {
             </form>
           ) : (
             <form onSubmit={handleRegister} className="space-y-5">
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
                   Verification Code
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
-                    }
-                    placeholder="Enter 6-digit code sent to your email"
-                    className="w-full px-4 py-3 text-center tracking-widest text-lg rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
-                    required
-                  />
+                <p className="text-xs text-gray-500 mb-1">
+                  Enter the 6-digit code sent to <strong>{email}</strong>
+                </p>
+                <OtpInput
+                  value={otp}
+                  onChange={setOtp}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">First Name</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">person</span>
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="John"
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Last Name</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">person</span>
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Doe"
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">call</span>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Date of Birth</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl">calendar_month</span>
+                    <input
+                      type="date"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      required
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -228,14 +285,24 @@ const Register = () => {
                   'Create Account'
                 )}
               </button>
-              <button
-                type="button"
-                onClick={() => setStep('email')}
-                disabled={submitting}
-                className="w-full text-sm text-primary hover:underline disabled:opacity-50 mt-2"
-              >
-                Change Email
-              </button>
+              <div className="flex items-center justify-between mt-2">
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={submitting}
+                  className="text-sm text-primary hover:underline disabled:opacity-50"
+                >
+                  Didn't receive the code? Resend
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStep('email')}
+                  disabled={submitting}
+                  className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                >
+                  Change Email
+                </button>
+              </div>
             </form>
           )}
 

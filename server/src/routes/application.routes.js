@@ -71,6 +71,16 @@ router.post(
   validateSection
 );
 
+// Final Documents (merged PDF ≤ 10MB)
+router.post(
+  '/:id/sections/final_documents/pdf',
+  checkApplicationOwnership,
+  checkApplicationEditable,
+  uploadPDFToMemory.single('pdf'),
+  malwareScan,
+  uploadFinalDocuments
+);
+
 // Section PDFs (certificates, proof, etc.)
 router.post(
   '/:id/sections/:sectionType/pdf',
@@ -104,16 +114,6 @@ router.delete(
   checkApplicationOwnership,
   checkApplicationEditable,
   deletePhotoOrSignature
-);
-
-// Final Documents (merged PDF ≤ 10MB — enforced in controller after magic-byte check)
-router.post(
-  '/:id/sections/final_documents/pdf',
-  checkApplicationOwnership,
-  checkApplicationEditable,
-  uploadPDFToMemory.single('pdf'),
-  malwareScan,
-  uploadFinalDocuments
 );
 
 // Credit Points Summary (auto-calc from saved sections)

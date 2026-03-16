@@ -75,6 +75,15 @@ const ApplicationReview = () => {
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const isReviewerOnly = user?.role === 'reviewer';
 
+  // Find the current user's review (for reviewer lock logic)
+  const myReview = isReviewerOnly
+    ? expertReviews.find(r => {
+        const reviewerId = typeof r.reviewer === 'object' ? (r.reviewer._id || r.reviewer.id) : r.reviewer;
+        return reviewerId === user._id || reviewerId === user.id;
+      }) || expertReviews[0]  // fallback to first if only one reviewer
+    : null;
+  const isReviewLocked = isReviewerOnly && myReview?.status === 'SUBMITTED';
+
   const fetchApplication = async () => {
     setLoading(true);
     try {
@@ -98,15 +107,6 @@ const ApplicationReview = () => {
     }
   };
 
-  const getStatusBadgeClass = (status) => {
-    switch (status) {
-      case 'PENDING': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'IN_PROGRESS': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'SUBMITTED': return 'bg-green-100 text-green-700 border-green-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
-  };
-
   useEffect(() => {
     fetchApplication();
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -122,6 +122,10 @@ const ApplicationReview = () => {
   }, [activeTab, app]);
 
   const handleVerifySection = async (sectionType, isVerified, notes) => {
+    if (isReviewLocked) {
+      toast.error('Cannot modify verification after review submission');
+      return;
+    }
     try {
       await api.patch(`/admin/applications/${id}/verify-section`, {
         sectionType, isVerified, notes
@@ -218,7 +222,7 @@ const ApplicationReview = () => {
               <div className="space-y-1">
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-black text-secondary tracking-tight">
-                    {app.userId?.profile?.fullName || 'Applicant Profile'}
+                    {[app.userId?.profile?.firstName, app.userId?.profile?.lastName].filter(n => n && n !== 'N/A').join(' ') || 'Applicant Profile'}
                   </h1>
                   <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${STATUS_COLORS[app.status] || 'bg-gray-100 text-gray-700'}`}>
                     {app.status}
@@ -291,9 +295,9 @@ const ApplicationReview = () => {
           <div className="mb-6">
             <ReviewScorecard
               applicationId={id}
-              initialData={expertReviews[0]}
+              initialData={myReview}
               onSubmit={handleSubmitScorecard}
-              readOnly={false}
+              readOnly={isReviewLocked}
             />
           </div>
         )}
@@ -336,7 +340,7 @@ const ApplicationReview = () => {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h4 className="font-black text-secondary text-xs uppercase truncate max-w-[150px]">
-                        {[r.reviewer?.profile?.firstName, r.reviewer?.profile?.lastName].filter(Boolean).join(' ') || r.reviewer?.email?.split('@')[0] || 'Expert Reviewer'}
+                        {[r.reviewer?.profile?.firstName, r.reviewer?.profile?.lastName].filter(n => n && n !== 'N/A').join(' ') || r.reviewer?.email?.split('@')[0] || 'Expert Reviewer'}
                       </h4>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{r.reviewer?.profile?.designation || 'Reviewer'}</p>
                     </div>
@@ -546,16 +550,20 @@ const ApplicationReview = () => {
           {/* Sidebar Actions */}
           <div className="space-y-6">
             {/* Section Verification (Highest priority for evaluation) */}
-            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4">
+            <div className={`bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4 ${isReviewLocked ? 'opacity-70 pointer-events-none' : ''}`}>
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-secondary text-xs uppercase tracking-widest">Section Verification</h3>
-                <span className="material-symbols-outlined text-primary/40">verified</span>
+                {isReviewLocked && (
+                  <span className="material-symbols-outlined text-amber-500 text-sm" title="Locked">lock</span>
+                )}
+                {!isReviewerOnly && <span className="material-symbols-outlined text-primary/40">verified</span>}
               </div>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Verify <strong>{activeTab.replace(/_/g, ' ')}</strong> section</p>
 
               <div className="flex items-center gap-2 py-1">
                 <button
                   onClick={() => handleVerifySection(activeTab, true, verifyNotes)}
+                  disabled={isReviewLocked}
                   className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${app.sections[activeTab]?.isVerified ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' : 'bg-gray-50 text-gray-400 hover:bg-green-50 hover:text-green-600'
                     }`}
                 >
@@ -564,6 +572,7 @@ const ApplicationReview = () => {
                 </button>
                 <button
                   onClick={() => handleVerifySection(activeTab, false, verifyNotes)}
+                  disabled={isReviewLocked}
                   className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${app.sections[activeTab]?.isVerified === false && app.sections[activeTab]?.verificationNotes ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-600'
                     }`}
                 >
@@ -579,11 +588,12 @@ const ApplicationReview = () => {
                   className="w-full h-20 p-3 rounded-2xl border border-gray-100 bg-gray-50/30 text-xs font-medium focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all"
                   value={verifyNotes}
                   onChange={(e) => setVerifyNotes(e.target.value)}
+                  readOnly={isReviewLocked}
                 />
               </div>
               <button
                 onClick={() => handleVerifySection(activeTab, app.sections[activeTab]?.isVerified || false, verifyNotes)}
-                disabled={!verifyNotes.trim()}
+                disabled={!verifyNotes.trim() || isReviewLocked}
                 className="w-full py-2.5 bg-secondary text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 shadow-md hover:bg-black"
               >
                 Save Notes

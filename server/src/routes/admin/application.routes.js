@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getAllApplications,
   getApplicationById,
+  getApplicationByNumber,
   updateApplicationStatus,
   addReviewNotes,
   bulkUpdateStatus,
@@ -60,6 +61,14 @@ router.post(
   requireRole(USER_ROLES.ADMIN),
   validate(bulkUpdateStatusSchema),
   bulkUpdateStatus
+);
+
+// Lookup application by application number (for fee exemption)
+router.get(
+  '/by-number/:applicationNumber',
+  verifyJWT,
+  requireRole(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  getApplicationByNumber
 );
 
 // ── Collection-level routes ───────────────────────────────────────────────

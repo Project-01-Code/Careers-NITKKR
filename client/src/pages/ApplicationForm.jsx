@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import Stepper from '../components/Stepper';
 import { useApplication } from '../context/ApplicationContext';
+import api from '../services/api';
 
 // Import All Steps
 import PersonalDetails from '../components/application-steps/PersonalDetails';
@@ -23,6 +24,7 @@ import OrganizedPrograms from '../components/application-steps/OrganizedPrograms
 import CreditPoints from '../components/application-steps/CreditPoints';
 import OtherInfo from '../components/application-steps/OtherInfo';
 import DocumentUpload from '../components/application-steps/DocumentUpload';
+import CustomFieldsSection from '../components/application-steps/CustomFieldsSection';
 import Declaration from '../components/application-steps/Declaration';
 
 const ApplicationForm = () => {
@@ -36,12 +38,21 @@ const ApplicationForm = () => {
 
   const { 
     initApplication, 
+    resetApplication,
     loading, 
     validateSection, 
     completedSections, 
     jobSnapshot, 
+    applicationNumber,
+    applicationStatus,
+    applicationId,
     SECTION_TYPE_MAP 
   } = useApplication();
+
+  // Reset context when jobId changes or on unmount to prevent stale state
+  useEffect(() => {
+    resetApplication();
+  }, [jobId, resetApplication]);
 
   useEffect(() => {
     if (jobId) {
@@ -76,6 +87,7 @@ const ApplicationForm = () => {
       { title: "Organized Programs", component: OrganizedPrograms, key: 'organizedPrograms' },
       { title: "Credit Points", component: CreditPoints, key: 'creditPoints' },
       { title: "Other Info", component: OtherInfo, key: 'otherInfo' },
+      { title: "Custom Information", component: CustomFieldsSection, key: 'custom' },
       { title: "Documents", component: DocumentUpload, key: 'documents' },
       { title: "Declaration", component: Declaration, key: 'declaration' },
       { title: "Review & Submit", component: ReviewSubmit, key: 'reviewSubmit' }
@@ -88,6 +100,11 @@ const ApplicationForm = () => {
     const filtered = allSteps.filter(s => {
       // Review & Submit + Declaration are always included
       if (s.key === 'reviewSubmit' || s.key === 'declaration') return true;
+      
+      // Custom Fields Section
+      if (s.key === 'custom') {
+        return jobSnapshot?.customFields?.length > 0;
+      }
       
       // Documents step is visible if photo, signature, or final_documents is required
       if (s.key === 'documents') {
@@ -112,15 +129,15 @@ const ApplicationForm = () => {
     
     steps.forEach(s => {
       if (s.key === 'documents') {
-        // Documents step is complete if all required sub-sections are complete
-        const reqSecTypes = jobSnapshot?.requiredSections?.map(rs => rs.sectionType) || [];
-        const photoNeeded = reqSecTypes.includes('photo');
-        const signatureNeeded = reqSecTypes.includes('signature');
-        const finalDocNeeded = reqSecTypes.includes('final_documents');
+        // Documents step is complete if all MANDATORY sub-sections are complete
+        const requiredSections = jobSnapshot?.requiredSections || [];
+        const photoMandatory = requiredSections.some(rs => rs.sectionType === 'photo' && rs.isMandatory);
+        const signatureMandatory = requiredSections.some(rs => rs.sectionType === 'signature' && rs.isMandatory);
+        const finalDocMandatory = requiredSections.some(rs => rs.sectionType === 'final_documents' && rs.isMandatory);
 
-        const photoDone = !photoNeeded || completedSections.has('photo');
-        const signatureDone = !signatureNeeded || completedSections.has('signature');
-        const finalDocDone = !finalDocNeeded || completedSections.has('documents');
+        const photoDone = !photoMandatory || completedSections.has('photo');
+        const signatureDone = !signatureMandatory || completedSections.has('signature');
+        const finalDocDone = !finalDocMandatory || completedSections.has('documents');
 
         if (photoDone && signatureDone && finalDocDone) {
           completed.add(s.id);
@@ -139,16 +156,32 @@ const ApplicationForm = () => {
   useEffect(() => {
     if (!loading && jobId && steps.length > 0 && !hasAutoAdvanced.current) {
       hasAutoAdvanced.current = true;
+      
+      const requiredSections = jobSnapshot?.requiredSections || [];
+      const photoMandatory = requiredSections.some(rs => rs.sectionType === 'photo' && rs.isMandatory);
+      const signatureMandatory = requiredSections.some(rs => rs.sectionType === 'signature' && rs.isMandatory);
+      const finalDocMandatory = requiredSections.some(rs => rs.sectionType === 'final_documents' && rs.isMandatory);
+
       setTimeout(() => {
-        const firstIncomplete = steps.find(s => !completedSections.has(s.key));
+        const firstIncomplete = steps.find(s => {
+          if (s.key === 'documents') {
+             const photoDone = !photoMandatory || completedSections.has('photo');
+             const signatureDone = !signatureMandatory || completedSections.has('signature');
+             const finalDocDone = !finalDocMandatory || completedSections.has('documents');
+             return !(photoDone && signatureDone && finalDocDone);
+          }
+          return !completedSections.has(s.key);
+        });
+
         if (firstIncomplete) {
           setCurrentStep(firstIncomplete.id);
-        } else if (completedSections.size >= steps.length - 1) {
+        } else {
+          // All steps complete, go to Review & Submit
           setCurrentStep(steps.length);
         }
       }, 0);
     }
-  }, [loading, jobId, steps, completedSections]);
+  }, [loading, jobId, steps, completedSections, jobSnapshot]);
 
   const handleNext = async () => {
     if (currentStep < steps.length) {
@@ -187,17 +220,23 @@ const ApplicationForm = () => {
     const StepComponent = steps[currentStep - 1]?.component;
     if (!StepComponent) return null;
 
+    const extraProps = {};
+    if (steps[currentStep - 1]?.key === 'custom') {
+      extraProps.customFields = jobSnapshot?.customFields || [];
+    }
+
     return (
       <StepComponent
         onNext={handleNext}
         onBack={currentStep > 1 ? handleBack : null}
         onGoToStep={handleGoToStep}
         onGoToSection={handleGoToSection}
+        {...extraProps}
       />
     );
   };
 
-  if (loading && currentStep === 1) {
+  if (loading) {
     return (
       <MainLayout hideFooter={true}>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -212,7 +251,14 @@ const ApplicationForm = () => {
       <div className="bg-secondary text-white py-8">
         <div className="container mx-auto px-6">
           <h1 className="text-2xl font-bold mb-2">Faculty Application Form</h1>
-          <p className="text-gray-400 text-sm">Application for position ID: {jobId}</p>
+          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
+            <span>Position ID: {jobId}</span>
+            {applicationNumber && (
+              <span className="bg-white/10 text-white px-3 py-1 rounded-lg font-mono text-xs font-bold tracking-wide">
+                Application ID: {applicationNumber}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -238,7 +284,32 @@ const ApplicationForm = () => {
           {/* Main Form Area */}
           <div className="w-full lg:w-3/4 xl:w-4/5">
             <div className="bg-white rounded-2xl p-6 md:p-8 lg:p-10 shadow-sm border border-gray-100 min-h-[500px]">
-              {renderStep()}
+              {applicationStatus !== 'draft' ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-6">
+                    <span className="material-symbols-outlined text-green-500 text-5xl">check_circle</span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-secondary mb-2">Application Already Submitted</h2>
+                  <p className="text-gray-500 max-w-md mx-auto mb-8">
+                    Your application for this position has already been submitted and is currently {applicationStatus.replace('_', ' ')}. You can no longer make changes to it.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <button
+                      onClick={() => navigate('/dashboard')}
+                      className="px-8 py-3 bg-secondary text-white rounded-xl font-bold hover:bg-black transition-all"
+                    >
+                      Go to Dashboard
+                    </button>
+                    <button
+                      onClick={() => window.open(`${api.defaults.baseURL}/applications/${applicationId}/export-full`, '_blank')}
+                      className="px-8 py-3 bg-primary/10 text-primary rounded-xl font-bold hover:bg-primary hover:text-white transition-all flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">download</span>
+                      Download Docket
+                    </button>
+                  </div>
+                </div>
+              ) : renderStep()}
             </div>
           </div>
         </div>
