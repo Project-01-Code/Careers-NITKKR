@@ -20,6 +20,7 @@ const emptyForm = {
     maxAge: 60,
     nationality: ['Indian'],
     minExperience: 0,
+    ageRelaxation: { SC: 5, ST: 5, OBC: 3, PwD: 10 },
     requiredDegrees: [],
   },
   description: '',
@@ -32,6 +33,7 @@ const emptyForm = {
     { sectionType: 'education', isMandatory: true },
     { sectionType: 'declaration', isMandatory: true },
   ],
+  customFields: [],
 };
 
 const designations = [
@@ -99,6 +101,7 @@ const AdminJobForm = () => {
           applicationFee: { ...emptyForm.applicationFee, ...(job.applicationFee || {}) },
           eligibilityCriteria: { ...emptyForm.eligibilityCriteria, ...(job.eligibilityCriteria || {}) },
           requiredSections: job.requiredSections?.length ? job.requiredSections : emptyForm.requiredSections,
+          customFields: job.customFields || [],
         });
       // eslint-disable-next-line no-unused-vars
       } catch (err) {
@@ -162,6 +165,20 @@ const AdminJobForm = () => {
     setForm((prev) => ({
       ...prev,
       eligibilityCriteria: { ...prev.eligibilityCriteria, [name]: Number(value) || value },
+    }));
+  };
+
+  const handleAgeRelaxationChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      eligibilityCriteria: {
+        ...prev.eligibilityCriteria,
+        ageRelaxation: {
+          ...prev.eligibilityCriteria.ageRelaxation,
+          [name]: Number(value) || 0,
+        },
+      },
     }));
   };
 
@@ -264,6 +281,57 @@ const AdminJobForm = () => {
         return { ...prev, requiredSections: prev.requiredSections.filter((s) => s.sectionType !== sectionType) };
       }
       return { ...prev, requiredSections: [...prev.requiredSections, { sectionType, isMandatory: false }] };
+    });
+  };
+
+  const handleCustomFieldChange = (index, field, value) => {
+    setForm((prev) => {
+      const cfs = [...prev.customFields];
+      cfs[index] = { ...cfs[index], [field]: value };
+      return { ...prev, customFields: cfs };
+    });
+  };
+
+  const addCustomField = () => {
+    setForm((prev) => ({
+      ...prev,
+      customFields: [
+        ...prev.customFields,
+        { fieldName: '', fieldType: 'text', isMandatory: false, options: [], section: 'custom' },
+      ],
+    }));
+  };
+
+  const removeCustomField = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      customFields: prev.customFields.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleCustomFieldOptionChange = (fieldIndex, optionIndex, value) => {
+    setForm((prev) => {
+      const cfs = [...prev.customFields];
+      const opts = [...(cfs[fieldIndex].options || [])];
+      opts[optionIndex] = value;
+      cfs[fieldIndex] = { ...cfs[fieldIndex], options: opts };
+      return { ...prev, customFields: cfs };
+    });
+  };
+
+  const addCustomFieldOption = (index) => {
+    setForm((prev) => {
+      const cfs = [...prev.customFields];
+      cfs[index] = { ...cfs[index], options: [...(cfs[index].options || []), ''] };
+      return { ...prev, customFields: cfs };
+    });
+  };
+
+  const removeCustomFieldOption = (fieldIndex, optIndex) => {
+    setForm((prev) => {
+      const cfs = [...prev.customFields];
+      cfs[fieldIndex] = { ...cfs[fieldIndex], options: cfs[fieldIndex].options.filter((_, i) => i !== optIndex) };
+      return { ...prev, customFields: cfs };
     });
   };
 
@@ -470,6 +538,25 @@ const AdminJobForm = () => {
               </div>
             </div>
 
+            <div className="mt-6">
+              <Label>Age Relaxation (years)</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                {Object.keys(form.eligibilityCriteria.ageRelaxation).map((category) => (
+                  <div key={category}>
+                    <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">{category}</p>
+                    <input
+                      type="number"
+                      name={category}
+                      value={form.eligibilityCriteria.ageRelaxation[category]}
+                      onChange={handleAgeRelaxationChange}
+                      className={inputClass}
+                      min="0"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Required Degrees */}
             <div className="mt-6">
               <div className="flex items-center justify-between mb-3">
@@ -579,29 +666,162 @@ const AdminJobForm = () => {
           </Section>
 
           {/* Required Sections */}
-          <Section title="Application Form Sections" icon="list_alt">
-            <p className="text-sm text-gray-500 mb-3">Select which sections applicants must fill out</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Section title="Required Application Sections" icon="checklist_rtl">
+            <p className="text-sm text-gray-500 mb-4">Select which sections applicants must complete. <strong>Personal Details</strong> and <strong>Declaration</strong> are always required.</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {sectionTypes.map((st) => {
-                const active = form.requiredSections.some((s) => s.sectionType === st);
-                const isPermanent = st === 'declaration';
+                const isAlwaysRequired = st === 'personal' || st === 'declaration';
+                const entry = form.requiredSections.find((s) => s.sectionType === st);
+                const isActive = !!entry;
+
                 return (
-                  <button
+                  <div
                     key={st}
-                    type="button"
-                    onClick={() => handleSectionToggle(st)}
-                    disabled={isPermanent}
-                    className={`px-3 py-2 rounded-xl text-sm font-medium capitalize transition-all border flex items-center justify-center gap-2 ${
-                      active
-                        ? 'bg-primary/10 text-primary border-primary/30'
-                        : 'bg-white text-gray-500 border-gray-200 hover:border-primary/30'
-                    } ${isPermanent ? 'opacity-70 cursor-not-allowed !bg-primary/5' : ''}`}
+                    className={`relative rounded-xl border-2 p-3 transition-all cursor-pointer select-none ${
+                      isActive
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-gray-100 bg-white hover:border-gray-200'
+                    } ${isAlwaysRequired ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    onClick={() => !isAlwaysRequired && handleSectionToggle(st)}
                   >
-                    {st}
-                    {isPermanent && <span className="material-symbols-outlined text-xs">lock</span>}
-                  </button>
+                    <div className="flex items-center gap-2">
+                      <span className={`material-symbols-outlined text-base ${isActive ? 'text-primary' : 'text-gray-300'}`}>
+                        {isActive ? 'check_circle' : 'radio_button_unchecked'}
+                      </span>
+                      <span className={`text-xs font-bold uppercase tracking-wider ${isActive ? 'text-primary' : 'text-gray-400'}`}>
+                        {st.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    {isActive && !isAlwaysRequired && (
+                      <label
+                        className="flex items-center gap-1.5 mt-2 cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={entry?.isMandatory || false}
+                          onChange={(e) => {
+                            setForm((prev) => ({
+                              ...prev,
+                              requiredSections: prev.requiredSections.map((s) =>
+                                s.sectionType === st ? { ...s, isMandatory: e.target.checked } : s
+                              ),
+                            }));
+                          }}
+                          className="w-3.5 h-3.5 rounded text-primary focus:ring-primary/30 border-gray-300"
+                        />
+                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Mandatory</span>
+                      </label>
+                    )}
+                    {isAlwaysRequired && (
+                      <p className="text-[8px] font-bold text-gray-400 uppercase mt-1">Always Required</p>
+                    )}
+                  </div>
                 );
               })}
+            </div>
+          </Section>
+
+          {/* Custom Fields */}
+          <Section title="Custom Application Fields" icon="extension">
+            <p className="text-sm text-gray-500 mb-4">Define additional questions specific to this job. These will appear in the "Custom Fields" section of the application form.</p>
+            <div className="space-y-4">
+              {form.customFields.map((cf, i) => (
+                <div key={i} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 relative group transition-all hover:shadow-md hover:bg-white">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label required>Field Label</Label>
+                      <input
+                        value={cf.fieldName}
+                        onChange={(e) => handleCustomFieldChange(i, 'fieldName', e.target.value)}
+                        className={inputClass}
+                        placeholder="e.g. GATE Score / Research Interest"
+                      />
+                    </div>
+                    <div>
+                      <Label required>Field Type</Label>
+                      <select
+                        value={cf.fieldType}
+                        onChange={(e) => handleCustomFieldChange(i, 'fieldType', e.target.value)}
+                        className={inputClass}
+                      >
+                        <option value="text">Short Text</option>
+                        <option value="number">Number</option>
+                        <option value="date">Date</option>
+                        <option value="dropdown">Dropdown Selection</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer group/check">
+                      <input
+                        type="checkbox"
+                        checked={cf.isMandatory}
+                        onChange={(e) => handleCustomFieldChange(i, 'isMandatory', e.target.checked)}
+                        className="w-4 h-4 rounded text-primary focus:ring-primary/30 border-gray-300"
+                      />
+                      <span className="text-sm font-medium text-gray-600 group-hover/check:text-primary transition-colors">Mandatory Field</span>
+                    </label>
+                  </div>
+
+                  {cf.fieldType === 'dropdown' && (
+                    <div className="mt-4 p-4 bg-white/50 rounded-xl border border-dashed border-gray-200">
+                      <Label>Dropdown Options</Label>
+                      <div className="space-y-2 mt-2">
+                        {(cf.options || []).map((opt, oi) => (
+                          <div key={oi} className="flex gap-2">
+                            <input
+                              value={opt}
+                              onChange={(e) => handleCustomFieldOptionChange(i, oi, e.target.value)}
+                              className={`${inputClass} !py-1.5`}
+                              placeholder={`Option ${oi + 1}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeCustomFieldOption(i, oi)}
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            >
+                              <span className="material-symbols-outlined text-lg">delete</span>
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => addCustomFieldOption(i)}
+                          className="w-full py-1.5 text-xs font-bold text-primary border border-dashed border-primary/30 rounded-lg hover:bg-primary/5 transition-all flex items-center justify-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-sm">add</span> Add Option
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => removeCustomField(i)}
+                    className="absolute -top-2 -right-2 w-8 h-8 bg-white border border-red-100 text-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <span className="material-symbols-outlined text-lg">close</span>
+                  </button>
+                </div>
+              ))}
+              
+              {form.customFields.length === 0 && (
+                <div className="text-center py-8 border-2 border-dashed border-gray-100 rounded-2xl">
+                  <span className="material-symbols-outlined text-3xl text-gray-200 mb-2">add_circle</span>
+                  <p className="text-sm text-gray-400">No custom fields defined for this job.</p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={addCustomField}
+                className="w-full py-3 text-sm font-black text-primary border-2 border-dashed border-primary/20 rounded-2xl hover:bg-primary/5 hover:border-primary/40 transition-all flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined">add_circle</span>
+                ADD CUSTOM FIELD
+              </button>
             </div>
           </Section>
 

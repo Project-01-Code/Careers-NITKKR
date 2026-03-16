@@ -166,10 +166,14 @@ const ReviewScorecard = ({ initialData, onSubmit, readOnly = false }) => {
         </div>
       </div>
 
-      {!readOnly && (
+      {!readOnly && initialData?.status !== 'SUBMITTED' && (
         <div className="flex gap-2 pt-2 border-t border-gray-50">
           <button
-            onClick={() => handleSubmit()}
+            onClick={() => {
+              if (window.confirm('Are you sure you want to submit this assessment? It will be locked for editing once submitted.')) {
+                handleSubmit();
+              }
+            }}
             disabled={submitting}
             className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-primary/20 group"
           >
@@ -189,6 +193,15 @@ const ReviewScorecard = ({ initialData, onSubmit, readOnly = false }) => {
           >
             Draft
           </button>
+        </div>
+      )}
+
+      {initialData?.status === 'SUBMITTED' && (
+        <div className="pt-2 border-t border-gray-50 text-center">
+          <span className="text-[10px] font-black text-green-600 uppercase tracking-widest flex items-center justify-center gap-1">
+            <span className="material-symbols-outlined text-sm">lock</span>
+            Assessment Locked (Submitted)
+          </span>
         </div>
       )}
     </motion.div>

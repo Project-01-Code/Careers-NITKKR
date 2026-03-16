@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
 import { useApplication } from '../../context/ApplicationContext';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 /* ------------------------------------------------------------------ */
@@ -72,6 +73,7 @@ const DEFAULTS = {
 
 const PersonalDetails = ({ onNext, onBack }) => {
   const { formData, updateSection, jobSnapshot } = useApplication();
+  const { user } = useAuth();
   const [d, setD] = useState({ ...DEFAULTS });
   const [errors, setErrors] = useState({});
 
@@ -80,8 +82,19 @@ const PersonalDetails = ({ onNext, onBack }) => {
       setTimeout(() => {
         setD(prev => ({ ...prev, ...formData.personalDetails }));
       }, 0);
+    } else if (user?.profile) {
+      // Pre-fill from user profile if no section data exists yet
+      setTimeout(() => {
+        setD(prev => ({
+          ...prev,
+          name: prev.name || [user.profile.firstName, user.profile.lastName].filter(Boolean).join(' '),
+          dob: prev.dob || (user.profile.dateOfBirth ? new Date(user.profile.dateOfBirth).toISOString().split('T')[0] : ''),
+          mobile: prev.mobile || user.profile.phone || '',
+          nationality: prev.nationality || user.profile.nationality || 'Indian',
+        }));
+      }, 0);
     }
-  }, [formData?.personalDetails]);
+  }, [formData?.personalDetails, user?.profile]);
 
   // Auto-fill postAppliedFor and departmentDiscipline from job
   useEffect(() => {
@@ -347,23 +360,28 @@ const PersonalDetails = ({ onNext, onBack }) => {
           </label>
           <div className="space-y-1">
             {label('Address', true)}
-            <textarea value={d.permAddress} onChange={e => set('permAddress', e.target.value)} className={`${ic('permAddress')} h-20 ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} readOnly={d.sameAsCorrespondence} />
+            <textarea value={d.permAddress} onChange={e => set('permAddress', e.target.value)} className={`${ic('permAddress')} h-20 ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed opacity-80' : 'bg-white'}`} readOnly={d.sameAsCorrespondence} />
             {err('permAddress')}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-1">
               {label('City', true)}
-              <input value={d.permCity} onChange={e => set('permCity', e.target.value)} className={`${ic('permCity')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} readOnly={d.sameAsCorrespondence} />
+              <input value={d.permCity} onChange={e => set('permCity', e.target.value)} className={`${ic('permCity')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed opacity-80' : 'bg-white'}`} readOnly={d.sameAsCorrespondence} />
               {err('permCity')}
             </div>
             <div className="space-y-1">
               {label('District', true)}
-              <input value={d.permDistrict} onChange={e => set('permDistrict', e.target.value)} className={`${ic('permDistrict')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} readOnly={d.sameAsCorrespondence} />
+              <input value={d.permDistrict} onChange={e => set('permDistrict', e.target.value)} className={`${ic('permDistrict')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed opacity-80' : 'bg-white'}`} readOnly={d.sameAsCorrespondence} />
               {err('permDistrict')}
             </div>
             <div className="space-y-1">
               {label('State', true)}
-              <select value={d.permState} onChange={e => set('permState', e.target.value)} className={`${sc('permState')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} disabled={d.sameAsCorrespondence}>
+              <select 
+                value={d.permState} 
+                onChange={e => set('permState', e.target.value)} 
+                className={`${ic('permState')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-400 cursor-not-allowed opacity-80' : 'bg-white'}`} 
+                disabled={d.sameAsCorrespondence}
+              >
                 <option value="">Select State</option>
                 {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -371,13 +389,13 @@ const PersonalDetails = ({ onNext, onBack }) => {
             </div>
             <div className="space-y-1">
               {label('Pincode', true)}
-              <input value={d.permPincode} onChange={e => set('permPincode', e.target.value.replace(/\D/g, '').slice(0, 6))} className={`${ic('permPincode')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} maxLength={6} readOnly={d.sameAsCorrespondence} />
+              <input value={d.permPincode} onChange={e => set('permPincode', e.target.value.replace(/\D/g, '').slice(0, 6))} className={`${ic('permPincode')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed opacity-80' : 'bg-white'}`} maxLength={6} readOnly={d.sameAsCorrespondence} />
               {err('permPincode')}
             </div>
           </div>
           <div className="space-y-1 md:w-1/2">
             {label('Phone (Permanent)', false)}
-            <input value={d.permPhone} onChange={e => set('permPhone', e.target.value)} className={`${ic('permPhone')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed' : ''}`} readOnly={d.sameAsCorrespondence} />
+            <input value={d.permPhone} onChange={e => set('permPhone', e.target.value)} className={`${ic('permPhone')} ${d.sameAsCorrespondence ? 'bg-gray-100/70 text-gray-500 cursor-not-allowed opacity-80' : 'bg-white'}`} readOnly={d.sameAsCorrespondence} />
           </div>
         </fieldset>
 

@@ -224,7 +224,9 @@ const AdminUserManagement = () => {
                           {u.email[0].toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-secondary">{u.profile?.fullName || 'Internal User'}</p>
+                          <p className="text-xs font-bold text-secondary">
+                            {[u.profile?.firstName, u.profile?.lastName].filter(n => n && n !== 'N/A').join(' ') || u.profile?.fullName || 'Internal User'}
+                          </p>
                           <p className="text-[10px] text-gray-400">{u.email}</p>
                         </div>
                       </div>

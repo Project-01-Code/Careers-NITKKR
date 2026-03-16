@@ -100,6 +100,10 @@ export const submitScorecard = asyncHandler(async (req, res) => {
     });
   }
 
+  if (review && review.status === 'SUBMITTED') {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'This review has already been submitted and cannot be modified');
+  }
+
   if (scorecard) {
     const { academicScore, researchScore, experienceScore, recommendation, comments } = scorecard;
     const clamp = (val, max) => Math.min(max, Math.max(0, Number(val) || 0));

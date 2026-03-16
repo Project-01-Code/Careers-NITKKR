@@ -27,6 +27,7 @@ const SECTION_TYPE_MAP = {
   declaration: 'declaration',
   photo: 'photo',
   signature: 'signature',
+  custom: 'custom',
 };
 
 const INITIAL_FORM_DATA = {
@@ -49,6 +50,7 @@ const INITIAL_FORM_DATA = {
   declaration: {},
   photo: {},
   signature: {},
+  custom: {},
 };
 
 export const ApplicationProvider = ({ children }) => {
@@ -261,7 +263,7 @@ export const ApplicationProvider = ({ children }) => {
       toast.error(err.response?.data?.message || 'Section validation failed');
       return false;
     }
-  }, [applicationId]);
+  }, [applicationId, jobSnapshot?.requiredSections]);
 
   /**
    * Save a section's data to the server
@@ -321,7 +323,7 @@ export const ApplicationProvider = ({ children }) => {
     } finally {
       setSaving(false);
     }
-  }, [applicationId, jobSnapshot, validateSection]);
+  }, [applicationId, jobSnapshot?.requiredSections, validateSection]);
 
   /**
    * For backward compatibility — updateSection is used by step components
@@ -416,6 +418,7 @@ export const ApplicationProvider = ({ children }) => {
    * Reset context state (e.g., when navigating away)
    */
   const resetApplication = useCallback(() => {
+    initRef.current = false;
     setApplicationId(null);
     setApplicationNumber(null);
     setJobId(null);

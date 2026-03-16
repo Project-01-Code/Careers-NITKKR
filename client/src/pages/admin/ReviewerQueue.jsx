@@ -31,7 +31,7 @@ const ReviewerQueue = () => {
 
   useEffect(() => {
     fetchQueue(pagination.page);
-  }, [pagination.page]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pagination.page]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
@@ -98,7 +98,7 @@ const ReviewerQueue = () => {
                             {app.sections?.photo?.imageUrl ? (
                               <img
                                 src={app.sections.photo.imageUrl}
-                                alt={app.userId?.profile?.fullName}
+                                alt={[app.userId?.profile?.firstName, app.userId?.profile?.lastName].filter(Boolean).join(' ')}
                                 className="w-14 h-14 rounded-xl object-cover border border-gray-200 shadow-sm"
                               />
                             ) : (
@@ -110,7 +110,7 @@ const ReviewerQueue = () => {
 
                           <div>
                             <h3 className="font-bold text-lg text-gray-800 group-hover:text-primary transition leading-tight line-clamp-2">
-                              {app.userId?.profile?.fullName || 'Applicant'}
+                               {[app.userId?.profile?.firstName, app.userId?.profile?.lastName].filter(n => n && n !== 'N/A').join(' ') || 'Applicant'}
                             </h3>
                           </div>
                         </div>

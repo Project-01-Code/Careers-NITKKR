@@ -164,12 +164,20 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
       // Step 2: If fee required, redirect to Stripe payment
       if (feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted') {
         const res = await api.post('/payments/create-order', { applicationId });
-        if (res.data.data?.url) {
-          window.location.href = res.data.data.url;
+        const paymentData = res.data.data;
+
+        if (paymentData?.url) {
+          window.location.href = paymentData.url;
           return;
-        } else if (res.data.data?.bypassed) {
+        } else if (paymentData?.bypassed || paymentData?.exempted) {
           toast.success('Application fee exempted. Submitted successfully!');
           navigate('/profile');
+          return;
+        } else if (paymentData?.alreadyPending) {
+          toast.error('A payment is already pending for this application.');
+          return;
+        } else {
+          toast.error('Failed to initiate payment. Please try again.');
           return;
         }
       }

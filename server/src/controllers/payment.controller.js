@@ -60,14 +60,18 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     status: PAYMENT_STATUS.PENDING,
   });
   if (existingPending) {
+    // Retrieve the session from Stripe to get a fresh URL
+    const stripeSession = await stripeService.retrieveCheckoutSession(existingPending.sessionId);
+    
     return res.status(HTTP_STATUS.OK).json(
       new ApiResponse(
         HTTP_STATUS.OK,
         {
           sessionId: existingPending.sessionId,
+          url: stripeSession.url,
           alreadyPending: true,
         },
-        'A payment session already exists for this application. Please complete the existing payment.'
+        'A payment session already exists for this application. Redirecting to complete payment.'
       )
     );
   }
@@ -89,7 +93,7 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
 
   // ── 8. Exempt path — no Stripe session needed ─────────────────────────────
   if (totalAmount === 0 || !isFeeRequired) {
-    markApplicationSubmitted(application, PAYMENT_STATUS.EXEMPTED);
+    markApplicationSubmitted(application, PAYMENT_STATUS.EXEMPTED, userId);
     await application.save();
 
     return res.status(HTTP_STATUS.OK).json(
@@ -218,7 +222,7 @@ export const getPaymentStatus = asyncHandler(async (req, res) => {
         paymentRecord.paymentMethod   = stripeSession.payment_method_types?.[0] ?? 'card';
         await paymentRecord.save();
 
-        markApplicationSubmitted(application, PAYMENT_STATUS.PAID);
+        markApplicationSubmitted(application, PAYMENT_STATUS.PAID, userId);
         await application.save();
       }
     } catch (err) {

@@ -144,6 +144,7 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
       pdfUrl: uploaded.url,
       cloudinaryId: uploaded.publicId,
       savedAt: new Date(),
+      isComplete: true, // Mark as complete after successful PDF upload
     });
 
     await application.save();

@@ -66,9 +66,25 @@ export function calculateApplicationFee(appFeeConfig = {}, rawCategory = '', isP
  *
  * @param {import('../models/application.model.js').Application} application
  * @param {string} paymentStatus - PAYMENT_STATUS.PAID | PAYMENT_STATUS.EXEMPTED
+ * @param {string} userId        - User ID of person triggering submission (optional)
  */
-export function markApplicationSubmitted(application, paymentStatus) {
+export function markApplicationSubmitted(application, paymentStatus, userId = null) {
+  const targetStatus = 'submitted';
+  
+  // Already submitted? Don't duplicate history
+  if (application.status === targetStatus && application.paymentStatus === paymentStatus) {
+    return;
+  }
+
   application.paymentStatus = paymentStatus;
-  application.status = 'submitted';
-  application.submittedAt = application.submittedAt ?? new Date(); // idempotent
+  application.status = targetStatus;
+  application.submittedAt = application.submittedAt ?? new Date();
+
+  // Add to status history for audit trail
+  application.statusHistory.push({
+    status: targetStatus,
+    changedBy: userId || application.userId,
+    changedAt: new Date(),
+    remarks: `Application submitted (${paymentStatus === PAYMENT_STATUS.EXEMPTED ? 'Fee Exempted' : 'Payment Verified'})`,
+  });
 }

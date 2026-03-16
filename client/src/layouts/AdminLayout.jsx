@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const AdminLayout = ({ children }) => {
   const { user, logout, isAdmin } = useAuth();
@@ -21,7 +20,7 @@ const AdminLayout = ({ children }) => {
     { path: '/admin/queue', label: 'Evaluation Queue', icon: 'rate_review', roles: ['reviewer'] },
     { path: '/admin/jobs', label: 'Jobs', icon: 'work', roles: ['admin', 'super_admin'] },
     { path: '/admin/notices', label: 'Notices', icon: 'campaign', roles: ['admin', 'super_admin'] },
-    { path: '/admin/applicants', label: 'Applicants', icon: 'groups', roles: ['admin', 'super_admin', 'reviewer'] },
+    { path: '/admin/applicants', label: 'Applicants', icon: 'groups', roles: ['admin', 'super_admin'] },
     { path: '/admin/fee-exemption', label: 'Fee Exemption', icon: 'payments', roles: ['admin', 'super_admin'] },
     { path: '/admin/users', label: 'User Management', icon: 'manage_accounts', roles: ['admin', 'super_admin'] },
   ];

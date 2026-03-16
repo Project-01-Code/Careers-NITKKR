@@ -465,7 +465,7 @@ const updateProfile = asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { email, password, otp } = req.body;
+  const { email, password, otp, firstName, lastName, phone, dateOfBirth } = req.body;
 
   const existedUser = await User.findOne({ email, deletedAt: null });
   if (existedUser) {
@@ -485,7 +485,12 @@ const registerUser = asyncHandler(async (req, res) => {
     email,
     password,
     role: USER_ROLES.APPLICANT,
-    profile: {},
+    profile: {
+      firstName,
+      lastName,
+      phone,
+      dateOfBirth,
+    },
   });
 
   await VerificationToken.deleteOne({ _id: tokenDoc._id });
@@ -528,15 +533,7 @@ const sendPasswordResetOTPHandler = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email, deletedAt: null });
 
   if (!user) {
-    return res
-      .status(HTTP_STATUS.OK)
-      .json(
-        new ApiResponse(
-          HTTP_STATUS.OK,
-          {},
-          'If an account exists, a reset OTP has been sent.'
-        )
-      );
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'No account found with this email address');
   }
 
   const otp = await createAndStoreOTP(email, TOKEN_TYPES.PASSWORD_RESET);

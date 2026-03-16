@@ -3,8 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import CategoryCard from '../components/CategoryCard';
 import api from '../services/api';
-// eslint-disable-next-line no-unused-vars
-import { motion } from 'framer-motion';
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 const Home = () => {
   const navigate = useNavigate();
@@ -77,7 +76,8 @@ const Home = () => {
               transition={{ duration: 0.8, delay: 0.4 }}
               className="text-lg md:text-xl text-gray-100 max-w-2xl leading-relaxed drop-shadow-md"
             >
-              Inviting applications from motivated and research-oriented professionals for faculty positions.
+              Inviting applications from motivated and research-oriented
+              professionals for faculty positions.
             </motion.p>
 
             <motion.div
@@ -112,8 +112,14 @@ const Home = () => {
               <h2 className="text-3xl font-bold text-secondary">
                 Explore Opportunities
               </h2>
-              <Link to="/jobs" className="text-primary font-medium hover:underline flex items-center gap-1">
-                View All <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              <Link
+                to="/jobs"
+                className="text-primary font-medium hover:underline flex items-center gap-1"
+              >
+                View All{' '}
+                <span className="material-symbols-outlined text-sm">
+                  arrow_forward
+                </span>
               </Link>
             </div>
 
@@ -122,24 +128,29 @@ const Home = () => {
                 title="Teaching Faculty"
                 icon="school"
                 description="Professors, Associate Professors, and Assistant Professors across various engineering and science disciplines."
-                onClick={() => navigate('/jobs?designation=Assistant+Professor')}
+                onClick={() => navigate('/jobs')}
               />
               <CategoryCard
                 title="Research & Projects"
                 icon="science"
-                description="Join cutting-edge research projects and collaborative initiatives funded by national and international agencies."
-                onClick={() => navigate('/jobs?recruitmentType=external')}
+                description=" Join cutting-edge research projects and collaborative initiatives funded by national and international agencies."
+                onClick={() => navigate('/jobs')}
               />
             </div>
 
             {/* Additional Content / Info */}
             <div className="mt-12 bg-primary/5 rounded-2xl p-8 border border-primary/10">
               <div className="flex items-start gap-4">
-                <span className="material-symbols-outlined text-4xl text-primary">info</span>
+                <span className="material-symbols-outlined text-4xl text-primary">
+                  info
+                </span>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Application Support</h3>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    Application Support
+                  </h3>
                   <p className="text-gray-600 mb-4">
-                    Facing issues with the online application? Our support team is here to help you navigate the process.
+                    Facing issues with the online application? Our support team
+                    is here to help you navigate the process.
                   </p>
                   <Link
                     to="/help"
@@ -157,7 +168,9 @@ const Home = () => {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
               <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
                 <h3 className="text-xl font-bold text-secondary flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">campaign</span>
+                  <span className="material-symbols-outlined text-primary">
+                    campaign
+                  </span>
                   Latest Notices
                 </h3>
               </div>
@@ -168,7 +181,9 @@ const Home = () => {
                     <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : notices.length === 0 ? (
-                  <p className="text-gray-400 text-sm text-center py-6">No notices available</p>
+                  <p className="text-gray-400 text-sm text-center py-6">
+                    No notices available
+                  </p>
                 ) : (
                   notices.map((notice, index) => {
                     const { month, day } = formatDate(notice.createdAt);
@@ -176,12 +191,18 @@ const Home = () => {
                       <a
                         key={notice._id || index}
                         href={notice.pdfUrl || notice.externalLink || '#'}
-                        target={notice.pdfUrl || notice.externalLink ? '_blank' : undefined}
+                        target={
+                          notice.pdfUrl || notice.externalLink
+                            ? '_blank'
+                            : undefined
+                        }
                         rel="noopener noreferrer"
                         className="group flex items-start gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-primary"
                       >
                         <div className="flex-shrink-0 flex flex-col items-center bg-gray-100 rounded p-1 min-w-[50px] group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                          <span className="text-xs font-bold uppercase">{month}</span>
+                          <span className="text-xs font-bold uppercase">
+                            {month}
+                          </span>
                           <span className="text-lg font-bold">{day}</span>
                         </div>
                         <div className="flex-grow">
@@ -196,7 +217,10 @@ const Home = () => {
                             )}
                             {notice.pdfUrl && (
                               <span className="text-xs text-gray-400 flex items-center gap-1 group-hover:text-primary/70">
-                                <span className="material-symbols-outlined text-[10px]">download</span> PDF
+                                <span className="material-symbols-outlined text-[10px]">
+                                  download
+                                </span>{' '}
+                                PDF
                               </span>
                             )}
                           </div>
@@ -208,7 +232,10 @@ const Home = () => {
               </div>
 
               <div className="mt-6 pt-4 border-t border-gray-100 text-center">
-                <Link to="/notices" className="text-sm text-gray-500 hover:text-primary font-medium transition-colors">
+                <Link
+                  to="/notices"
+                  className="text-sm text-gray-500 hover:text-primary font-medium transition-colors"
+                >
                   View Notice Archive
                 </Link>
               </div>

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import MainLayout from '../layouts/MainLayout';
+import OtpInput from '../components/OtpInput';
 
 const VerifyEmail = () => {
     const { user, refreshUser } = useAuth();
@@ -99,14 +100,9 @@ const VerifyEmail = () => {
                         <form onSubmit={handleVerify} className="space-y-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-700">Verification Code</label>
-                                <input
-                                    type="text"
+                                <OtpInput
                                     value={otp}
-                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                    placeholder="Enter 6-digit code"
-                                    className="w-full text-center text-2xl tracking-[0.5em] px-4 py-4 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-gray-50 focus:bg-white font-mono"
-                                    maxLength={6}
-                                    autoFocus
+                                    onChange={setOtp}
                                 />
                             </div>
 

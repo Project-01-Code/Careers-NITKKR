@@ -142,6 +142,30 @@ export const getAllApplications = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @route   GET /api/v1/admin/applications/by-number/:applicationNumber
+ * @desc    Look up a single application by its human-readable application number
+ * @access  Admin, Super Admin
+ */
+export const getApplicationByNumber = asyncHandler(async (req, res) => {
+  const { applicationNumber } = req.params;
+
+  const application = await Application.findOne({
+    applicationNumber: { $regex: new RegExp(`^${applicationNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+  })
+    .populate('userId', 'email profile')
+    .populate('jobId', 'title advertisementNo department status')
+    .lean();
+
+  if (!application) {
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'No application found with this Application ID');
+  }
+
+  res.status(HTTP_STATUS.OK).json(
+    new ApiResponse(HTTP_STATUS.OK, application, 'Application fetched successfully')
+  );
+});
+
+/**
  * @route   GET /api/v1/admin/applications/:id
  * @desc    Get full application details by ID
  * @access  Admin, Reviewer
