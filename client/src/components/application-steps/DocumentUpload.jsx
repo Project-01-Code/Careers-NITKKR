@@ -1,11 +1,11 @@
 import React from 'react';
 import SectionLayout from '../SectionLayout';
-import { useApplication } from '../../context/ApplicationContext';
+import { useApplication } from '../../hooks/useApplication';
 import ImageUpload from '../ImageUpload';
 import PdfUpload from '../PdfUpload';
 import toast from 'react-hot-toast';
 
-const DocumentUpload = ({ onNext, onBack }) => {
+const DocumentUpload = ({ onNext, onBack, isReadOnly }) => {
   const { formData, applicationId, updateLocalSection, setSectionStatus, jobSnapshot } =
     useApplication();
 
@@ -32,6 +32,10 @@ const DocumentUpload = ({ onNext, onBack }) => {
   );
 
   const handleNext = async () => {
+    if (isReadOnly) {
+       if (onNext) onNext();
+       return;
+    }
     // Validate only if required for this job
     if (isPhotoRequired && !photoUrl) {
       toast.error(
@@ -53,6 +57,7 @@ const DocumentUpload = ({ onNext, onBack }) => {
       subtitle="Please upload clear, legible copies of the required documents."
       onNext={handleNext}
       onBack={onBack}
+      hideNext={isReadOnly}
     >
       <div className="space-y-8 animate-fade-in">
         {/* Info Banner */}
@@ -129,6 +134,7 @@ const DocumentUpload = ({ onNext, onBack }) => {
                   applicationId={applicationId}
                   maxSizeKB={200}
                   sectionType="photo"
+                  disabled={isReadOnly}
                 />
               </div>
             )}
@@ -170,6 +176,7 @@ const DocumentUpload = ({ onNext, onBack }) => {
                   applicationId={applicationId}
                   maxSizeKB={200}
                   sectionType="signature"
+                  disabled={isReadOnly}
                 />
               </div>
             )}
@@ -245,6 +252,7 @@ const DocumentUpload = ({ onNext, onBack }) => {
               applicationId={applicationId}
               sectionType="final_documents"
               maxSizeMB={10}
+              disabled={isReadOnly}
             />
           </div>
         )}

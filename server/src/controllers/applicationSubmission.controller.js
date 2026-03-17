@@ -69,84 +69,71 @@ export const submitApplication = asyncHandler(async (req, res) => {
     );
   }
 
-  // Use transaction for atomicity
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    // Update application - re-verify DRAFT status inside transaction to prevent race conditions
-    const updatedApplication = await mongoose.model('Application').findOneAndUpdate(
-      { _id: application._id, status: APPLICATION_STATUS.DRAFT },
-      {
-        $set: {
+  // Update application - re-verify DRAFT status to prevent race conditions
+  const updatedApplication = await mongoose.model('Application').findOneAndUpdate(
+    { _id: application._id, status: APPLICATION_STATUS.DRAFT },
+    {
+      $set: {
+        status: APPLICATION_STATUS.SUBMITTED,
+        submittedAt: new Date(),
+        isLocked: true,
+        lockedAt: new Date(),
+      },
+      $push: {
+        statusHistory: {
           status: APPLICATION_STATUS.SUBMITTED,
-          submittedAt: new Date(),
-          isLocked: true,
-          lockedAt: new Date(),
-        },
-        $push: {
-          statusHistory: {
-            status: APPLICATION_STATUS.SUBMITTED,
-            changedBy: req.user._id,
-            changedAt: new Date(),
-            remarks: 'Application submitted by applicant',
-          },
+          changedBy: req.user._id,
+          changedAt: new Date(),
+          remarks: 'Application submitted by applicant',
         },
       },
-      { session, new: true }
+    },
+    { new: true }
+  );
+
+  if (!updatedApplication) {
+    throw new ApiError(
+      HTTP_STATUS.CONFLICT,
+      'Application submission failed. It might have already been submitted or is no longer a draft.'
     );
-
-    if (!updatedApplication) {
-      throw new ApiError(
-        HTTP_STATUS.CONFLICT,
-        'Application submission failed. It might have already been submitted or is no longer a draft.'
-      );
-    }
-
-    // Use the updated application for audit logging
-    const oldStatus = application.status;
-
-    // Audit log - awaited so a failure here aborts the transaction
-    await logAction({
-      userId: req.user._id,
-      action: AUDIT_ACTIONS.APPLICATION_SUBMITTED,
-      resourceType: RESOURCE_TYPES.APPLICATION,
-      resourceId: updatedApplication._id,
-      req,
-      changes: {
-        before: { status: oldStatus, isLocked: false },
-        after: {
-          status: APPLICATION_STATUS.SUBMITTED,
-          isLocked: true,
-        },
-      },
-    });
-
-    await session.commitTransaction();
-
-    // Send submission confirmation email (fire-and-forget)
-    sendApplicationConfirmation(req.user.email, {
-      applicationNumber: updatedApplication.applicationNumber,
-      jobTitle: updatedApplication.jobSnapshot.title,
-    }).catch(() => { });
-
-    res.status(HTTP_STATUS.OK).json(
-      new ApiResponse(
-        HTTP_STATUS.OK,
-        {
-          applicationNumber: updatedApplication.applicationNumber,
-          submittedAt: updatedApplication.submittedAt,
-          status: updatedApplication.status,
-        },
-        'Application submitted successfully'
-      )
-    );
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
   }
+
+  // Use the updated application for audit logging
+  const oldStatus = application.status;
+
+  // Audit log
+  await logAction({
+    userId: req.user._id,
+    action: AUDIT_ACTIONS.APPLICATION_SUBMITTED,
+    resourceType: RESOURCE_TYPES.APPLICATION,
+    resourceId: updatedApplication._id,
+    req,
+    changes: {
+      before: { status: oldStatus, isLocked: false },
+      after: {
+        status: APPLICATION_STATUS.SUBMITTED,
+        isLocked: true,
+      },
+    },
+  });
+
+  // Send submission confirmation email (fire-and-forget)
+  sendApplicationConfirmation(req.user.email, {
+    applicationNumber: updatedApplication.applicationNumber,
+    jobTitle: updatedApplication.jobSnapshot.title,
+  }).catch(() => { });
+
+  res.status(HTTP_STATUS.OK).json(
+    new ApiResponse(
+      HTTP_STATUS.OK,
+      {
+        applicationNumber: updatedApplication.applicationNumber,
+        submittedAt: updatedApplication.submittedAt,
+        status: updatedApplication.status,
+      },
+      'Application submitted successfully'
+    )
+  );
 });
 
 /**
@@ -168,58 +155,45 @@ export const withdrawApplication = asyncHandler(async (req, res) => {
     );
   }
 
-  // Use transaction
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const oldStatus = application.status;
 
-  try {
-    const oldStatus = application.status;
+  // Update status
+  application.status = APPLICATION_STATUS.WITHDRAWN;
 
-    // Update status
-    application.status = APPLICATION_STATUS.WITHDRAWN;
+  // Add to status history
+  application.statusHistory.push({
+    status: APPLICATION_STATUS.WITHDRAWN,
+    changedBy: req.user._id,
+    changedAt: new Date(),
+    remarks: reason || 'Application withdrawn by applicant',
+  });
 
-    // Add to status history
-    application.statusHistory.push({
-      status: APPLICATION_STATUS.WITHDRAWN,
-      changedBy: req.user._id,
-      changedAt: new Date(),
-      remarks: reason || 'Application withdrawn by applicant',
-    });
+  await application.save();
 
-    await application.save({ session });
+  // Audit log
+  await logAction({
+    userId: req.user._id,
+    action: AUDIT_ACTIONS.APPLICATION_WITHDRAWN,
+    resourceType: RESOURCE_TYPES.APPLICATION,
+    resourceId: application._id,
+    req,
+    changes: {
+      before: { status: oldStatus },
+      after: { status: APPLICATION_STATUS.WITHDRAWN },
+      reason,
+    },
+  });
 
-    // Audit log - awaited so a failure here aborts the transaction
-    await logAction({
-      userId: req.user._id,
-      action: AUDIT_ACTIONS.APPLICATION_WITHDRAWN,
-      resourceType: RESOURCE_TYPES.APPLICATION,
-      resourceId: application._id,
-      req,
-      changes: {
-        before: { status: oldStatus },
-        after: { status: APPLICATION_STATUS.WITHDRAWN },
-        reason,
+  res.status(HTTP_STATUS.OK).json(
+    new ApiResponse(
+      HTTP_STATUS.OK,
+      {
+        applicationNumber: application.applicationNumber,
+        status: application.status,
       },
-    });
-
-    await session.commitTransaction();
-
-    res.status(HTTP_STATUS.OK).json(
-      new ApiResponse(
-        HTTP_STATUS.OK,
-        {
-          applicationNumber: application.applicationNumber,
-          status: application.status,
-        },
-        'Application withdrawn successfully'
-      )
-    );
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
-  }
+      'Application withdrawn successfully'
+    )
+  );
 });
 
 /**
@@ -246,6 +220,36 @@ export const downloadReceipt = asyncHandler(async (req, res) => {
   res.setHeader(
     'Content-Disposition',
     `attachment; filename=receipt-${application.applicationNumber}.pdf`
+  );
+  res.send(pdfBuffer);
+});
+
+/**
+ * Export the full application docket as a PDF.
+ * Available after the application has been submitted.
+ *
+ * @route   GET /api/v1/applications/:id/export-full
+ * @access  Private (Applicant only)
+ */
+export const exportApplicantDocket = asyncHandler(async (req, res) => {
+  const application = req.application; // Loaded by checkApplicationOwnership middleware
+
+  if (application.status === APPLICATION_STATUS.DRAFT) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'Docket is not available for draft applications'
+    );
+  }
+
+  // Generate PDF buffer (without reviews — applicants don't see reviewer data)
+  const pdfBuffer = await generateApplicationPDF(application._id, {
+    title: 'Application Docket',
+  });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename=docket-${application.applicationNumber}.pdf`
   );
   res.send(pdfBuffer);
 });

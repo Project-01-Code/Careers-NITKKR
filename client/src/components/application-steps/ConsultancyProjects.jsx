@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
-import { useApplication } from '../../context/ApplicationContext';
+import { useApplication } from '../../hooks/useApplication';
 import toast from 'react-hot-toast';
 
 const PROJECT_STATUS = ['Completed', 'Ongoing', 'Sanctioned'];

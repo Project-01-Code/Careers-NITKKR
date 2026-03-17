@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 
-const ImageUpload = ({ label, value, onChange, placeholder, applicationId, sectionType, maxSizeKB = 200 }) => {
+const ImageUpload = ({ label, value, onChange, placeholder, applicationId, sectionType, maxSizeKB = 200, disabled }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -74,13 +74,15 @@ const ImageUpload = ({ label, value, onChange, placeholder, applicationId, secti
           ) : value ? (
             <>
               <img src={value} alt="Preview" className="w-full h-full object-cover" />
-              <button
-                onClick={handleRemove}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-lg"
-                title="Remove Image"
-              >
-                <span className="material-symbols-outlined text-[14px]">close</span>
-              </button>
+              {!disabled && (
+                <button
+                  onClick={handleRemove}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-lg"
+                  title="Remove Image"
+                >
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              )}
             </>
           ) : (
             <span className="material-symbols-outlined text-4xl text-gray-300">image</span>
@@ -89,7 +91,7 @@ const ImageUpload = ({ label, value, onChange, placeholder, applicationId, secti
 
         {/* Upload Controls */}
         <div className="flex-1 space-y-2">
-          <label className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary/10 text-primary font-medium rounded-lg cursor-pointer hover:bg-primary/20 transition-colors">
+          <label className={`inline-flex items-center gap-2 px-6 py-2.5 font-medium rounded-lg transition-colors ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-primary/10 text-primary cursor-pointer hover:bg-primary/20'}`}>
             <span className="material-symbols-outlined text-xl">upload</span>
             Select Image
             <input
@@ -97,7 +99,7 @@ const ImageUpload = ({ label, value, onChange, placeholder, applicationId, secti
               accept="image/jpeg, image/png, image/jpg"
               className="hidden"
               onChange={handleFileChange}
-              disabled={loading}
+              disabled={loading || disabled}
             />
           </label>
           <p className="text-xs text-gray-500">{placeholder || 'JPG or PNG. Max size 2MB.'}</p>

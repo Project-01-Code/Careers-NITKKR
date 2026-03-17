@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
-import { useApplication } from '../../context/ApplicationContext';
+import { useApplication } from '../../hooks/useApplication';
 import toast from 'react-hot-toast';
 
 const EMPTY_ROW = { name: '', designation: '', departmentAddress: '', city: '', pincode: '', phone: '', officialEmail: '', personalEmail: '' };
 
-const Referees = ({ onNext, onBack }) => {
+const Referees = ({ onNext, onBack, isReadOnly }) => {
   const { formData, updateSection } = useApplication();
   const [list, setList] = useState([{ ...EMPTY_ROW }, { ...EMPTY_ROW }]);
   const [errors, setErrors] = useState([{}, {}]);
@@ -24,6 +24,7 @@ const Referees = ({ onNext, onBack }) => {
   }, [formData?.referees]);
 
   const set = (i, field, val) => {
+    if (isReadOnly) return;
     const upd = [...list];
     upd[i] = { ...upd[i], [field]: val };
     setList(upd);
@@ -55,6 +56,10 @@ const Referees = ({ onNext, onBack }) => {
   };
 
   const handleNext = async () => {
+    if (isReadOnly) {
+       if (onNext) onNext();
+       return;
+    }
     if (list.length !== 2) { toast.error('Exactly 2 referees are required'); return; }
 
     if (!validate()) {
@@ -75,11 +80,11 @@ const Referees = ({ onNext, onBack }) => {
     }
   };
 
-  const ic = (i, field) => `w-full px-3 py-2 rounded-lg border ${errors[i]?.[field] ? 'border-red-400 bg-red-50/30 text-red-900 placeholder-red-300 focus:ring-red-200 focus:border-red-500' : 'border-gray-300 focus:ring-primary/20 focus:border-primary bg-white text-gray-900'} focus:ring-2 outline-none text-sm transition-all`;
+  const ic = (i, field) => `w-full px-3 py-2 rounded-lg border ${errors[i]?.[field] ? 'border-red-400 bg-red-50/30 text-red-900 placeholder-red-300 focus:ring-red-200 focus:border-red-500' : 'border-gray-300 focus:ring-primary/20 focus:border-primary bg-white text-gray-900'} focus:ring-2 outline-none text-sm transition-all ${isReadOnly ? 'bg-gray-100 cursor-not-allowed text-gray-400' : ''}`;
   const errText = (i, field) => errors[i]?.[field] ? <p className="text-xs text-red-500 mt-1 font-medium">{errors[i][field]}</p> : null;
 
   return (
-    <SectionLayout title="Referees" subtitle="Provide details of exactly 2 referees." onNext={handleNext} onBack={onBack}>
+    <SectionLayout title="Referees" subtitle="Provide details of exactly 2 referees." onNext={handleNext} onBack={onBack} hideNext={isReadOnly}>
       <div className="space-y-6">
         {list.map((ref, i) => (
           <div key={i} className="border border-gray-200 rounded-xl p-5 bg-gray-50 space-y-4">
@@ -90,46 +95,46 @@ const Referees = ({ onNext, onBack }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.name ? 'text-red-500' : 'text-gray-500'}`}>Name <span className="text-red-500">*</span></label>
-                <input value={ref.name} onChange={e => set(i, 'name', e.target.value)} className={ic(i, 'name')} placeholder="Full Name" />
+                <input value={ref.name} onChange={e => set(i, 'name', e.target.value)} className={ic(i, 'name')} placeholder="Full Name" disabled={isReadOnly} />
                 {errText(i, 'name')}
               </div>
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.designation ? 'text-red-500' : 'text-gray-500'}`}>Designation <span className="text-red-500">*</span></label>
-                <input value={ref.designation} onChange={e => set(i, 'designation', e.target.value)} className={ic(i, 'designation')} placeholder="Professor / HOD etc." />
+                <input value={ref.designation} onChange={e => set(i, 'designation', e.target.value)} className={ic(i, 'designation')} placeholder="Professor / HOD etc." disabled={isReadOnly} />
                 {errText(i, 'designation')}
               </div>
             </div>
             <div className="space-y-1 block">
               <label className={`text-xs font-semibold uppercase ${errors[i]?.departmentAddress ? 'text-red-500' : 'text-gray-500'}`}>Department & Address <span className="text-red-500">*</span></label>
-              <textarea value={ref.departmentAddress} onChange={e => set(i, 'departmentAddress', e.target.value)} className={`${ic(i, 'departmentAddress')} h-16`} placeholder="Department, Institute, Address..." />
+              <textarea value={ref.departmentAddress} onChange={e => set(i, 'departmentAddress', e.target.value)} className={`${ic(i, 'departmentAddress')} h-16`} placeholder="Department, Institute, Address..." disabled={isReadOnly} />
               {errText(i, 'departmentAddress')}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.city ? 'text-red-500' : 'text-gray-500'}`}>City <span className="text-red-500">*</span></label>
-                <input value={ref.city} onChange={e => set(i, 'city', e.target.value)} className={ic(i, 'city')} />
+                <input value={ref.city} onChange={e => set(i, 'city', e.target.value)} className={ic(i, 'city')} disabled={isReadOnly} />
                 {errText(i, 'city')}
               </div>
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.pincode ? 'text-red-500' : 'text-gray-500'}`}>Pincode <span className="text-red-500">*</span></label>
-                <input value={ref.pincode} onChange={e => set(i, 'pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} className={ic(i, 'pincode')} maxLength={6} placeholder="6 digits" />
+                <input value={ref.pincode} onChange={e => set(i, 'pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} className={ic(i, 'pincode')} maxLength={6} placeholder="6 digits" disabled={isReadOnly} />
                 {errText(i, 'pincode')}
               </div>
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.phone ? 'text-red-500' : 'text-gray-500'}`}>Phone / Fax <span className="text-red-500">*</span></label>
-                <input value={ref.phone} onChange={e => set(i, 'phone', e.target.value)} className={ic(i, 'phone')} />
+                <input value={ref.phone} onChange={e => set(i, 'phone', e.target.value)} className={ic(i, 'phone')} disabled={isReadOnly} />
                 {errText(i, 'phone')}
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.officialEmail ? 'text-red-500' : 'text-gray-500'}`}>Official Email <span className="text-red-500">*</span></label>
-                <input type="email" value={ref.officialEmail} onChange={e => set(i, 'officialEmail', e.target.value)} className={ic(i, 'officialEmail')} />
+                <input type="email" value={ref.officialEmail} onChange={e => set(i, 'officialEmail', e.target.value)} className={ic(i, 'officialEmail')} disabled={isReadOnly} />
                 {errText(i, 'officialEmail')}
               </div>
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.personalEmail ? 'text-red-500' : 'text-gray-500'}`}>Personal Email <span className="text-red-500">*</span></label>
-                <input type="email" value={ref.personalEmail} onChange={e => set(i, 'personalEmail', e.target.value)} className={ic(i, 'personalEmail')} />
+                <input type="email" value={ref.personalEmail} onChange={e => set(i, 'personalEmail', e.target.value)} className={ic(i, 'personalEmail')} disabled={isReadOnly} />
                 {errText(i, 'personalEmail')}
               </div>
             </div>

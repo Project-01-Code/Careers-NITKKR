@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
-import { useApplication } from '../../context/ApplicationContext';
+import { useApplication } from '../../hooks/useApplication';
 import toast from 'react-hot-toast';
 
-const Declaration = ({ onNext, onBack }) => {
+const Declaration = ({ onNext, onBack, isReadOnly }) => {
   const { formData, updateSection } = useApplication();
   const [d, setD] = useState({
     declareInfoTrue: false,
@@ -20,9 +20,16 @@ const Declaration = ({ onNext, onBack }) => {
     }
   }, [formData?.declaration]);
 
-  const toggle = (field) => setD(prev => ({ ...prev, [field]: !prev[field] }));
+  const toggle = (field) => {
+    if (isReadOnly) return;
+    setD(prev => ({ ...prev, [field]: !prev[field] }));
+  };
 
   const handleNext = async () => {
+    if (isReadOnly) {
+       if (onNext) onNext();
+       return;
+    }
     if (!d.declareInfoTrue) { toast.error('You must declare that the information is true'); return; }
     if (!d.agreeToTerms) { toast.error('You must agree to the terms and conditions'); return; }
     if (!d.photoUploaded) { toast.error('Please confirm that you have uploaded your photograph'); return; }
@@ -42,19 +49,20 @@ const Declaration = ({ onNext, onBack }) => {
   };
 
   const checkItem = (field, label) => (
-    <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-4 flex items-start gap-3 hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => toggle(field)}>
+    <div className={`border rounded-lg p-4 flex items-start gap-3 transition-colors ${isReadOnly ? 'bg-gray-50 border-gray-100 cursor-not-allowed' : 'bg-blue-50/50 border-blue-100 hover:bg-blue-50 cursor-pointer'}`} onClick={() => toggle(field)}>
       <input
         type="checkbox"
         checked={d[field]}
         onChange={() => toggle(field)}
-        className="w-5 h-5 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+        className="w-5 h-5 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer disabled:cursor-not-allowed"
+        disabled={isReadOnly}
       />
-      <span className="text-sm font-medium text-blue-900 cursor-pointer select-none leading-relaxed">{label}</span>
+      <span className={`text-sm font-medium leading-relaxed select-none ${isReadOnly ? 'text-gray-400 cursor-not-allowed' : 'text-blue-900 cursor-pointer'}`}>{label}</span>
     </div>
   );
 
   return (
-    <SectionLayout title="Declaration" subtitle="Read carefully and confirm all checkboxes before final review." onNext={handleNext} onBack={onBack}>
+    <SectionLayout title="Declaration" subtitle="Read carefully and confirm all checkboxes before final review." onNext={handleNext} onBack={onBack} hideNext={isReadOnly}>
       <div className="space-y-6">
         <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
           <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
@@ -78,7 +86,7 @@ const Declaration = ({ onNext, onBack }) => {
             {checkItem('detailsVerified', 'I have verified all the details entered in this application and they are final.')}
           </div>
 
-          {(!d.declareInfoTrue || !d.agreeToTerms || !d.photoUploaded || !d.detailsVerified) && (
+          {!isReadOnly && (!d.declareInfoTrue || !d.agreeToTerms || !d.photoUploaded || !d.detailsVerified) && (
             <p className="text-center text-sm text-amber-600 font-medium mt-6">
               ⚠ All 4 checkboxes must be checked to proceed.
             </p>

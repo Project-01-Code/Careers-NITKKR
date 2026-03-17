@@ -20,20 +20,37 @@ const AdminUserManagement = () => {
     email: '',
     fullName: '',
     password: '',
-    role: 'reviewer'
+    role: 'reviewer',
+    phone: '',
+    dateOfBirth: '',
+    nationality: 'Indian'
   });
 
   const handleAddUser = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await api.post('/admin/users', form);
+      // Split fullName into firstName/lastName
+      const nameParts = form.fullName.trim().split(/\s+/);
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const res = await api.post('/admin/users', {
+        email: form.email,
+        password: form.password,
+        role: form.role,
+        firstName,
+        lastName,
+        phone: form.phone,
+        dateOfBirth: form.dateOfBirth || undefined,
+        nationality: form.nationality || 'Indian',
+      });
       toast.success(`${form.role.toUpperCase()} created successfully`);
 
       // Add to local session list since there's no backend list endpoint
       setCreatedRecently([res.data.data, ...createdRecently]);
 
-      setForm({ email: '', fullName: '', password: '', role: 'reviewer' });
+      setForm({ email: '', fullName: '', password: '', role: 'reviewer', phone: '', dateOfBirth: '', nationality: 'Indian' });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create user');
     } finally {
@@ -110,6 +127,38 @@ const AdminUserManagement = () => {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Phone Number</label>
+                <input
+                  type="tel"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+                  placeholder="+91 98765 43210"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Date of Birth</label>
+                  <input
+                    type="date"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+                    value={form.dateOfBirth}
+                    max={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Nationality</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+                    placeholder="Indian"
+                    value={form.nationality}
+                    onChange={(e) => setForm({ ...form, nationality: e.target.value })}
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Assigned Role</label>
@@ -239,16 +288,7 @@ const AdminUserManagement = () => {
               </div>
             )}
 
-            <div className="p-6 bg-orange-50 border border-orange-100 rounded-2xl">
-              <h4 className="text-xs font-bold text-orange-800 flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined text-lg">warning</span>
-                User List Unavailable
-              </h4>
-              <p className="text-[11px] text-orange-700 leading-normal">
-                The backend currently lacks a <code className="bg-orange-100 px-1 rounded">GET /admin/users</code> endpoint.
-                Full user listing and deletion will depend on future backend updates.
-              </p>
-            </div>
+
           </div>
         </div>
       </div>

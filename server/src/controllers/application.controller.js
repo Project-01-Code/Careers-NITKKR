@@ -2,9 +2,9 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { Application } from '../models/application.model.js';
 import { User } from '../models/user.model.js';
+import { Job } from '../models/job.model.js';
 import { createApplication as createApplicationService } from '../services/application.service.js';
 import { PAGINATION, HTTP_STATUS } from '../constants.js';
-import mongoose from 'mongoose';
 
 /**
  * Create a new application.
@@ -50,8 +50,29 @@ export const getUserApplications = asyncHandler(async (req, res) => {
     filter.status = status;
   }
 
+  // Only show applications for jobs that are NOT soft-deleted
+  const activeJobs = await Job.find({ deletedAt: null }).select('_id').lean();
+  const activeJobIds = activeJobs.map(j => j._id);
+
   if (jobId) {
+    // If specific jobId requested, it MUST be in the active jobs list
+    const isJobActive = activeJobIds.some(id => id.toString() === jobId);
+    if (!isJobActive) {
+      return res.status(HTTP_STATUS.OK).json(
+        new ApiResponse(
+          HTTP_STATUS.OK,
+          {
+            applications: [],
+            pagination: { page: parseInt(page, 10), limit: parseInt(limit, 10), total: 0, pages: 0 }
+          },
+          'No applications found for this job'
+        )
+      );
+    }
     filter.jobId = jobId;
+  } else {
+    // Filter applications to only those belonging to active jobs
+    filter.jobId = { $in: activeJobIds };
   }
 
   const pageNum = parseInt(page, 10);
@@ -122,34 +143,21 @@ export const deleteApplication = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const application = req.application; // Loaded by ownership middleware
 
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  // Atomically remove application link from user and delete the application document
+  await User.findByIdAndUpdate(
+    req.user._id,
+    { $pull: { applicationIds: application._id } }
+  );
 
-  try {
-    // Atomically remove application link from user and delete the application document
-    await User.findByIdAndUpdate(
-      req.user._id,
-      { $pull: { applicationIds: application._id } },
-      { session }
+  await Application.findByIdAndDelete(id);
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        null,
+        'Application deleted successfully'
+      )
     );
-
-    await Application.findByIdAndDelete(id, { session });
-
-    await session.commitTransaction();
-
-    res
-      .status(HTTP_STATUS.OK)
-      .json(
-        new ApiResponse(
-          HTTP_STATUS.OK,
-          null,
-          'Application deleted successfully'
-        )
-      );
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
-  }
 });

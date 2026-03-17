@@ -178,8 +178,13 @@ const jobBaseSchema = {
     .string()
     .refine((val) => !isNaN(Date.parse(val)), 'Invalid date format')
     .refine(
-      (date) => new Date(date) > new Date(),
-      'Application start date must be in the future'
+      (date) => {
+        const d = new Date(date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return d >= today;
+      },
+      'Application start date cannot be in the past'
     ),
   applicationEndDate: z
     .string()

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import MainLayout from '../layouts/MainLayout';
 import Stepper from '../components/Stepper';
-import { useApplication } from '../context/ApplicationContext';
+import { useApplication } from '../hooks/useApplication';
 import api from '../services/api';
 
 // Import All Steps
@@ -35,6 +36,7 @@ const ApplicationForm = () => {
     const saved = localStorage.getItem(`app_step_${jobId}`);
     return saved ? parseInt(saved, 10) : 1;
   });
+  const [showSummary, setShowSummary] = useState(false);
 
   const { 
     initApplication, 
@@ -127,6 +129,12 @@ const ApplicationForm = () => {
   const completedSteps = React.useMemo(() => {
     const completed = new Set();
     
+    // If application is submitted, ALL steps are considered complete
+    if (applicationStatus !== 'draft') {
+      steps.forEach(s => completed.add(s.id));
+      return completed;
+    }
+
     steps.forEach(s => {
       if (s.key === 'documents') {
         // Documents step is complete if all MANDATORY sub-sections are complete
@@ -148,7 +156,7 @@ const ApplicationForm = () => {
     });
     
     return completed;
-  }, [steps, completedSections, jobSnapshot]);
+  }, [steps, completedSections, jobSnapshot, applicationStatus]);
 
   const hasAutoAdvanced = React.useRef(false);
 
@@ -157,31 +165,34 @@ const ApplicationForm = () => {
     if (!loading && jobId && steps.length > 0 && !hasAutoAdvanced.current) {
       hasAutoAdvanced.current = true;
       
-      const requiredSections = jobSnapshot?.requiredSections || [];
-      const photoMandatory = requiredSections.some(rs => rs.sectionType === 'photo' && rs.isMandatory);
-      const signatureMandatory = requiredSections.some(rs => rs.sectionType === 'signature' && rs.isMandatory);
-      const finalDocMandatory = requiredSections.some(rs => rs.sectionType === 'final_documents' && rs.isMandatory);
+      if (applicationStatus !== 'draft') {
+        setTimeout(() => setShowSummary(true), 0);
+        return;
+      }
 
+      // If progress exists, jump to the first incomplete step
       setTimeout(() => {
-        const firstIncomplete = steps.find(s => {
-          if (s.key === 'documents') {
-             const photoDone = !photoMandatory || completedSections.has('photo');
-             const signatureDone = !signatureMandatory || completedSections.has('signature');
-             const finalDocDone = !finalDocMandatory || completedSections.has('documents');
-             return !(photoDone && signatureDone && finalDocDone);
-          }
+        const sorted = [...steps].sort((a,b) => a.id - b.id);
+        const firstIncomplete = sorted.find(s => {
+          if (s.id === steps.length) return false; 
           return !completedSections.has(s.key);
         });
 
         if (firstIncomplete) {
           setCurrentStep(firstIncomplete.id);
         } else {
-          // All steps complete, go to Review & Submit
           setCurrentStep(steps.length);
         }
       }, 0);
     }
-  }, [loading, jobId, steps, completedSections, jobSnapshot]);
+  }, [loading, jobId, steps, completedSections, applicationStatus]);
+
+  // Sync summary view with status change (e.g. after submission)
+  useEffect(() => {
+    if (applicationStatus === 'submitted' || applicationStatus === 'payment_pending') {
+      setTimeout(() => setShowSummary(true), 0);
+    }
+  }, [applicationStatus]);
 
   const handleNext = async () => {
     if (currentStep < steps.length) {
@@ -203,8 +214,30 @@ const ApplicationForm = () => {
     }
   };
 
+  const handleDownloadDocket = async () => {
+    try {
+      toast.loading('Generating your docket...', { id: 'docket' });
+      const res = await api.get(`/applications/${applicationId}/export-full`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Application_${applicationNumber}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Docket downloaded successfully!', { id: 'docket' });
+    } catch (err) {
+      console.error('Download error:', err);
+      toast.error('Failed to download docket. Please try again.', { id: 'docket' });
+    }
+  };
+
   const handleGoToStep = (stepId) => {
     setCurrentStep(stepId);
+    setShowSummary(false);
     window.scrollTo(0, 0);
   };
 
@@ -231,6 +264,7 @@ const ApplicationForm = () => {
         onBack={currentStep > 1 ? handleBack : null}
         onGoToStep={handleGoToStep}
         onGoToSection={handleGoToSection}
+        isReadOnly={applicationStatus !== 'draft'}
         {...extraProps}
       />
     );
@@ -264,19 +298,25 @@ const ApplicationForm = () => {
 
       <div className="container mx-auto px-6 py-12">
         <div className="flex flex-col lg:flex-row gap-8 xl:gap-12">
-          {/* Sidebar - Stepper */}
+          {/* Sidebar Navigation */}
           <div className="w-full lg:w-1/4 xl:w-1/5 shrink-0">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto custom-scrollbar">
-              <h3 className="font-bold text-gray-900 mb-6 sticky -top-6 bg-white z-20 pt-6 pb-2 -mx-6 px-6 border-b border-gray-50">Progress</h3>
+              {applicationStatus !== 'draft' && (
+                <button
+                  onClick={() => { setShowSummary(true); window.scrollTo(0,0); }}
+                  className={`w-full mb-6 p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${showSummary ? 'bg-secondary text-white border-secondary shadow-md' : 'bg-gray-50 border-gray-100 text-gray-600 hover:border-secondary/30'}`}
+                >
+                  <span className="material-symbols-outlined">description</span>
+                  <span className="font-bold text-sm uppercase tracking-wider">Submission Summary</span>
+                </button>
+              )}
+              <h3 className="font-bold text-gray-900 mb-6 sticky -top-6 bg-white z-20 pt-6 pb-2 -mx-6 px-6 border-b border-gray-50 uppercase text-xs tracking-widest text-gray-400">Progress</h3>
               <Stepper
                 steps={steps.map(s => s.title)}
-                currentStep={currentStep}
-                maxReachedStep={steps.length}
+                currentStep={showSummary ? null : currentStep}
+                maxReachedStep={applicationStatus !== 'draft' ? steps.length : steps.length} // Always reachable if submitted
                 completedSteps={completedSteps}
-                onStepClick={(step) => {
-                  setCurrentStep(step);
-                  window.scrollTo(0, 0);
-                }}
+                onStepClick={handleGoToStep}
               />
             </div>
           </div>
@@ -284,32 +324,49 @@ const ApplicationForm = () => {
           {/* Main Form Area */}
           <div className="w-full lg:w-3/4 xl:w-4/5">
             <div className="bg-white rounded-2xl p-6 md:p-8 lg:p-10 shadow-sm border border-gray-100 min-h-[500px]">
-              {applicationStatus !== 'draft' ? (
+              {showSummary ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-6">
-                    <span className="material-symbols-outlined text-green-500 text-5xl">check_circle</span>
+                  <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mb-8 shadow-sm scale-110">
+                    <span className="material-symbols-outlined text-green-500 text-6xl">check_circle</span>
                   </div>
-                  <h2 className="text-2xl font-bold text-secondary mb-2">Application Already Submitted</h2>
-                  <p className="text-gray-500 max-w-md mx-auto mb-8">
-                    Your application for this position has already been submitted and is currently {applicationStatus.replace('_', ' ')}. You can no longer make changes to it.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <button
-                      onClick={() => navigate('/dashboard')}
-                      className="px-8 py-3 bg-secondary text-white rounded-xl font-bold hover:bg-black transition-all"
-                    >
-                      Go to Dashboard
+                  <h2 className="text-3xl font-extrabold text-secondary mb-4 tracking-tight">Application Successfully Submitted</h2>
+                  <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6 mb-10 max-w-lg mx-auto">
+                    <p className="text-gray-600 mb-2">
+                       Your application for <strong>{jobSnapshot?.title || 'this position'}</strong> has been recorded.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 text-sm text-gray-400 font-medium uppercase tracking-wider">
+                      <span>Status: {applicationStatus?.replace('_', ' ')}</span>
+                      <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                      <span>ID: {applicationNumber}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 mt-10">
+                    <button onClick={() => navigate('/profile')} className="px-8 py-3 bg-secondary hover:bg-secondary/90 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-secondary/20 flex items-center justify-center gap-2">
+                       <span className="material-symbols-outlined">dashboard</span> Go to Dashboard
                     </button>
-                    <button
-                      onClick={() => window.open(`${api.defaults.baseURL}/applications/${applicationId}/export-full`, '_blank')}
-                      className="px-8 py-3 bg-primary/10 text-primary rounded-xl font-bold hover:bg-primary hover:text-white transition-all flex items-center gap-2"
+                    <button 
+                      onClick={handleDownloadDocket}
+                      className="px-8 py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
                     >
-                      <span className="material-symbols-outlined">download</span>
-                      Download Docket
+                       <span className="material-symbols-outlined">description</span> Download Docket
                     </button>
                   </div>
                 </div>
-              ) : renderStep()}
+              ) : (
+                <div className="relative">
+                  {applicationStatus !== 'draft' && (
+                    <div className="mb-8 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-xl flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-blue-600">visibility</span>
+                        <p className="text-blue-800 text-sm font-medium">Viewing submitted details (Read-only)</p>
+                      </div>
+                      <button onClick={() => setShowSummary(true)} className="text-xs font-bold uppercase text-blue-600 hover:text-blue-800 tracking-wider">Back to Summary</button>
+                    </div>
+                  )}
+                  {renderStep()}
+                </div>
+              )}
             </div>
           </div>
         </div>
