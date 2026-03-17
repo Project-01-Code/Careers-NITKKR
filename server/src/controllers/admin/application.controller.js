@@ -812,11 +812,11 @@ export const exemptApplicationFee = asyncHandler(async (req, res) => {
 });
 
 /**
- * @route   GET /api/v1/admin/applications/:id/export-full
+ * @route   GET /api/v1/admin/applications/:id/docket
  * @desc    Export a complete application report as PDF for review
  * @access  Admin, Reviewer
  */
-export const exportFullApplicationPDF = asyncHandler(async (req, res) => {
+export const exportApplicationReport = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const application = await Application.findById(id)

@@ -277,13 +277,13 @@ const ApplicationReview = () => {
                 {/* Spacer to match status + separator width (97px) */}
                 {isAdmin && <div className="w-[97px]" />}
                 <a
-                  href={`${api.defaults.baseURL}/admin/applications/${id}/export-full`}
+                  href={`${api.defaults.baseURL}/admin/applications/${id}/docket`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-secondary text-white rounded-2xl text-xs font-black hover:bg-black transition-all shadow-lg shadow-secondary/20 group"
                 >
                   <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">picture_as_pdf</span>
-                  DOCKET (FULL REPORT + RECEIPT)
+                  APPLICATION REPORT
                 </a>
               </div>
             </div>

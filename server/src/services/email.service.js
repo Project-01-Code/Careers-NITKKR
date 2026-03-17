@@ -79,7 +79,7 @@ export const sendApplicationConfirmation = (
           <td style="padding: 4px 0;">${jobTitle}</td>
         </tr>
       </table>
-      <p style="margin-top: 16px;">Please retain this email for your records. You can also download your submission receipt from the portal.</p>
+      <p style="margin-top: 16px;">Please retain this email for your records. You can also download your application summary from the portal.</p>
     `,
   });
 };
