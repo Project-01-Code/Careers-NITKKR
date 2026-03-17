@@ -275,7 +275,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           razorpayPaymentId: paymentResponse.razorpayPaymentId,
           razorpaySignature: paymentResponse.razorpaySignature,
         });
-
+      }
       // Step 3: Submit directly (free apps or already paid)
       await api.post(`/applications/${applicationId}/submit`);
       toast.success('Application submitted successfully!');
