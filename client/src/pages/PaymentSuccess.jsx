@@ -30,34 +30,47 @@ const PaymentSuccess = () => {
 
                 // Wait a moment for webhook to process
                 if (app.paymentStatus !== 'paid' && app.paymentStatus !== 'exempted') {
-                    // Poll for payment status (webhook may take a moment)
+                    // Poll for payment status using the dedicated payment endpoint
+                    // This endpoint actively checks Stripe if the webhook is delayed
                     setMessage('Confirming payment with Stripe...');
                     let attempts = 0;
                     const maxAttempts = 10;
 
                     while (attempts < maxAttempts) {
                         await new Promise(resolve => setTimeout(resolve, 2000));
-                        const checkRes = await api.get(`/applications/${applicationId}`);
-                        const currentApp = checkRes.data.data;
+                        // Check payment status endpoint, not just the application endpoint
+                        const checkRes = await api.get(`/payments/status/${applicationId}`);
+                        const paymentStatus = checkRes.data.data?.paymentStatus;
 
-                        if (currentApp.paymentStatus === 'paid' || currentApp.paymentStatus === 'exempted') {
+                        if (paymentStatus === 'paid' || paymentStatus === 'exempted') {
                             break;
                         }
                         attempts++;
                     }
 
                     // Check one final time
-                    const finalRes = await api.get(`/applications/${applicationId}`);
-                    if (finalRes.data.data.paymentStatus !== 'paid' && finalRes.data.data.paymentStatus !== 'exempted') {
+                    const finalRes = await api.get(`/payments/status/${applicationId}`);
+                    const finalPaymentStatus = finalRes.data.data?.paymentStatus;
+                    const finalAppStatus = finalRes.data.data?.applicationStatus;
+                    
+                    if (finalPaymentStatus !== 'paid' && finalPaymentStatus !== 'exempted') {
                         setStatus('error');
                         setMessage('Payment verification is taking longer than expected. Please check your profile page for the status.');
                         return;
                     }
+                    
+                    // If backend already marked it submitted, skip redundant submit call
+                    if (finalAppStatus === 'submitted') {
+                        setStatus('success');
+                        setMessage('Payment confirmed and application submitted successfully!');
+                        toast.success('Application submitted successfully!');
+                        return;
+                    }
                 }
 
-                // Payment confirmed — submit the application
+                // If payment confirmed but application not yet marked submitted
                 setStatus('submitting');
-                setMessage('Payment confirmed! Submitting your application...');
+                setMessage('Payment confirmed! Finalizing your application...');
 
                 const result = await submitApplication();
 

@@ -11,7 +11,6 @@ import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { requireRole } from '../middlewares/rbac.middleware.js';
 import { USER_ROLES } from '../constants.js';
 import { uploadPDFToMemory } from '../middlewares/pdfUpload.middleware.js';
-import { malwareScan } from '../middlewares/malwareScan.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import {
   createNoticeSchema,
@@ -40,7 +39,6 @@ router.post(
   verifyJWT,
   requireRole(USER_ROLES.ADMIN),
   uploadPDFToMemory.single('file'),
-  malwareScan,
   validate(createNoticeSchema),
   createNotice
 );
@@ -50,7 +48,6 @@ router.patch(
   verifyJWT,
   requireRole(USER_ROLES.ADMIN),
   uploadPDFToMemory.single('file'),
-  malwareScan,
   validate(updateNoticeSchema),
   validate(noticeIdParamSchema),
   updateNotice

@@ -171,9 +171,9 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
         if (paymentData?.url) {
           window.location.href = paymentData.url;
           return;
-        } else if (paymentData?.bypassed || paymentData?.exempted) {
-          toast.success('Application fee exempted. Submitted successfully!');
-          navigate('/profile');
+        } else if (paymentData?.bypassed || paymentData?.exempted || paymentData?.alreadyPaid) {
+          toast.success(paymentData?.alreadyPaid ? 'Payment already completed! Application submitted.' : 'Application fee exempted. Submitted successfully!');
+          navigate('/profile', { state: { refresh: true } });
           return;
         } else if (paymentData?.alreadyPending) {
           toast.error('A payment is already pending for this application.');
