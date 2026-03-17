@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
-import { useApplication } from '../../context/ApplicationContext';
+import { useApplication } from '../../hooks/useApplication';
 import toast from 'react-hot-toast';
 
 const SUBJECT_LEVEL = ['UG Level', 'PG Level'];
 
 const EMPTY_ROW = { category: '', subjectName: '' };
 
-const SubjectsTaught = ({ onNext, onBack }) => {
+const SubjectsTaught = ({ onNext, onBack, isReadOnly }) => {
   const { formData, updateSection } = useApplication();
   const [list, setList] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -22,6 +22,7 @@ const SubjectsTaught = ({ onNext, onBack }) => {
   }, [formData?.subjectsTaught, list.length]);
 
   const set = (i, field, val) => {
+    if (isReadOnly) return;
     const upd = [...list];
     upd[i] = { ...upd[i], [field]: val };
     setList(upd);
@@ -35,11 +36,13 @@ const SubjectsTaught = ({ onNext, onBack }) => {
   };
 
   const addRow = () => {
+    if (isReadOnly) return;
     setList([...list, { ...EMPTY_ROW }]);
     setErrors([...errors, {}]);
   };
 
   const removeRow = (i) => {
+    if (isReadOnly) return;
     setList(list.filter((_, idx) => idx !== i));
     setErrors(errors.filter((_, idx) => idx !== i));
   };
@@ -88,11 +91,11 @@ const SubjectsTaught = ({ onNext, onBack }) => {
     }
   };
 
-  const ic = (i, field) => `w-full px-3 py-2 rounded-lg border ${errors[i]?.[field] ? 'border-red-400 bg-red-50/30 text-red-900 placeholder-red-300 focus:ring-red-200 focus:border-red-500' : 'border-gray-300 focus:ring-primary/20 focus:border-primary bg-white text-gray-900'} focus:ring-2 outline-none text-sm transition-all`;
+  const ic = (i, field) => `w-full px-3 py-2 rounded-lg border ${errors[i]?.[field] ? 'border-red-400 bg-red-50/30 text-red-900 placeholder-red-300 focus:ring-red-200 focus:border-red-500' : 'border-gray-300 focus:ring-primary/20 focus:border-primary bg-white text-gray-900'} focus:ring-2 outline-none text-sm transition-all ${isReadOnly ? 'bg-gray-100 cursor-not-allowed text-gray-400' : ''}`;
   const errText = (i, field) => errors[i]?.[field] ? <p className="text-xs text-red-500 mt-1 font-medium">{errors[i][field]}</p> : null;
 
   return (
-    <SectionLayout title="Subjects Taught" subtitle="UG/PG level courses you have taught. Leave empty if none." onNext={handleNext} onBack={onBack}>
+    <SectionLayout title="Subjects Taught" subtitle="UG/PG level courses you have taught. Leave empty if none." onNext={handleNext} onBack={onBack} isReadOnly={isReadOnly}>
       <div className="space-y-4">
         <div className="overflow-x-auto border border-gray-200 rounded-xl">
           <table className="w-full text-left border-collapse">
@@ -100,36 +103,40 @@ const SubjectsTaught = ({ onNext, onBack }) => {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="p-3 text-xs font-semibold text-gray-500 uppercase w-48">Level <span className="text-red-500">*</span></th>
                 <th className="p-3 text-xs font-semibold text-gray-500 uppercase">Subject Name <span className="text-red-500">*</span></th>
-                <th className="p-3 text-xs font-semibold text-gray-500 uppercase w-16 text-center">Action</th>
+                {!isReadOnly && <th className="p-3 text-xs font-semibold text-gray-500 uppercase w-16 text-center">Action</th>}
               </tr>
             </thead>
             <tbody>
               {list.map((sub, i) => (
                 <tr key={i} className="border-b border-gray-100 last:border-0 align-top">
                   <td className="p-3">
-                    <select value={sub.category} onChange={e => set(i, 'category', e.target.value)} className={ic(i, 'category')}>
+                    <select value={sub.category} onChange={e => set(i, 'category', e.target.value)} className={ic(i, 'category')} disabled={isReadOnly}>
                       <option value="">Select Level</option>
                       {SUBJECT_LEVEL.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
                     {errText(i, 'category')}
                   </td>
                   <td className="p-3">
-                    <input value={sub.subjectName} onChange={e => set(i, 'subjectName', e.target.value)} className={ic(i, 'subjectName')} placeholder="Subject / Course Name" />
+                    <input value={sub.subjectName} onChange={e => set(i, 'subjectName', e.target.value)} className={ic(i, 'subjectName')} placeholder="Subject / Course Name" disabled={isReadOnly} />
                     {errText(i, 'subjectName')}
                   </td>
-                  <td className="p-3 text-center pt-5">
-                    <button onClick={() => removeRow(i)} className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition-colors" title="Remove">
-                      <span className="material-symbols-outlined text-xl block">delete</span>
-                    </button>
-                  </td>
+                  {!isReadOnly && (
+                    <td className="p-3 text-center pt-5">
+                      <button onClick={() => removeRow(i)} className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition-colors" title="Remove">
+                        <span className="material-symbols-outlined text-xl block">delete</span>
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <button onClick={addRow} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2 group bg-white/50">
-          <span className="material-symbols-outlined group-hover:scale-110 transition-transform">add_circle</span> Add Subject
-        </button>
+        {!isReadOnly && (
+          <button onClick={addRow} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2 group bg-white/50">
+            <span className="material-symbols-outlined group-hover:scale-110 transition-transform">add_circle</span> Add Subject
+          </button>
+        )}
       </div>
     </SectionLayout>
   );

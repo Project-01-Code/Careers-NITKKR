@@ -177,3 +177,70 @@ export const updateNotice = asyncHandler(async (req, res) => {
       new ApiResponse(HTTP_STATUS.OK, notice, 'Notice updated successfully')
     );
 });
+
+/**
+ * @desc    Unarchive a notice (restore)
+ * @route   PATCH /api/v1/notices/:id/unarchive
+ * @access  Admin
+ */
+export const unarchiveNotice = asyncHandler(async (req, res) => {
+  const notice = await Notice.findById(req.params.id);
+
+  if (!notice) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Notice not found');
+  if (notice.isActive)
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Notice is already active');
+
+  notice.isActive = true;
+  await notice.save();
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      new ApiResponse(HTTP_STATUS.OK, notice, 'Notice restored successfully')
+    );
+});
+
+/**
+ * @desc    Get all notices for admin (active + archived, with optional filter)
+ * @route   GET /api/v1/notices/admin
+ * @access  Admin
+ */
+export const getAdminNotices = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const filter = {};
+  if (req.query.isActive !== undefined) {
+    filter.isActive = req.query.isActive === 'true';
+  }
+  if (req.query.category) {
+    filter.category = req.query.category;
+  }
+
+  const [notices, totalResults] = await Promise.all([
+    Notice.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('-__v')
+      .lean(),
+    Notice.countDocuments(filter),
+  ]);
+
+  res.status(HTTP_STATUS.OK).json(
+    new ApiResponse(
+      HTTP_STATUS.OK,
+      {
+        notices,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalResults / limit),
+          totalResults,
+          limit,
+        },
+      },
+      'Admin notices fetched successfully'
+    )
+  );
+});

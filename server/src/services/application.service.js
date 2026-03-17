@@ -4,7 +4,6 @@ import { User } from '../models/user.model.js';
 import { ApiError } from '../utils/apiError.js';
 import { generateApplicationNumber } from '../utils/applicationNumberGenerator.js';
 import { APPLICATION_STATUS, HTTP_STATUS } from '../constants.js';
-import mongoose from 'mongoose';
 
 /**
  * Snapshot job configuration at time of application
@@ -21,7 +20,7 @@ import mongoose from 'mongoose';
  * @throws {ApiError} 400 if job is not published or deadline passed
  */
 export async function snapshotJobConfiguration(jobId) {
-  const job = await Job.findById(jobId).populate('department');
+  const job = await Job.findById(jobId).populate('department', 'name').lean();
 
   if (!job) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job not found');
@@ -64,54 +63,40 @@ export async function snapshotJobConfiguration(jobId) {
  * console.log(app.applicationNumber); // "APP-2026-A3F2D8E1"
  */
 export async function createApplication(userId, jobId) {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    // Check if application already exists
-    const existingApp = await Application.findOne({ userId, jobId }).session(
-      session
+  // Check if application already exists
+  const existingApp = await Application.findOne({ userId, jobId });
+  if (existingApp) {
+    throw new ApiError(
+      HTTP_STATUS.CONFLICT,
+      'Application already exists for this job'
     );
-    if (existingApp) {
-      throw new ApiError(
-        HTTP_STATUS.CONFLICT,
-        'Application already exists for this job'
-      );
-    }
-
-    // Snapshot job configuration
-    const jobSnapshot = await snapshotJobConfiguration(jobId);
-
-    // Generate application number
-    const applicationNumber = await generateApplicationNumber();
-
-    // Create application
-    const application = new Application({
-      applicationNumber,
-      userId,
-      jobId,
-      jobSnapshot,
-      status: APPLICATION_STATUS.DRAFT,
-      sections: new Map(),
-    });
-
-    await application.save({ session });
-
-    // Add to user's applicationIds
-    await User.findByIdAndUpdate(
-      userId,
-      { $push: { applicationIds: application._id } },
-      { session }
-    );
-
-    await session.commitTransaction();
-    return application;
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
   }
+
+  // Snapshot job configuration
+  const jobSnapshot = await snapshotJobConfiguration(jobId);
+
+  // Generate application number
+  const applicationNumber = await generateApplicationNumber();
+
+  // Create application
+  const application = new Application({
+    applicationNumber,
+    userId,
+    jobId,
+    jobSnapshot,
+    status: APPLICATION_STATUS.DRAFT,
+    sections: new Map(),
+  });
+
+  await application.save();
+
+  // Add to user's applicationIds
+  await User.findByIdAndUpdate(
+    userId,
+    { $push: { applicationIds: application._id } }
+  );
+
+  return application;
 }
 
 /**

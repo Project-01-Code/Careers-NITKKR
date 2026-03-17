@@ -103,40 +103,13 @@ const JobCard = ({ job }) => {
         </div>
 
         <div className="flex flex-col gap-3 w-full md:w-auto">
-          {job.alreadyApplied ? (
-            <div className="flex flex-col gap-2">
-              <Link
-                to={`/application/${job._id}`}
-                className={`px-6 py-2.5 rounded-xl text-xs font-black text-center flex items-center justify-center gap-1.5 shadow-sm transition-all ${
-                  job.applicationStatus === 'draft'
-                    ? 'bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100'
-                    : 'bg-green-50 text-green-700 border border-green-100 hover:bg-green-100'
-                }`}
-              >
-                <span className="material-symbols-outlined text-sm font-black">
-                  {job.applicationStatus === 'draft' ? 'pending_actions' : 'check_circle'}
-                </span>
-                {job.applicationStatus === 'draft' ? 'RESUME APPLICATION' : 'VIEW APPLICATION'}
-              </Link>
-              {job.applicationStatus && (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="h-1 flex-1 bg-gray-100 rounded-full" />
-                  <span className="text-[9px] text-gray-400 uppercase font-black tracking-widest whitespace-nowrap">
-                    STATUS: {job.applicationStatus}
-                  </span>
-                  <div className="h-1 flex-1 bg-gray-100 rounded-full" />
-                </div>
-              )}
-            </div>
-          ) : (
-            <Link
-              to={`/application/${job._id}`}
-              className="bg-primary hover:bg-primary-dark text-white px-8 py-3 rounded-xl text-sm font-black transition-all shadow-lg shadow-primary/20 text-center uppercase tracking-wider flex items-center justify-center gap-2 group/apply"
-            >
-              APPLY NOW
-              <span className="material-symbols-outlined text-lg group-hover/apply:translate-x-1 transition-transform">arrow_forward</span>
-            </Link>
-          )}
+          <Link
+            to={`/application/${job._id}`}
+            className="bg-primary hover:bg-primary-dark text-white px-8 py-3 rounded-xl text-sm font-black transition-all shadow-lg shadow-primary/20 text-center uppercase tracking-wider flex items-center justify-center gap-2 group/apply"
+          >
+            APPLY NOW
+            <span className="material-symbols-outlined text-lg group-hover/apply:translate-x-1 transition-transform">arrow_forward</span>
+          </Link>
           <Link
             to={`/jobs/${job._id}`}
             className="text-secondary hover:text-primary text-sm font-bold transition-all border border-gray-100 hover:border-primary/30 px-6 py-2.5 rounded-xl text-center bg-gray-50/50 hover:bg-white"

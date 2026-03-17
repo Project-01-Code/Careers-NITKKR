@@ -20,6 +20,7 @@ import {
   submitApplication,
   withdrawApplication,
   downloadReceipt,
+  exportApplicantDocket,
 } from '../controllers/applicationSubmission.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import {
@@ -139,5 +140,8 @@ router.post(
 
 // Receipt Download (submitted applications only)
 router.get('/:id/receipt', checkApplicationOwnership, downloadReceipt);
+
+// Full Docket Download (submitted applications only)
+router.get('/:id/export-full', checkApplicationOwnership, exportApplicantDocket);
 
 export default router;
