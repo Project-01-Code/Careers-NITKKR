@@ -31,7 +31,7 @@
     "nodemailer": "^8.0.1",
     "p-limit": "^7.3.0",
     "pdfkit": "^0.17.2",
-    "stripe": "^20.4.0",
+    "razorpay": "^2.9.6",
     "zod": "^4.3.6"
   },
   "devDependencies": {
