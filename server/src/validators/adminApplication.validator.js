@@ -201,7 +201,7 @@ export const exemptFeeSchema = z.object({
     }),
 });
 
-// ─── Generic single-ID param schema (for GET /:id, GET /:id/export-full) ───
+// ─── Generic single-ID param schema (for GET /:id, GET /:id/docket) ───
 
 export const applicationIdParamSchema = z.object({
     params: z.object({

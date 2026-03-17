@@ -11,7 +11,7 @@ import {
   getApplicationsByJob,
   verifySectionDocuments,
   exemptApplicationFee,
-  exportFullApplicationPDF,
+  exportApplicationReport,
 } from '../../controllers/admin/application.controller.js';
 import { verifyJWT } from '../../middlewares/auth.middleware.js';
 import { requireRole } from '../../middlewares/rbac.middleware.js';
@@ -139,13 +139,13 @@ router.post(
   exemptApplicationFee
 );
 
-// Export full application PDF (admins + reviewers)
+// Export full application report PDF (admins + reviewers)
 router.get(
-  '/:id/export-full',
+  '/:id/docket',
   verifyJWT,
   requireRole(USER_ROLES.ADMIN, USER_ROLES.REVIEWER),
   validate(applicationIdParamSchema),
-  exportFullApplicationPDF
+  exportApplicationReport
 );
 
 export default router;

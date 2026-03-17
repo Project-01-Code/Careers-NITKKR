@@ -22,7 +22,7 @@ import {
  * 2. Applicant Receipt (Application Summary + Receipt)
  */
 export const generateApplicationPDF = async (applicationId, options = {}) => {
-  const { includeReviews = false, title = 'Application Docket' } = options;
+  const { includeReviews = false, title = 'Application Report' } = options;
 
   const app = await mongoose
     .model('Application')
