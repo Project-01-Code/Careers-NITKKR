@@ -196,60 +196,33 @@ export const withdrawApplication = asyncHandler(async (req, res) => {
   );
 });
 
-/**
- * Download the application submission receipt as a PDF.
- * Only available after the application has been submitted.
- *
- * @route   GET /api/v1/applications/:id/receipt
- * @access  Private (Applicant only)
- */
-export const downloadReceipt = asyncHandler(async (req, res) => {
-  const application = req.application; // Loaded by checkApplicationOwnership middleware
-
-  if (application.status === APPLICATION_STATUS.DRAFT) {
-    throw new ApiError(
-      HTTP_STATUS.BAD_REQUEST,
-      'Receipt is not available for draft applications'
-    );
-  }
-
-  // Generate PDF buffer using unified service
-  const pdfBuffer = await generateApplicationPDF(application._id, { title: 'Application Acknowledgement' });
-
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename=receipt-${application.applicationNumber}.pdf`
-  );
-  res.send(pdfBuffer);
-});
 
 /**
- * Export the full application docket as a PDF.
+ * Export the application summary as a PDF.
  * Available after the application has been submitted.
  *
- * @route   GET /api/v1/applications/:id/export-full
+ * @route   GET /api/v1/applications/:id/docket
  * @access  Private (Applicant only)
  */
-export const exportApplicantDocket = asyncHandler(async (req, res) => {
+export const exportApplicationSummary = asyncHandler(async (req, res) => {
   const application = req.application; // Loaded by checkApplicationOwnership middleware
 
   if (application.status === APPLICATION_STATUS.DRAFT) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
-      'Docket is not available for draft applications'
+      'Summary is not available for draft applications'
     );
   }
 
   // Generate PDF buffer (without reviews — applicants don't see reviewer data)
   const pdfBuffer = await generateApplicationPDF(application._id, {
-    title: 'Application Docket',
+    title: 'Application Report',
   });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
     'Content-Disposition',
-    `attachment; filename=docket-${application.applicationNumber}.pdf`
+    `attachment; filename=summary-${application.applicationNumber}.pdf`
   );
   res.send(pdfBuffer);
 });

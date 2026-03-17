@@ -19,8 +19,7 @@ import {
   validateAllBeforeSubmission,
   submitApplication,
   withdrawApplication,
-  downloadReceipt,
-  exportApplicantDocket,
+  exportApplicationSummary,
 } from '../controllers/applicationSubmission.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import {
@@ -134,10 +133,7 @@ router.post(
   withdrawApplication
 );
 
-// Receipt Download (submitted applications only)
-router.get('/:id/receipt', checkApplicationOwnership, downloadReceipt);
-
-// Full Docket Download (submitted applications only)
-router.get('/:id/export-full', checkApplicationOwnership, exportApplicantDocket);
+// Application Summary Download (submitted applications only)
+router.get('/:id/docket', checkApplicationOwnership, exportApplicationSummary);
 
 export default router;
