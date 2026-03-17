@@ -3,23 +3,24 @@ import { PAYMENT_STATUS } from '../constants.js';
 
 const paymentSchema = new Schema(
   {
-    sessionId: {
+    // Razorpay order ID (e.g. order_xxxx) — created before the user pays
+    orderId: {
       type: String,
       required: true,
       unique: true,
       index: true,
     },
-    paymentIntentId: {
+    // Razorpay payment ID (e.g. pay_xxxx) — available only after successful payment
+    razorpayPaymentId: {
       type: String,
       index: true,
       sparse: true,
     },
-    // Amount in INR (whole rupees, NOT paise)
+    // Amount in INR whole rupees (NOT paise)
     amount: {
       type: Number,
       required: true,
     },
-    // Always stored lowercase to match Stripe's convention ('inr')
     currency: {
       type: String,
       default: 'inr',
@@ -43,12 +44,14 @@ const paymentSchema = new Schema(
       required: true,
       index: true,
     },
-    // e.g. 'card', 'upi', 'netbanking' — populated from webhook
+    // e.g. 'card', 'upi', 'netbanking' — populated after verification
     paymentMethod: {
       type: String,
     },
-    // Full Stripe webhook event stored for audit / dispute resolution
-    rawWebhookData: {
+    // Raw Razorpay payload stored for audit / dispute resolution
+    // ⚠️ ASSUMPTION: This stores the verified { orderId, paymentId, signature } object.
+    // Future webhook handlers can also populate this field.
+    rawVerificationData: {
       type: Schema.Types.Mixed,
     },
   },
@@ -59,8 +62,8 @@ const paymentSchema = new Schema(
 
 /**
  * Prevent duplicate successful payments for the same application.
- * A partial unique index only fires when status === PAID, so pending/failed
- * records for the same application are still allowed (e.g. retry after failure).
+ * Partial index only enforces uniqueness when status === PAID.
+ * PENDING / FAILED records for the same application remain allowed (idempotent retries).
  */
 paymentSchema.index(
   { applicationId: 1, status: 1 },

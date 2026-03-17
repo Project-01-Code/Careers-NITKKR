@@ -46,8 +46,6 @@ if (process.env.NODE_ENV !== NODE_ENV.PRODUCTION) {
   app.use(morgan('combined'));
 }
 
-// Stripe webhook: keep raw Buffer in req.body for signature verification (must be before express.json)
-app.use('/api/v1/payments/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: REQUEST_LIMITS.JSON_LIMIT }));
 

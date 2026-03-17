@@ -92,9 +92,9 @@ const startServer = async () => {
       'SMTP_USER',
       'SMTP_PASS',
       'EMAIL_FROM',
-      // Stripe
-      'STRIPE_SECRET_KEY',
-      'STRIPE_WEBHOOK_SECRET',
+      // Razorpay
+      'RAZORPAY_KEY_ID',
+      'RAZORPAY_KEY_SECRET',
     ];
 
     const missingVars = requiredEnvVars.filter(
