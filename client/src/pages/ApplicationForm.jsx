@@ -214,10 +214,10 @@ const ApplicationForm = () => {
     }
   };
 
-  const handleDownloadDocket = async () => {
+  const handleDownloadSummary = async () => {
     try {
-      toast.loading('Generating your docket...', { id: 'docket' });
-      const res = await api.get(`/applications/${applicationId}/export-full`, {
+      toast.loading('Generating your summary...', { id: 'summary' });
+      const res = await api.get(`/applications/${applicationId}/docket`, {
         responseType: 'blob'
       });
       
@@ -228,10 +228,10 @@ const ApplicationForm = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      toast.success('Docket downloaded successfully!', { id: 'docket' });
+      toast.success('Summary downloaded successfully!', { id: 'summary' });
     } catch (err) {
       console.error('Download error:', err);
-      toast.error('Failed to download docket. Please try again.', { id: 'docket' });
+      toast.error('Failed to download summary. Please try again.', { id: 'summary' });
     }
   };
 
@@ -346,10 +346,10 @@ const ApplicationForm = () => {
                        <span className="material-symbols-outlined">dashboard</span> Go to Dashboard
                     </button>
                     <button 
-                      onClick={handleDownloadDocket}
+                      onClick={handleDownloadSummary}
                       className="px-8 py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
                     >
-                       <span className="material-symbols-outlined">description</span> Download Docket
+                       <span className="material-symbols-outlined">description</span> Application Summary
                     </button>
                   </div>
                 </div>

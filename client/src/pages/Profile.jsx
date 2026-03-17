@@ -121,21 +121,21 @@ const Profile = () => {
     }
   };
 
-  // Download receipt PDF
-  const handleDownloadReceipt = async (appId) => {
+  // Download summary PDF
+  const handleDownloadSummary = async (appId) => {
     try {
-      const res = await api.get(`/applications/${appId}/receipt`, {
-        responseType: 'blob',
+      const res = await api.get(`/applications/${appId}/docket`, {
+        responseType: 'blob'
       });
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `receipt-${appId}.pdf`;
+      link.download = `summary-${appId}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to download receipt');
+      toast.error(err.response?.data?.message || 'Failed to download summary');
     }
   };
 
@@ -310,13 +310,12 @@ const Profile = () => {
                                           </button>
                                         )}
 
-                                        {/* Receipt available for everything else */}
                                         <button
-                                          onClick={() => handleDownloadReceipt(app._id)}
+                                          onClick={() => handleDownloadSummary(app._id)}
                                           className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
                                         >
                                           <span className="material-symbols-outlined text-[16px]">download</span>
-                                          Receipt
+                                          Summary
                                         </button>
 
                                     {/* Withdraw only for submitted */}

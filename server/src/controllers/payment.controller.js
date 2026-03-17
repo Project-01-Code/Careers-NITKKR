@@ -5,7 +5,7 @@ import { HTTP_STATUS, PAYMENT_STATUS } from '../constants.js';
 import { Application } from '../models/application.model.js';
 import { Payment } from '../models/payment.model.js';
 import mongoose from 'mongoose';
-import { stripeService } from '../services/stripe.service.js';
+import { razorpayService } from '../services/razorpay.service.js';
 import { calculateApplicationFee, markApplicationSubmitted } from '../services/payment.service.js';
 
 // ---------------------------------------------------------------------------
@@ -13,32 +13,27 @@ import { calculateApplicationFee, markApplicationSubmitted } from '../services/p
 // ---------------------------------------------------------------------------
 
 /**
- * Calculate the correct fee for the applicant's category, create a Stripe
- * Checkout Session, and persist a PENDING Payment record.
+ * Calculate the correct fee, create a Razorpay order, and persist a PENDING Payment record.
+ * Returns { orderId, amount, amountInPaise, currency, keyId } so the frontend can open the Razorpay modal.
  *
- * If the resolved fee is 0 (exempt category or fee not required) the
- * application is immediately marked EXEMPTED + submitted — no Stripe session
- * is created.
- *
- * @route   POST /api/v1/payments/create-order
- * @access  Private (Applicant only)
+ * §9: Free/exempted applications (amount === 0) are immediately marked submitted — no order created.
+ * §10: Duplicate PENDING orders are reused instead of creating new ones.
  */
 export const createPaymentOrder = asyncHandler(async (req, res) => {
   const { applicationId } = req.body;
   const userId = req.user._id;
 
-  // ── Validate applicationId format ─────────────────────────────────────────
   if (!applicationId || !mongoose.Types.ObjectId.isValid(applicationId)) {
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Valid Application ID is required');
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Valid applicationId is required');
   }
 
-  // ── 1. Load application (must belong to the requesting user) ─────────────
+  // ── 1. Load application — must belong to the requesting user (§8: ownership check) ─
   const application = await Application.findOne({ _id: applicationId, userId });
   if (!application) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
   }
 
-  // ── 2. Guard: already in a terminal payment state ─────────────────────────
+  // ── 2. Terminal payment guard — already paid or exempted (§10: idempotency) ─────────
   if (
     application.paymentStatus === PAYMENT_STATUS.PAID ||
     application.paymentStatus === PAYMENT_STATUS.EXEMPTED
@@ -46,86 +41,34 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     return res.status(HTTP_STATUS.OK).json(
       new ApiResponse(
         HTTP_STATUS.OK,
-        {
-          alreadyPaid: true,
-          paymentStatus: application.paymentStatus,
-        },
-        'Fee already paid or exempted for this application'
+        { alreadyPaid: true, paymentStatus: application.paymentStatus },
+        'Fee already paid or exempted'
       )
     );
   }
 
-  // ── 3. Guard: already submitted ───────────────────────────────────────────
+  // ── 3. Already submitted guard ─────────────────────────────────────────────────────
   if (application.status === 'submitted') {
     throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Application is already submitted');
   }
 
-  // ── 4. Guard: existing PENDING session — prevent duplicate Stripe sessions ─
-  const existingPending = await Payment.findOne({
-    applicationId: application._id,
-    status: PAYMENT_STATUS.PENDING,
-  });
-  if (existingPending) {
-    // Retrieve the session from Stripe to get a fresh URL
-    const stripeSession = await stripeService.retrieveCheckoutSession(existingPending.sessionId);
-    
-    // If the session is unexpectedly paid, sync it and prevent duplicate payment
-    if (stripeSession.payment_status === 'paid') {
-      existingPending.status = PAYMENT_STATUS.PAID;
-      existingPending.paymentIntentId = stripeSession.payment_intent;
-      await existingPending.save();
-      
-      markApplicationSubmitted(application, PAYMENT_STATUS.PAID, userId);
-      await application.save();
-      
-      return res.status(HTTP_STATUS.OK).json(
-        new ApiResponse(
-          HTTP_STATUS.OK,
-          {
-            alreadyPaid: true,
-            paymentStatus: PAYMENT_STATUS.PAID,
-          },
-          'Payment was already completed successfully'
-        )
-      );
-    }
-
-    // If the session is still open, reuse it and redirect the user
-    if (stripeSession.status === 'open' && stripeSession.url) {
-      return res.status(HTTP_STATUS.OK).json(
-        new ApiResponse(
-          HTTP_STATUS.OK,
-          {
-            sessionId: existingPending.sessionId,
-            url: stripeSession.url,
-            alreadyPending: true,
-          },
-          'A payment session already exists for this application. Redirecting to complete payment.'
-        )
-      );
-    }
-    
-    // If it's expired or completed unpaid, mark it failed and continue below to create a new session
-    existingPending.status = PAYMENT_STATUS.FAILED;
-    await existingPending.save();
-  }
-
-  // ── 5. Load the associated job (fee config lives here) ────────────────────
+  // ── 4. Load job to calculate the expected fee ─────────────────────────────────────
+  // Do this BEFORE the PENDING check so we always have the current expected amount.
   const job = await mongoose.model('Job').findById(application.jobId).lean();
   if (!job) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Associated job not found');
   }
 
-  // ── 6. Derive candidate category & disability status ─────────────────────
+  // ── 5. Derive category & disability from personal section ──────────────────────────
   const personalData = application.sections?.get('personal')?.data ?? {};
   const rawCategory  = personalData.category ?? 'GEN';
   const isPwd        = Boolean(personalData.disability);
 
-  // ── 7. Calculate the fee ──────────────────────────────────────────────────
+  // ── 6. Calculate expected fee (§8: server always owns the amount) ──────────────────
   const { totalAmount, baseFee, transactionFee, isFeeRequired } =
     calculateApplicationFee(job.applicationFee, rawCategory, isPwd);
 
-  // ── 8. Exempt path — no Stripe session needed ─────────────────────────────
+  // ── 7. §9: Free payment path — skip Razorpay entirely ─────────────────────────────
   if (totalAmount === 0 || !isFeeRequired) {
     markApplicationSubmitted(application, PAYMENT_STATUS.EXEMPTED, userId);
     await application.save();
@@ -134,9 +77,9 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
       new ApiResponse(
         HTTP_STATUS.OK,
         {
-          exempted:          true,
+          exempted: true,
           isFeeRequired,
-          paymentStatus:     application.paymentStatus,
+          paymentStatus: application.paymentStatus,
           applicationStatus: application.status,
         },
         'Application fee exempted. Submission complete.'
@@ -144,40 +87,56 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     );
   }
 
-  // ── 9. Build redirect URLs ────────────────────────────────────────────────
-  const origin     = req.get('origin') || 'http://localhost:3000';
-  const successUrl = `${origin}/applications/${applicationId}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl  = `${origin}/applications/${applicationId}/payment-cancel`;
+  // ── 8. §10: Reuse existing PENDING order if the amount still matches ───────────────
+  // Also clean up any stale FAILED records to keep the DB tidy.
+  const [existingPending] = await Promise.all([
+    Payment.findOne({ applicationId: application._id, status: PAYMENT_STATUS.PENDING }),
+    // §15: Delete FAILED records — they are no longer actionable
+    Payment.deleteMany({ applicationId: application._id, status: PAYMENT_STATUS.FAILED }),
+  ]);
 
-  // ── 10. Create Stripe Checkout Session ────────────────────────────────────
-  let session;
-  try {
-    session = await stripeService.createCheckoutSession(
-      totalAmount,
-      application._id,
-      successUrl,
-      cancelUrl
-    );
-  } catch (stripeError) {
-    console.error('Failed to create Stripe session:', stripeError);
-    throw new ApiError(
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      'Failed to create payment session. Please try again.'
-    );
+  if (existingPending) {
+    // §8: Validate stored amount matches current expected fee before reusing
+    if (existingPending.amount !== totalAmount) {
+      // Fee config changed since last attempt — delete stale order and fall through to create a new one
+      await existingPending.deleteOne();
+    } else {
+      // Amount is still correct — return existing order so the user can resume payment
+      return res.status(HTTP_STATUS.OK).json(
+        new ApiResponse(
+          HTTP_STATUS.OK,
+          {
+            orderId:       existingPending.orderId,
+            amount:        existingPending.amount,
+            amountInPaise: existingPending.amount * 100, // §14: always provide paise for the modal
+            currency:      existingPending.currency,
+            keyId:         razorpayService.keyId,        // public key — safe to expose
+            baseFee,
+            transactionFee,
+            alreadyPending: true,
+          },
+          'Existing payment order returned. Complete your payment.'
+        )
+      );
+    }
   }
 
-  // ── 11. Persist a PENDING payment record ──────────────────────────────────
+  // ── 9. Create new Razorpay order ───────────────────────────────────────────────────
+  const order = await razorpayService.createOrder(totalAmount, application._id);
+
+  // ── 10. Persist PENDING record with the authoritative amount ─────────────────────
+  // §15: amount is stored here — verifyPayment reads it from DB and never trusts the frontend
   try {
     await Payment.create({
-      sessionId:     session.id,
-      amount:        totalAmount,
-      currency:      session.currency?.toLowerCase() ?? 'inr',
+      orderId:       order.id,
+      amount:        totalAmount,   // stored in rupees
+      currency:      'inr',
       status:        PAYMENT_STATUS.PENDING,
       applicationId: application._id,
       userId,
     });
   } catch (dbError) {
-    console.error('Failed to create payment record:', dbError);
+    console.error('[payment.controller] Failed to save payment record:', dbError.message);
     throw new ApiError(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       'Failed to save payment record. Please try again.'
@@ -188,14 +147,173 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     new ApiResponse(
       HTTP_STATUS.CREATED,
       {
-        sessionId:      session.id,
-        url:            session.url,
+        orderId:       order.id,
+        amount:        totalAmount,  // rupees — for display
+        amountInPaise: order.amount, // paise  — what the Razorpay modal requires
+        currency:      order.currency,
+        keyId:         razorpayService.keyId,
         baseFee,
         transactionFee,
-        totalAmount,
-        currency:       session.currency ?? 'inr',
       },
-      'Payment session created successfully'
+      'Payment order created successfully'
+    )
+  );
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/payments/verify-payment
+// ---------------------------------------------------------------------------
+
+/**
+ * Called by the frontend AFTER the Razorpay modal succeeds.
+ *
+ * §8  — Validates: orderId exists, status is PENDING, userId matches, amount is consistent
+ * §10 — Idempotent: already-PAID orders return success without re-processing
+ * §15 — Uses timingSafeEqual, never trusts frontend amount, validates all fields
+ */
+export const verifyPayment = asyncHandler(async (req, res) => {
+  const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+  const userId = req.user._id;
+
+  // ── 1. §15: Input validation — all three fields must be non-empty strings ────────
+  if (
+    !razorpayOrderId   || typeof razorpayOrderId   !== 'string' ||
+    !razorpayPaymentId || typeof razorpayPaymentId !== 'string' ||
+    !razorpaySignature || typeof razorpaySignature !== 'string'
+  ) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'razorpayOrderId, razorpayPaymentId, and razorpaySignature are required strings'
+    );
+  }
+
+  // ── 2. §8: Fetch PENDING record — orderId must exist in OUR database ──────────────
+  const paymentRecord = await Payment.findOne({
+    orderId: razorpayOrderId,
+    status: PAYMENT_STATUS.PENDING,
+  });
+
+  if (!paymentRecord) {
+    // §10: Idempotent retry — already paid?
+    const alreadyPaid = await Payment.findOne({
+      orderId: razorpayOrderId,
+      status: PAYMENT_STATUS.PAID,
+    });
+
+    if (alreadyPaid) {
+      return res.status(HTTP_STATUS.OK).json(
+        new ApiResponse(HTTP_STATUS.OK, { alreadyPaid: true }, 'Payment already verified')
+      );
+    }
+
+    throw new ApiError(
+      HTTP_STATUS.NOT_FOUND,
+      'Payment order not found or already processed'
+    );
+  }
+
+  // ── 3. §8: User ownership check — prevents one user verifying another's payment ───
+  if (paymentRecord.userId.toString() !== userId.toString()) {
+    throw new ApiError(HTTP_STATUS.FORBIDDEN, 'Unauthorized payment verification attempt');
+  }
+
+  // ── 4. §8: Amount consistency check ──────────────────────────────────────────────
+  // Re-calculate the expected fee now and compare it against what was stored when the
+  // order was created. Rejects any payment where the stored amount doesn't match
+  // the current job fee config (e.g. fee changed after order was created).
+  const application = await Application.findById(paymentRecord.applicationId);
+  if (!application) {
+    console.error(
+      `[payment.controller] verifyPayment: application ${paymentRecord.applicationId} not found`
+    );
+    throw new ApiError(HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Application not found');
+  }
+
+  const job = await mongoose.model('Job').findById(application.jobId).lean();
+  if (!job) {
+    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Associated job not found during verification');
+  }
+
+  const personalData  = application.sections?.get('personal')?.data ?? {};
+  const rawCategory   = personalData.category ?? 'GEN';
+  const isPwd         = Boolean(personalData.disability);
+  const { totalAmount: expectedAmount } = calculateApplicationFee(
+    job.applicationFee, rawCategory, isPwd
+  );
+
+  // If the stored amount differs from the expected amount, reject — amount was tampered
+  // or the fee config changed. Either way it is not safe to proceed.
+  if (paymentRecord.amount !== expectedAmount) {
+    paymentRecord.status = PAYMENT_STATUS.FAILED;
+    paymentRecord.rawVerificationData = {
+      razorpayOrderId,
+      razorpayPaymentId,
+      error: 'amount_mismatch',
+      storedAmount: paymentRecord.amount,
+      expectedAmount,
+    };
+    await paymentRecord.save();
+
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'Payment amount mismatch. Please restart the payment process.'
+    );
+  }
+
+  // ── 5. §15: HMAC-SHA256 signature verification — primary cryptographic proof ──────
+  // Uses timingSafeEqual internally (see razorpay.service.js) to prevent timing attacks.
+  let isValid;
+  try {
+    isValid = razorpayService.verifySignature(
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature
+    );
+  } catch {
+    // timingSafeEqual throws if buffer lengths differ (malformed/truncated signature)
+    isValid = false;
+  }
+
+  if (!isValid) {
+    // §11: PENDING → FAILED transition on invalid signature
+    paymentRecord.status = PAYMENT_STATUS.FAILED;
+    paymentRecord.rawVerificationData = {
+      razorpayOrderId,
+      razorpayPaymentId,
+      error: 'invalid_signature',
+    };
+    await paymentRecord.save();
+
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'Payment verification failed. Invalid signature.'
+    );
+  }
+
+  // ── 6. §11: PENDING → PAID — immutable terminal state ───────────────────────────
+  paymentRecord.status             = PAYMENT_STATUS.PAID;
+  paymentRecord.razorpayPaymentId  = razorpayPaymentId;
+  paymentRecord.rawVerificationData = {
+    razorpayOrderId,
+    razorpayPaymentId,
+    razorpaySignature,
+    verifiedAt: new Date().toISOString(),
+  };
+  await paymentRecord.save();
+
+  // ── 7. §11: Mark Application submitted ──────────────────────────────────────────
+  markApplicationSubmitted(application, PAYMENT_STATUS.PAID, userId);
+  await application.save();
+
+  return res.status(HTTP_STATUS.OK).json(
+    new ApiResponse(
+      HTTP_STATUS.OK,
+      {
+        paymentStatus:     PAYMENT_STATUS.PAID,
+        applicationStatus: application.status,
+        applicationId:     application._id,
+      },
+      'Payment verified and application submitted successfully!'
     )
   );
 });
@@ -205,17 +323,20 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Poll for current payment status and reconcile with Stripe if needed.
+ * Returns the current payment and application statuses from the local DB.
+ * §14: No external Razorpay API call — all data sourced from MongoDB.
  */
 export const getPaymentStatus = asyncHandler(async (req, res) => {
   const { applicationId } = req.params;
   const userId = req.user._id;
 
+  // §8: userId ownership check — cannot fetch another user's status
   const application = await Application.findOne({ _id: applicationId, userId });
   if (!application) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
   }
 
+  // §10: Fast path — already in a terminal state; no need to check Payment collection
   if (
     application.paymentStatus === PAYMENT_STATUS.PAID ||
     application.paymentStatus === PAYMENT_STATUS.EXEMPTED
@@ -232,166 +353,21 @@ export const getPaymentStatus = asyncHandler(async (req, res) => {
     );
   }
 
+  // Get the most recent payment record for this application
   const paymentRecord = await Payment.findOne({ applicationId }).sort({ createdAt: -1 });
-
-  if (!paymentRecord) {
-    return res.status(HTTP_STATUS.OK).json(
-      new ApiResponse(
-        HTTP_STATUS.OK,
-        { paymentStatus: PAYMENT_STATUS.PENDING },
-        'No payment record found'
-      )
-    );
-  }
-
-  if (paymentRecord.status === PAYMENT_STATUS.PENDING) {
-    try {
-      const stripeSession = await stripeService.retrieveCheckoutSession(
-        paymentRecord.sessionId
-      );
-
-      if (stripeSession.payment_status === 'paid') {
-        paymentRecord.status          = PAYMENT_STATUS.PAID;
-        paymentRecord.paymentIntentId = stripeSession.payment_intent;
-        paymentRecord.paymentMethod   = stripeSession.payment_method_types?.[0] ?? 'card';
-        await paymentRecord.save();
-
-        markApplicationSubmitted(application, PAYMENT_STATUS.PAID, userId);
-        await application.save();
-      }
-    } catch (err) {
-      console.error('getPaymentStatus: Stripe session retrieval failed', err.message);
-    }
-  }
 
   return res.status(HTTP_STATUS.OK).json(
     new ApiResponse(
       HTTP_STATUS.OK,
       {
-        paymentStatus:     paymentRecord.status,
+        paymentStatus:     paymentRecord?.status ?? PAYMENT_STATUS.PENDING,
         applicationStatus: application.status,
+        // Include orderId so frontend can resume a PENDING payment (§10)
+        ...(paymentRecord?.status === PAYMENT_STATUS.PENDING && {
+          pendingOrderId: paymentRecord.orderId,
+        }),
       },
       'Payment status fetched successfully'
     )
   );
 });
-
-// ---------------------------------------------------------------------------
-// POST /api/v1/payments/webhook
-// ---------------------------------------------------------------------------
-
-export const verifyWebhook = asyncHandler(async (req, res) => {
-  const signature = req.headers['stripe-signature'];
-
-  if (!signature) {
-    return res.status(HTTP_STATUS.BAD_REQUEST).send('Webhook signature missing');
-  }
-
-  let event;
-  try {
-    event = stripeService.verifyWebhookSignature(req.body, signature);
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
-    return res.status(HTTP_STATUS.BAD_REQUEST).send(`Webhook Error: ${err.message}`);
-  }
-
-  switch (event.type) {
-    case 'checkout.session.completed':
-      await handleSessionCompleted(event);
-      break;
-
-    case 'checkout.session.expired':
-      await handleSessionExpired(event);
-      break;
-
-    case 'payment_intent.payment_failed':
-      await handlePaymentIntentFailed(event);
-      break;
-
-    default:
-      console.log(`Unhandled Stripe event type: ${event.type}`);
-  }
-
-  return res.status(HTTP_STATUS.OK).send('OK');
-});
-
-// ---------------------------------------------------------------------------
-// Private webhook sub-handlers
-// ---------------------------------------------------------------------------
-
-async function handleSessionCompleted(event) {
-  const session   = event.data.object;
-  const sessionId = session.id;
-
-  const paymentRecord = await Payment.findOneAndUpdate(
-    { sessionId, status: { $ne: PAYMENT_STATUS.PAID } },
-    {
-      $set: {
-        status:          PAYMENT_STATUS.PAID,
-        paymentIntentId: session.payment_intent,
-        paymentMethod:   session.payment_method_types?.[0] ?? 'card',
-        rawWebhookData:  event,
-      },
-    },
-    { new: true }
-  );
-
-  if (!paymentRecord) {
-    console.warn(`checkout.session.completed: no actionable record for session ${sessionId}`);
-    return;
-  }
-
-  const application = await Application.findById(paymentRecord.applicationId);
-  if (application) {
-    markApplicationSubmitted(application, PAYMENT_STATUS.PAID);
-    await application.save();
-  } else {
-    console.error(`checkout.session.completed: application ${paymentRecord.applicationId} not found`);
-  }
-}
-
-async function handleSessionExpired(event) {
-  const sessionId = event.data.object.id;
-
-  try {
-    const result = await Payment.findOneAndUpdate(
-      { sessionId, status: { $nin: [PAYMENT_STATUS.PAID, PAYMENT_STATUS.FAILED] } },
-      { $set: { status: PAYMENT_STATUS.FAILED, rawWebhookData: event } },
-      { new: true }
-    );
-    if (!result) {
-      console.warn(`handleSessionExpired: no pending record for session ${sessionId}`);
-    } else {
-      console.log(`handleSessionExpired: payment ${result._id} marked FAILED`);
-    }
-  } catch (err) {
-    console.error(`handleSessionExpired: DB update failed for session ${sessionId}:`, err);
-  }
-}
-
-async function handlePaymentIntentFailed(event) {
-  const applicationId = event.data.object.metadata?.applicationId;
-
-  if (!applicationId) {
-    console.warn('payment_intent.payment_failed: no applicationId in PaymentIntent metadata');
-    return;
-  }
-
-  try {
-    const result = await Payment.findOneAndUpdate(
-      {
-        applicationId,
-        status: { $nin: [PAYMENT_STATUS.PAID, PAYMENT_STATUS.FAILED] },
-      },
-      { $set: { status: PAYMENT_STATUS.FAILED, rawWebhookData: event } },
-      { sort: { createdAt: -1 }, new: true }
-    );
-    if (!result) {
-      console.warn(`handlePaymentIntentFailed: no pending record for application ${applicationId}`);
-    } else {
-      console.log(`handlePaymentIntentFailed: payment ${result._id} marked FAILED`);
-    }
-  } catch (err) {
-    console.error(`handlePaymentIntentFailed: DB update failed for application ${applicationId}:`, err);
-  }
-}
