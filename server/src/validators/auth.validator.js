@@ -57,7 +57,7 @@ export const registerSchema = z.object({
     phone: z
       .string()
       .regex(
-        /^\+?[1-9]\d{1,14}$/,
+        /^\d{10}$/,
         'Invalid phone number format (E.164 format expected, e.g., +919876543210)'
       )
       .optional(),

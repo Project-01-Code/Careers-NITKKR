@@ -5,34 +5,43 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 /**
- * Credit point caps and descriptions per activity as per NIT recruitment rules.
- * Activities 5-22 have specific maximum allowed points.
+ * Manual activity details per Note-2 rubric.
+ * Activities 1-5, 18, 19 are auto-calculated from saved data.
+ * Activities 6-17, 20-22 are manual.
  */
 const ACTIVITY_DETAILS = {
-  5: { cap: 15, name: 'Refereed Journal papers' },
-  6: { cap: 10, name: 'Conference papers' },
-  7: { cap: 10, name: 'PH.D. Guidance' },
-  8: { cap: 10, name: 'Patents' },
-  9: { cap: 10, name: 'Books' },
-  10: { cap: 10, name: 'Book Chapters' },
-  11: { cap: 10, name: 'Organized Programs' },
-  12: { cap: 10, name: 'Sponsored Projects' },
-  13: { cap: 10, name: 'Consultancy Projects' },
-  14: { cap: 10, name: 'Theory courses' },
-  15: { cap: 10, name: 'Lab courses' },
-  16: { cap: 10, name: 'New Lab development' },
-  17: { cap: 10, name: 'PG Thesis guidance' },
-  18: { cap: 10, name: 'UG Projects' },
-  19: { cap: 10, name: 'Outreach activities' },
-  20: { cap: 10, name: 'Administrative assignments' },
-  21: { cap: 10, name: 'Departmental activities' },
-  22: { cap: 10, name: 'Workshop/FDP/STTP' },
+  6:  { cap: 16, name: 'HoD / Dean / Chief Warden / PI(Exam) / TEQIP Coordinator', perUnit: '2 pts/semester' },
+  7:  { cap: 8,  name: 'Warden / Assoc. Dean / Faculty I/C (CC, Library, Admissions, etc.)', perUnit: '1 pt/semester' },
+  8:  { cap: 3,  name: 'Chairman/Convener of standing/special committees, Faculty I/C of units', perUnit: '0.5 pts/semester' },
+  9:  { cap: 3,  name: 'Departmental activities (lab I/C, dept committee) — min 1 year', perUnit: '0.5 pts/semester' },
+  10: { cap: 8,  name: 'Workshop / FDP / STTP (≥5 working days) as coordinator', perUnit: '2 pts/course' },
+  11: { cap: 4,  name: 'National programs (GIAN etc.) — 2-week duration as coordinator', perUnit: '2 pts/course' },
+  12: { cap: 6,  name: 'National/International conference organized as Chairman/Secretary', perUnit: '3 pts/program' },
+  13: { cap: 10, name: 'Length of service over required minimum teaching experience', perUnit: '2 pts/semester' },
+  14: { cap: 4,  name: 'Establishment of new lab(s)', perUnit: '4 pts (flat)' },
+  15: { cap: 6,  name: 'Theory teaching over 6 credit hrs course', perUnit: '1 pt/credit hr' },
+  16: { cap: 10, name: 'PG Dissertation guided', perUnit: '0.5 pts/project' },
+  17: { cap: 4,  name: 'Under Graduate Projects guided', perUnit: '0.25 pts/project' },
+  20: { cap: 4,  name: 'Significant outreach / institute-out activities', perUnit: '1 pt/activity' },
+  21: { cap: 10, name: 'Fellow IEEE / FNA / FNAE / FNASc', perUnit: '10 pts (flat)' },
+  22: { cap: 20, name: 'Placement percentage (placement cell officers only)', perUnit: '4 pts/yr (>85%) or 2 pts/yr (75-85%)' },
 };
 
-/**
- * Manual activity IDs 5-22 (server: activityId z.number().int().min(5).max(22))
- */
 const MANUAL_ACTIVITY_IDS = Object.keys(ACTIVITY_DETAILS).map(Number);
+
+/**
+ * Labels for auto-calculated activities shown in the summary panel.
+ */
+const AUTO_ACTIVITY_LABELS = {
+  sponsoredProjects: { num: '1', name: 'Sponsored R&D Projects' },
+  patents:           { num: '1b', name: 'Patents Granted' },
+  consultancy:       { num: '2', name: 'Consultancy Projects' },
+  phdCompleted:      { num: '3', name: 'PhD Guidance' },
+  journalPapers:     { num: '4', name: 'Journal Papers (SCI/Scopus)' },
+  conferencePapers:  { num: '5', name: 'Conference Papers' },
+  intlBooks:         { num: '18', name: 'Books (Intl Publishers)' },
+  bookChapters:      { num: '19', name: 'Book Chapters / Natl Books' },
+};
 
 const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
   const { formData, updateSection, applicationId } = useApplication();
@@ -69,7 +78,7 @@ const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
 
   const addActivity = () => {
     if (isReadOnly) return;
-    setManualActivities(prev => [...prev, { activityId: 5, description: '', claimedPoints: 0 }]);
+    setManualActivities(prev => [...prev, { activityId: 6, description: '', claimedPoints: 0 }]);
   };
 
   const removeActivity = (idx) => {
@@ -82,17 +91,15 @@ const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
     setManualActivities(prev => {
       const upd = [...prev];
 
-      // Auto-clamp claimed points based on activityId cap
       if (field === 'claimedPoints') {
-        const currentActivityId = upd[idx].activityId || 5;
+        const currentActivityId = upd[idx].activityId || 6;
         const cap = ACTIVITY_DETAILS[currentActivityId]?.cap || 10;
         if (val > cap) {
           val = cap;
-          toast.error(`Maximum allowed points for Activity ${currentActivityId} is ${cap}`);
+          toast.error(`Maximum allowed points for this activity is ${cap}`);
         }
       }
 
-      // If activityId changes, re-clamp existing claimed points if they exceed the new cap
       if (field === 'activityId') {
         const cap = ACTIVITY_DETAILS[val]?.cap || 10;
         if (upd[idx].claimedPoints > cap) {
@@ -115,14 +122,13 @@ const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
        if (onNext) onNext();
        return;
     }
-    // Validate manual activities
     const bad = manualActivities.some(a => !a.description?.trim() || a.claimedPoints < 0);
     if (bad) { toast.error('Please fill description and valid points for all activities'); return; }
 
     await updateSection('credit_points', {
       manualActivities,
-      totalCreditsClaimed: combinedTotal, // Default save mapping defaults to auto + manual
-      totalCreditsAllowed: 0, // Admin uses this later
+      totalCreditsClaimed: combinedTotal,
+      totalCreditsAllowed: 0,
     });
 
     if (onNext) onNext();
@@ -131,28 +137,32 @@ const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
   const ic = `w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm ${isReadOnly ? 'bg-gray-100 cursor-not-allowed text-gray-400' : ''}`;
 
   return (
-    <SectionLayout title="Credit Point Calculation" subtitle="Self-assessment of credit points as per NIT statutes matrix." onNext={handleNext} onBack={onBack} isReadOnly={isReadOnly}>
+    <SectionLayout title="Credit Point Calculation" subtitle="Self-assessment of credit points as per NIT statutes matrix (Note-2)." onNext={handleNext} onBack={onBack} isReadOnly={isReadOnly}>
       <div className="space-y-6">
-        {/* Server Auto-Calc Summary */}
+        {/* Auto-Calculated Breakdown */}
         {serverSummary && (
           <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
             <div className="flex items-start gap-3">
               <span className="material-symbols-outlined text-blue-600 mt-0.5">auto_awesome</span>
               <div className="w-full">
-                <h4 className="font-semibold text-blue-900 text-sm">Automated Calculation Data (From Previous Steps)</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
-                  <div className="bg-white/80 rounded-lg px-3 py-2 border border-blue-100 flex flex-col items-center justify-center text-center">
-                    <span className="text-[11px] uppercase tracking-wider text-blue-600 font-bold mb-1">Base Auto Credits</span>
-                    <p className="font-bold text-blue-900 text-xl">{autoTotal.toFixed(1)}</p>
-                  </div>
-                  <div className="bg-white/80 rounded-lg px-3 py-2 border border-blue-100 flex flex-col items-center justify-center text-center">
-                    <span className="text-[11px] uppercase tracking-wider text-blue-600 font-bold mb-1">Stored Manual</span>
-                    <p className="font-bold text-blue-900 text-xl">{serverSummary.manualTotal?.toFixed(1) ?? '0.0'}</p>
-                  </div>
-                  <div className="bg-blue-600 rounded-lg px-3 py-2 border border-blue-700 flex flex-col items-center justify-center text-center shadow-sm">
-                    <span className="text-[11px] uppercase tracking-wider text-blue-100 font-bold mb-1">Saved Total</span>
-                    <p className="font-bold text-white text-xl">{serverSummary.grandTotal?.toFixed(1) ?? '0.0'}</p>
-                  </div>
+                <h4 className="font-semibold text-blue-900 text-sm">Auto-Calculated Credits (Activities 1-5, 18-19)</h4>
+                <p className="text-xs text-blue-700 mt-1 mb-3">Computed from your Sponsored Projects, Patents, Consultancy, PhD Supervision, Journal Papers, Conference Papers, and Books data.</p>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {Object.entries(AUTO_ACTIVITY_LABELS).map(([key, { num, name }]) => {
+                    const val = serverSummary.autoCredits?.[key]?.total ?? 0;
+                    return (
+                      <div key={key} className="bg-white/80 rounded-lg px-3 py-2 border border-blue-100 text-center">
+                        <span className="text-[10px] uppercase tracking-wider text-blue-600 font-bold block">#{num} {name}</span>
+                        <p className="font-bold text-blue-900 text-lg mt-0.5">{val.toFixed(1)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-3 flex items-center justify-between bg-blue-600 rounded-lg px-4 py-2.5 shadow-sm">
+                  <span className="text-blue-100 text-xs font-bold uppercase tracking-wider">Auto Total</span>
+                  <span className="text-white font-bold text-xl">{autoTotal.toFixed(1)}</span>
                 </div>
               </div>
             </div>
@@ -162,13 +172,13 @@ const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start gap-3">
           <span className="material-symbols-outlined text-amber-600 mt-0.5">warning</span>
           <p className="text-sm text-amber-900 leading-relaxed">
-            <strong>Important:</strong> Activities 1-4 are auto-calculated from your saved data. Below you can add manual activities (5-22) for items not auto-calculated. Points will be automatically capped at limits determined by NIT recruitment rules for each activity.
+            <strong>Important:</strong> Activities 1-5, 18-19 are auto-calculated from your saved data. Below you can add manual activities (6-17, 20-22) for items not auto-calculated. Points are capped at limits per NIT recruitment rules.
           </p>
         </div>
 
         {/* Manual Activities */}
         <div className="space-y-4">
-          <h3 className="font-semibold text-gray-800">Manual Activities (5-22)</h3>
+          <h3 className="font-semibold text-gray-800">Manual Activities (6-17, 20-22)</h3>
           {manualActivities.map((act, idx) => (
             <div key={idx} className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-3">
               <div className="flex justify-between items-center">
@@ -181,10 +191,13 @@ const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
                 <div className="space-y-1 block">
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Activity ID</label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Activity</label>
                   <select value={act.activityId} onChange={e => updateActivity(idx, 'activityId', parseInt(e.target.value))} className={ic} disabled={isReadOnly}>
-                    {MANUAL_ACTIVITY_IDS.map(id => <option key={id} value={id}>Activity {id} - {ACTIVITY_DETAILS[id]?.name}</option>)}
+                    {MANUAL_ACTIVITY_IDS.map(id => <option key={id} value={id}>#{id} - {ACTIVITY_DETAILS[id]?.name}</option>)}
                   </select>
+                  {ACTIVITY_DETAILS[act.activityId]?.perUnit && (
+                    <p className="text-[10px] text-gray-400 mt-0.5">{ACTIVITY_DETAILS[act.activityId].perUnit}</p>
+                  )}
                 </div>
                 <div className="space-y-1 md:col-span-2 block">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Description <span className="text-red-500">*</span></label>
@@ -233,8 +246,8 @@ const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
 
             <div className="p-5 flex items-center justify-between bg-primary/5">
               <div>
-                <h4 className="font-bold text-primary-dark text-lg uppercase">Combined Total Point Result</h4>
-                <p className="text-xs text-primary/70 mt-0.5 font-medium">Auto-Calculated Data + Current Manual Entries</p>
+                <h4 className="font-bold text-primary-dark text-lg uppercase">Combined Total</h4>
+                <p className="text-xs text-primary/70 mt-0.5 font-medium">Auto (1-5, 18-19) + Manual (6-17, 20-22)</p>
               </div>
               <div className="px-5 py-3 bg-gradient-to-r from-primary to-primary-dark rounded-xl shadow-lg shadow-primary/30 text-white font-bold text-2xl min-w-[100px] text-center">
                 {combinedTotal.toFixed(1)}
