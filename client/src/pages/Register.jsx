@@ -13,6 +13,7 @@ const Register = () => {
   const [lastName, setLastName] = useState('');
 
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
