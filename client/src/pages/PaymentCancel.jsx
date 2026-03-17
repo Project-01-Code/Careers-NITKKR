@@ -1,34 +1,17 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
-import api from '../services/api';
-import toast from 'react-hot-toast';
 
+/**
+ * PaymentCancel — shown when a user navigates to /applications/:id/payment-cancel directly.
+ *
+ * With the Razorpay modal flow there is no redirect to this page on cancellation — the modal
+ * simply closes and the user stays on the Review & Submit step. This page is kept for
+ * completeness (e.g. browser back-button, bookmarks, deep links).
+ */
 const PaymentCancel = () => {
   const navigate = useNavigate();
   const { id: applicationId } = useParams();
-  const [retrying, setRetrying] = useState(false);
-
-  const handleRetryPayment = async () => {
-    if (!applicationId) {
-      toast.error('Invalid application ID');
-      return;
-    }
-
-    setRetrying(true);
-    try {
-      const res = await api.post('/payments/create-order', { applicationId });
-      const redirectUrl = res.data?.data?.url;
-      if (!redirectUrl) {
-        throw new Error('Missing payment URL');
-      }
-      window.location.href = redirectUrl;
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to restart payment');
-    } finally {
-      setRetrying(false);
-    }
-  };
 
   return (
     <MainLayout>
@@ -38,10 +21,10 @@ const PaymentCancel = () => {
             <span className="material-symbols-outlined text-amber-700 text-3xl">payments</span>
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment was cancelled</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Not Completed</h1>
           <p className="text-gray-600 leading-relaxed mb-6">
-            No amount was charged to your account. Your application is still saved in draft mode, and
-            you can retry payment anytime to complete submission.
+            No amount was charged to your account. Your application is still saved in draft mode.
+            Return to your application and click <strong>Pay & Submit</strong> to complete payment.
           </p>
 
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-8">
@@ -64,13 +47,15 @@ const PaymentCancel = () => {
             >
               Go to Profile
             </button>
-            <button
-              onClick={handleRetryPayment}
-              disabled={retrying}
-              className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold transition-colors disabled:opacity-60"
-            >
-              {retrying ? 'Redirecting...' : 'Retry Payment'}
-            </button>
+            {/* Navigate back to the application form so the user can retry via the modal */}
+            {applicationId && (
+              <button
+                onClick={() => navigate(-1)}
+                className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold transition-colors"
+              >
+                Back to Application
+              </button>
+            )}
           </div>
         </div>
       </div>

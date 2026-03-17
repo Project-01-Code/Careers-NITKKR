@@ -49,6 +49,71 @@ const SECTION_ICONS = {
   declaration: 'verified',
 };
 
+// ---------------------------------------------------------------------------
+// Razorpay helpers
+// ---------------------------------------------------------------------------
+
+/** Dynamically load the Razorpay checkout.js script (idempotent). */
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+/** Open the Razorpay modal and return a promise that resolves when payment is complete or rejected on cancel. */
+function openRazorpayModal({ keyId, orderId, amountInPaise, currency, applicationId, userName, userEmail }) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      key: keyId,
+      amount: amountInPaise,   // Razorpay expects paise
+      currency: currency?.toUpperCase() ?? 'INR',
+      name: 'NIT Kurukshetra',
+      description: 'Application Fee',
+      order_id: orderId,
+      prefill: {
+        name: userName || '',
+        email: userEmail || '',
+      },
+      notes: { applicationId },
+      theme: { color: '#1e40af' },
+      // Called by Razorpay on successful payment — contains signature for verification
+      handler: (response) => {
+        resolve({
+          razorpayOrderId:   response.razorpay_order_id,
+          razorpayPaymentId: response.razorpay_payment_id,
+          razorpaySignature: response.razorpay_signature,
+        });
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+
+    // Called when user closes the modal without paying
+    rzp.on('payment.failed', (response) => {
+      reject(new Error(response.error?.description || 'Payment failed'));
+    });
+
+    rzp.open();
+
+    // Handle modal dismiss (user clicks the × button)
+    // Razorpay doesn't provide an ondismiss callback in the standard SDK;
+    // payment.failed fires for explicit failures; dismissed without action
+    // simply leaves the promise pending until the user retries or navigates away.
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
   const { formData, jobSnapshot, applicationId, applicationNumber, validateAll, paymentStatus, submitApplication } = useApplication();
   const [submitting, setSubmitting] = useState(false);
@@ -61,7 +126,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
   const feeConfig = jobSnapshot?.applicationFee;
   const feeRequired = feeConfig?.isRequired;
 
-  // Compute the user's fee from category-based fee structure
+  // Compute the user's fee from category-based fee structure (for display only)
   const getUserFee = () => {
     if (!feeConfig) return 0;
     const category = formData.personalDetails?.category;
@@ -76,11 +141,10 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
     };
     const isPwd = formData.personalDetails?.disability;
     const baseFee = isPwd ? feeConfig.pwd : (categoryFeeMap[category] ?? feeConfig.general ?? 0);
-    return baseFee > 0 ? baseFee + 50 : 0; // Add 50 INR transaction fee if base > 0
+    return baseFee > 0 ? baseFee + 50 : 0; // Add ₹50 transaction fee
   };
   const feeAmount = getUserFee();
 
-  // Check if a section has data
   const hasSectionData = useCallback((sectionType) => {
     const sectionMap = {
       personal: () => formData.personalDetails && Object.keys(formData.personalDetails).length > 0 && formData.personalDetails?.name,
@@ -106,16 +170,13 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
     return sectionMap[sectionType]?.() || false;
   }, [formData]);
 
-  // Combine job-specific requirements
   const allTrackedSections = [...sections];
-
   const knownSections = allTrackedSections.filter(s => SECTION_LABELS[s.sectionType]);
   const mandatorySections = knownSections.filter(s => s.isMandatory);
   const completedCount = mandatorySections.filter(s => hasSectionData(s.sectionType)).length;
   const totalMandatory = mandatorySections.length;
   const progressPercent = totalMandatory > 0 ? Math.round((completedCount / totalMandatory) * 100) : 0;
 
-  // Run validation check
   const handleValidateAll = async () => {
     if (isReadOnly) return;
     setValidating(true);
@@ -123,13 +184,10 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
     try {
       const result = await validateAll();
       setValidationRun(true);
-      
       const nonPaymentErrors = (result.errors || []).filter(e => e.field !== 'payment' && e.section !== 'payment');
-      
       if (nonPaymentErrors.length > 0) {
         setValidationErrors(result.errors || []);
       } else if (!result.canSubmit) {
-        // This means canSubmit is false ONLY because of payment
         setValidationErrors(result.errors || []);
         toast.success('All sections verified! Only payment is pending.');
       } else {
@@ -142,64 +200,88 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
     }
   };
 
-  // Final submit / payment handler
+  // ---------------------------------------------------------------------------
+  // Main submit / payment handler
+  // ---------------------------------------------------------------------------
   const handleFinalSubmit = async () => {
     if (isReadOnly) return;
     setSubmitting(true);
     setValidationErrors([]);
+
     try {
-      // Step 1: Validate all
+      // ── Step 1: Validate all sections ──────────────────────────────────────
       const validation = await validateAll();
       setValidationRun(true);
-      
-      // Filter out payment error for the initial check - we'll handle payment in Step 2
-      const nonPaymentErrors = (validation.errors || []).filter(e => e.field !== 'payment' && e.section !== 'payment');
-      const hasRealErrors = nonPaymentErrors.length > 0;
 
-      if (hasRealErrors) {
+      const nonPaymentErrors = (validation.errors || []).filter(
+        e => e.field !== 'payment' && e.section !== 'payment'
+      );
+
+      if (nonPaymentErrors.length > 0) {
         setValidationErrors(validation.errors || []);
         toast.error('Please fix the issues listed below before submitting.');
         setSubmitting(false);
         return;
       }
 
-      // Step 2: If fee required, redirect to Stripe payment
+      // ── Step 2: If fee required and not yet paid, initiate Razorpay modal ──
       if (feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted') {
-        const res = await api.post('/payments/create-order', { applicationId });
-        const paymentData = res.data.data;
 
-        if (paymentData?.url) {
-          window.location.href = paymentData.url;
-          return;
-        } else if (paymentData?.bypassed || paymentData?.exempted || paymentData?.alreadyPaid) {
-          toast.success(paymentData?.alreadyPaid ? 'Payment already completed! Application submitted.' : 'Application fee exempted. Submitted successfully!');
+        // 2a. Create/retrieve order from backend
+        const orderRes = await api.post('/payments/create-order', { applicationId });
+        const paymentData = orderRes.data.data;
+
+        // Handle instant exemption (fee resolved to 0)
+        if (paymentData?.exempted || paymentData?.alreadyPaid) {
+          toast.success(
+            paymentData.alreadyPaid
+              ? 'Payment already completed!'
+              : 'Application fee exempted. Submitted successfully!'
+          );
           navigate('/profile', { state: { refresh: true } });
           return;
-        } else if (paymentData?.alreadyPending) {
-          toast.error('A payment is already pending for this application.');
-          return;
-        } else {
-          toast.error('Failed to initiate payment. Please try again.');
+        }
+
+        // 2b. Load Razorpay script (cached after first load)
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          toast.error('Failed to load payment gateway. Check your internet connection and retry.');
+          setSubmitting(false);
           return;
         }
-      }
+
+        // 2c. Open modal — awaits user completing or dismissing payment
+        let paymentResponse;
+        try {
+          paymentResponse = await openRazorpayModal({
+            keyId:        paymentData.keyId,
+            orderId:      paymentData.orderId,
+            amountInPaise: paymentData.amountInPaise,
+            currency:     paymentData.currency,
+            applicationId,
+            // ⚠️ ASSUMPTION: user info is available via req.user in the context.
+            // Replace with actual user name/email from auth context if available.
+          });
+        } catch (modalError) {
+          // User cancelled or payment failed in the modal
+          toast.error(modalError.message || 'Payment was not completed. You can retry anytime.');
+          setSubmitting(false);
+          return;
+        }
+
+        // 2d. Verify payment signature on the backend
+        const verifyRes = await api.post('/payments/verify-payment', {
+          razorpayOrderId:   paymentResponse.razorpayOrderId,
+          razorpayPaymentId: paymentResponse.razorpayPaymentId,
+          razorpaySignature: paymentResponse.razorpaySignature,
+        });
 
       // Step 3: Submit directly (free apps or already paid)
-      const submitRes = await submitApplication();
-      if (submitRes.success) {
-        toast.success('Application submitted successfully!');
-        // No need to navigate here if we want to show the summary screen on the same page
-        // But the user might prefer navigating to profile. 
-        // Based on the 'successfully submitted' screen being in ApplicationForm, 
-        // we should probably NOT navigate away if we want them to see it.
-        // However, if we don't navigate, they stay on the current step (ReviewSubmit).
-        // ApplicationForm has logic to showSummary if status !== 'draft'.
-        // So updating status should trigger it.
-      } else {
-        throw new Error(submitRes.message || 'Submission failed');
-      }
+      await api.post(`/applications/${applicationId}/submit`);
+      toast.success('Application submitted successfully!');
+      navigate('/profile');
     } catch (error) {
-      toast.error(error.message || error.response?.data?.message || 'Submission failed');
+      toast.error(error.response?.data?.message || 'Submission failed');
     } finally {
       setSubmitting(false);
     }
@@ -251,7 +333,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           </span>
           {(paymentStatus === 'paid' || paymentStatus === 'exempted') && (
             <span className="px-4 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px]">check_circle</span> 
+              <span className="material-symbols-outlined text-[16px]">check_circle</span>
               {paymentStatus === 'exempted' ? 'Fee Exempted' : 'Payment Complete'}
             </span>
           )}
@@ -261,53 +343,51 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {/* ═══════════════════════════════════ */}
       {/* Section Completion Checklist        */}
       {/* ═══════════════════════════════════ */}
-      {!isReadOnly && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-secondary flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">checklist</span>
-              Section Completion
-            </h2>
-            <span className={`text-sm font-bold px-3 py-1 rounded-full ${progressPercent === 100 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-              {completedCount}/{totalMandatory} Complete
-            </span>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="w-full h-2.5 bg-gray-100 rounded-full mb-5 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${progressPercent === 100 ? 'bg-green-500' : progressPercent > 50 ? 'bg-primary' : 'bg-amber-500'}`}
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-
-          {/* Section Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {knownSections.map((sec) => {
-              const done = hasSectionData(sec.sectionType);
-              const label = SECTION_LABELS[sec.sectionType] || sec.sectionType;
-              const icon = SECTION_ICONS[sec.sectionType] || 'check_box_outline_blank';
-              return (
-                <div
-                  key={sec.sectionType}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm transition-all ${done
-                      ? 'bg-green-50 border-green-200 text-green-800'
-                      : sec.isMandatory
-                        ? 'bg-red-50 border-red-200 text-red-700'
-                        : 'bg-gray-50 border-gray-200 text-gray-500'
-                    }`}
-                >
-                  <span className={`material-symbols-outlined text-[18px] flex-shrink-0 ${done ? 'text-green-500' : sec.isMandatory ? 'text-red-400' : 'text-gray-400'}`}>
-                    {done ? 'check_circle' : sec.isMandatory ? 'error' : icon}
-                  </span>
-                  <span className="font-medium flex-1 truncate">{label}</span>
-                  {!sec.isMandatory && <span className="text-[10px] uppercase text-gray-400 font-bold">Optional</span>}
-                </div>
-              );
-            })}
-          </div>
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8 shadow-sm">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-secondary flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">checklist</span>
+            Section Completion
+          </h2>
+          <span className={`text-sm font-bold px-3 py-1 rounded-full ${progressPercent === 100 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+            {completedCount}/{totalMandatory} Complete
+          </span>
         </div>
-      )}
+
+        {/* Progress Bar */}
+        <div className="w-full h-2.5 bg-gray-100 rounded-full mb-5 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${progressPercent === 100 ? 'bg-green-500' : progressPercent > 50 ? 'bg-primary' : 'bg-amber-500'}`}
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+
+        {/* Section Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {knownSections.map((sec) => {
+            const done = hasSectionData(sec.sectionType);
+            const label = SECTION_LABELS[sec.sectionType] || sec.sectionType;
+            const icon = SECTION_ICONS[sec.sectionType] || 'check_box_outline_blank';
+            return (
+              <div
+                key={sec.sectionType}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm transition-all ${done
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : sec.isMandatory
+                      ? 'bg-red-50 border-red-200 text-red-700'
+                      : 'bg-gray-50 border-gray-200 text-gray-500'
+                  }`}
+              >
+                <span className={`material-symbols-outlined text-[18px] flex-shrink-0 ${done ? 'text-green-500' : sec.isMandatory ? 'text-red-400' : 'text-gray-400'}`}>
+                  {done ? 'check_circle' : sec.isMandatory ? 'error' : icon}
+                </span>
+                <span className="font-medium flex-1 truncate">{label}</span>
+                {!sec.isMandatory && <span className="text-[10px] uppercase text-gray-400 font-bold">Optional</span>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* ═══════════════════════════════════ */}
       {/* Data Summary Sections               */}
@@ -564,7 +644,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {(isRequired('final_documents') || isRequired('photo') || isRequired('signature')) && (
         <SummarySection title="Uploads" icon="cloud_upload" sectionKey="documents">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Photo */}
             {isRequired('photo') && (
               <div className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 ${formData.photo?.imageUrl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
                 {formData.photo?.imageUrl ? (
@@ -582,8 +661,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
                 </span>
               </div>
             )}
-
-            {/* Signature */}
             {isRequired('signature') && (
               <div className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 ${formData.signature?.imageUrl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
                 {formData.signature?.imageUrl ? (
@@ -601,8 +678,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
                 </span>
               </div>
             )}
-
-            {/* Final PDF */}
             {isRequired('final_documents') && (
               <div className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 ${formData.documents?.pdfUrl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
                 <div className={`w-20 h-20 rounded-xl flex items-center justify-center ${formData.documents?.pdfUrl ? 'bg-green-100' : 'bg-gray-200'}`}>
@@ -655,7 +730,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
                 <p className="text-2xl font-black text-gray-700">{formData.credit_points?.manualActivities?.length || 0} Entries</p>
               </div>
             </div>
-
             {formData.credit_points?.manualActivities?.length > 0 && (
               <div className="mt-4 border border-gray-100 rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
@@ -717,69 +791,65 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       )}
 
       {/* ═══════════════════════════════════ */}
-      {/* Validate All Button (Only if not Read-Only) */}
+      {/* Validate All Button                 */}
       {/* ═══════════════════════════════════ */}
-      {!isReadOnly && (
-        <div className="mb-6">
-          <button
-            onClick={handleValidateAll}
-            disabled={validating}
-            className="w-full py-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 text-primary font-bold text-sm hover:bg-primary/10 hover:border-primary/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {validating ? (
-              <>
-                <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                Running Validation...
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined">fact_check</span>
-                {validationRun ? 'Re-run Validation Check' : 'Run Pre-Submission Validation Check'}
-              </>
-            )}
-          </button>
-
-          {/* Validation passed indicator */}
-          {validationRun && validationErrors.length === 0 && (
-            <div className="mt-4 bg-green-50 border-2 border-green-200 rounded-2xl p-5 flex items-center gap-3 animate-fade-in">
-              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                <span className="material-symbols-outlined text-green-600 text-2xl">verified</span>
-              </div>
-              <div>
-                <h4 className="font-bold text-green-800">All Validations Passed!</h4>
-                <p className="text-sm text-green-700">Your application is complete and ready for {feeRequired ? 'payment and ' : ''}submission.</p>
-              </div>
-            </div>
+      <div className="mb-6">
+        <button
+          onClick={handleValidateAll}
+          disabled={validating}
+          className="w-full py-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 text-primary font-bold text-sm hover:bg-primary/10 hover:border-primary/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {validating ? (
+            <>
+              <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              Running Validation...
+            </>
+          ) : (
+            <>
+              <span className="material-symbols-outlined">fact_check</span>
+              {validationRun ? 'Re-run Validation Check' : 'Run Pre-Submission Validation Check'}
+            </>
           )}
+        </button>
 
-          {/* Validation Errors */}
-          {validationErrors.length > 0 && (
-            <div className="mt-4 bg-red-50 border-2 border-red-200 rounded-2xl p-6 animate-fade-in">
-              <h3 className="text-lg font-bold text-red-800 mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined text-red-600">error</span>
-                {validationErrors.length} Issue{validationErrors.length > 1 ? 's' : ''} Found — Please Fix Before Submitting
-              </h3>
-              <ul className="space-y-2">
-                {validationErrors.map((err, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-red-700 bg-red-100/50 px-4 py-2.5 rounded-xl">
-                    <span className="material-symbols-outlined text-red-400 text-[16px] mt-0.5 flex-shrink-0">close</span>
-                    <span>
-                      <strong className="capitalize">
-                        {SECTION_LABELS[err.section] || err.section || err.field}:
-                      </strong>{' '}
-                      {err.message}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+        {/* Validation passed indicator */}
+        {validationRun && validationErrors.length === 0 && (
+          <div className="mt-4 bg-green-50 border-2 border-green-200 rounded-2xl p-5 flex items-center gap-3 animate-fade-in">
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+              <span className="material-symbols-outlined text-green-600 text-2xl">verified</span>
             </div>
-          )}
-        </div>
-      )}
+            <div>
+              <h4 className="font-bold text-green-800">All Validations Passed!</h4>
+              <p className="text-sm text-green-700">Your application is complete and ready for {feeRequired ? 'payment and ' : ''}submission.</p>
+            </div>
+          </div>
+        )}
 
-      {/* ═══════════════════════════════════ */}
-      {/* Payment Info Card                   */}
-      {/* ═══════════════════════════════════ */}
+        {/* Validation Errors */}
+        {validationErrors.length > 0 && (
+          <div className="mt-4 bg-red-50 border-2 border-red-200 rounded-2xl p-6 animate-fade-in">
+            <h3 className="text-lg font-bold text-red-800 mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-red-600">error</span>
+              {validationErrors.length} Issue{validationErrors.length > 1 ? 's' : ''} Found — Please Fix Before Submitting
+            </h3>
+            <ul className="space-y-2">
+              {validationErrors.map((err, i) => (
+                <li key={i} className="flex items-start gap-3 text-sm text-red-700 bg-red-100/50 px-4 py-2.5 rounded-xl">
+                  <span className="material-symbols-outlined text-red-400 text-[16px] mt-0.5 flex-shrink-0">close</span>
+                  <span>
+                    <strong className="capitalize">
+                      {SECTION_LABELS[err.section] || err.section || err.field}:
+                    </strong>{' '}
+                    {err.message}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Payment Info Card */}
       {feeRequired && (
         <div className={`border rounded-2xl p-6 mb-8 shadow-sm ${isReadOnly ? 'bg-gray-50 border-gray-100' : 'bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-200'}`}>
           <div className="flex items-start gap-4">
@@ -787,9 +857,9 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
               <span className={`material-symbols-outlined text-2xl ${isReadOnly ? 'text-gray-400' : 'text-indigo-600'}`}>payments</span>
             </div>
             <div className="flex-1">
-              <h3 className={`font-bold text-lg ${isReadOnly ? 'text-gray-700' : 'text-indigo-900'}`}>Application Fee</h3>
-              <p className={`text-sm mt-1 ${isReadOnly ? 'text-gray-500' : 'text-indigo-700'}`}>
-                {isReadOnly ? 'This application required an application fee which has been processed.' : 'This position requires an application fee. You will be securely redirected to Stripe for payment.'}
+              <h3 className="font-bold text-indigo-900 text-lg">Application Fee</h3>
+              <p className="text-sm text-indigo-700 mt-1">
+                This position requires an application fee. You will be securely redirected to Stripe for payment.
               </p>
               <div className="flex items-center gap-4 mt-4">
                 <div className={`px-6 py-2 bg-white rounded-xl border shadow-sm ${isReadOnly ? 'border-gray-100' : 'border-indigo-200'}`}>
@@ -812,58 +882,60 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
               </div>
             </div>
           </div>
+          <div className="mt-4 flex items-center gap-2 text-xs text-indigo-600">
+            <span className="material-symbols-outlined text-[14px]">lock</span>
+            Secured by Stripe. Your payment details are never stored on our servers.
+          </div>
         </div>
       )}
 
       {/* ═══════════════════════════════════ */}
       {/* Final Submit Action                 */}
       {/* ═══════════════════════════════════ */}
-      {!isReadOnly && (
-        <div className="p-8 bg-secondary rounded-3xl text-white text-center shadow-2xl relative overflow-hidden">
-          <div className="relative z-10">
-            <h2 className="text-2xl font-bold mb-2">Ready to Submit?</h2>
-            <p className="text-white/60 mb-2 max-w-lg mx-auto text-sm">
-              Once submitted, you cannot edit your application.
+      <div className="p-8 bg-secondary rounded-3xl text-white text-center shadow-2xl relative overflow-hidden">
+        <div className="relative z-10">
+          <h2 className="text-2xl font-bold mb-2">Ready to Submit?</h2>
+          <p className="text-white/60 mb-2 max-w-lg mx-auto text-sm">
+            Once submitted, you cannot edit your application.
+          </p>
+          {feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted' && (
+            <p className="text-amber-300 mb-6 text-sm font-medium flex items-center gap-1 justify-center">
+              <span className="material-symbols-outlined text-[16px]">info</span>
+              You will be redirected to Stripe to complete payment.
             </p>
-            {feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted' && (
-              <p className="text-amber-300 mb-6 text-sm font-medium flex items-center gap-1 justify-center">
-                <span className="material-symbols-outlined text-[16px]">info</span>
-                You will be redirected to Stripe to complete payment.
-              </p>
-            )}
+          )}
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
-              <button
-                onClick={onBack}
-                className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all border border-white/20"
-              >
-                <span className="flex items-center gap-2 justify-center">
-                  <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                  Go Back
-                </span>
-              </button>
-              <button
-                onClick={handleFinalSubmit}
-                disabled={submitting}
-                className="px-10 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-extrabold transition-all shadow-lg hover:shadow-primary/30 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {submitting ? (
-                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined">
-                      {feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted' ? 'payments' : 'send'}
-                    </span>
-                    {feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted'
-                      ? `Pay ₹${feeAmount.toLocaleString('en-IN')} & Submit`
-                      : 'Submit Application'}
-                  </>
-                )}
-              </button>
-            </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
+            <button
+              onClick={onBack}
+              className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all border border-white/20"
+            >
+              <span className="flex items-center gap-2 justify-center">
+                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                Go Back
+              </span>
+            </button>
+            <button
+              onClick={handleFinalSubmit}
+              disabled={submitting}
+              className="px-10 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-extrabold transition-all shadow-lg hover:shadow-primary/30 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {submitting ? (
+                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span className="material-symbols-outlined">
+                    {feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted' ? 'payments' : 'send'}
+                  </span>
+                  {feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted'
+                    ? `Pay ₹${feeAmount.toLocaleString('en-IN')} & Submit`
+                    : 'Submit Application'}
+                </>
+              )}
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Footer Note */}
       <p className="text-center text-xs text-gray-400 mt-6">

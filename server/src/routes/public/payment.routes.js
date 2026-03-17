@@ -1,16 +1,24 @@
 import { Router } from 'express';
 import {
-    createPaymentOrder,
-    verifyWebhook,
+  createPaymentOrder,
+  verifyPayment,
+  getPaymentStatus,
 } from '../../controllers/payment.controller.js';
 import { verifyJWT } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// Create order requires authentication
-router.route('/create-order').post(verifyJWT, createPaymentOrder);
+// All payment routes require authentication
+router.post('/create-order', verifyJWT, createPaymentOrder);
 
-// Webhook requires NO authentication (Stripe signature validation is done in controller)
-router.route('/webhook').post(verifyWebhook);
+// Called by frontend after Razorpay modal succeeds — verifies HMAC signature
+router.post('/verify-payment', verifyJWT, verifyPayment);
+
+// Poll for payment/application status
+router.get('/status/:applicationId', verifyJWT, getPaymentStatus);
+
+// ⚠️ ASSUMPTION: No webhook route is required for the current modal-based flow.
+// If Razorpay webhook support is needed in the future (e.g., for server-to-server
+// confirmation), add a route here WITHOUT verifyJWT and validate using razorpayService.verifySignature.
 
 export default router;
