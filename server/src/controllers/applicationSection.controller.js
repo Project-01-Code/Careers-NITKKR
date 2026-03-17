@@ -29,9 +29,14 @@ export const saveSection = asyncHandler(async (req, res) => {
   const application = req.application;
 
   // Get section config
-  const sectionConfig = application.jobSnapshot.requiredSections.find(
+  let sectionConfig = application.jobSnapshot.requiredSections.find(
     (s) => s.sectionType === sectionType
   );
+
+  // Special case: 'custom' section is allowed if job has custom fields defined
+  if (!sectionConfig && sectionType === 'custom' && (application.jobSnapshot.customFields?.length > 0 || application.jobSnapshot.requiredSections.some(s => s.sectionType === 'custom'))) {
+    sectionConfig = { sectionType: 'custom', isMandatory: false };
+  }
 
   if (!sectionConfig) {
     throw new ApiError(

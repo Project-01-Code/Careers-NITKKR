@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
-import { useApplication } from '../../context/ApplicationContext';
+import { useApplication } from '../../hooks/useApplication';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -34,7 +34,7 @@ const ACTIVITY_DETAILS = {
  */
 const MANUAL_ACTIVITY_IDS = Object.keys(ACTIVITY_DETAILS).map(Number);
 
-const CreditPoints = ({ onNext, onBack }) => {
+const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
   const { formData, updateSection, applicationId } = useApplication();
   const [manualActivities, setManualActivities] = useState([]);
   const [serverSummary, setServerSummary] = useState(null);
@@ -68,14 +68,17 @@ const CreditPoints = ({ onNext, onBack }) => {
   }, [applicationId]);
 
   const addActivity = () => {
+    if (isReadOnly) return;
     setManualActivities(prev => [...prev, { activityId: 5, description: '', claimedPoints: 0 }]);
   };
 
   const removeActivity = (idx) => {
+    if (isReadOnly) return;
     setManualActivities(prev => prev.filter((_, i) => i !== idx));
   };
 
   const updateActivity = (idx, field, val) => {
+    if (isReadOnly) return;
     setManualActivities(prev => {
       const upd = [...prev];
 
@@ -108,6 +111,10 @@ const CreditPoints = ({ onNext, onBack }) => {
   const combinedTotal = autoTotal + manualTotal;
 
   const handleNext = async () => {
+    if (isReadOnly) {
+       if (onNext) onNext();
+       return;
+    }
     // Validate manual activities
     const bad = manualActivities.some(a => !a.description?.trim() || a.claimedPoints < 0);
     if (bad) { toast.error('Please fill description and valid points for all activities'); return; }
@@ -121,10 +128,10 @@ const CreditPoints = ({ onNext, onBack }) => {
     if (onNext) onNext();
   };
 
-  const ic = 'w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm';
+  const ic = `w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm ${isReadOnly ? 'bg-gray-100 cursor-not-allowed text-gray-400' : ''}`;
 
   return (
-    <SectionLayout title="Credit Point Calculation" subtitle="Self-assessment of credit points as per NIT statutes matrix." onNext={handleNext} onBack={onBack}>
+    <SectionLayout title="Credit Point Calculation" subtitle="Self-assessment of credit points as per NIT statutes matrix." onNext={handleNext} onBack={onBack} isReadOnly={isReadOnly}>
       <div className="space-y-6">
         {/* Server Auto-Calc Summary */}
         {serverSummary && (
@@ -166,24 +173,27 @@ const CreditPoints = ({ onNext, onBack }) => {
             <div key={idx} className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-gray-700">Activity #{idx + 1}</span>
-                <button onClick={() => removeActivity(idx)} className="text-red-500 hover:bg-red-50 px-2 py-1 rounded text-sm flex items-center gap-1 transition-colors">
-                  <span className="material-symbols-outlined text-sm">delete</span>Remove
-                </button>
+                {!isReadOnly && (
+                  <button onClick={() => removeActivity(idx)} className="text-red-500 hover:bg-red-50 px-2 py-1 rounded text-sm flex items-center gap-1 transition-colors">
+                    <span className="material-symbols-outlined text-sm">delete</span>Remove
+                  </button>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
                 <div className="space-y-1 block">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Activity ID</label>
-                  <select value={act.activityId} onChange={e => updateActivity(idx, 'activityId', parseInt(e.target.value))} className={ic}>
+                  <select value={act.activityId} onChange={e => updateActivity(idx, 'activityId', parseInt(e.target.value))} className={ic} disabled={isReadOnly}>
                     {MANUAL_ACTIVITY_IDS.map(id => <option key={id} value={id}>Activity {id} - {ACTIVITY_DETAILS[id]?.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1 md:col-span-2 block">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Description <span className="text-red-500">*</span></label>
-                  <input value={act.description} onChange={e => updateActivity(idx, 'description', e.target.value)} className={ic} placeholder="Specific details about this activity" />
+                  <input value={act.description} onChange={e => updateActivity(idx, 'description', e.target.value)} className={ic} placeholder="Specific details about this activity" disabled={isReadOnly} />
                 </div>
                 <div className="space-y-1 block relative">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Points Claimed</label>
                   <input type="number" step="0.1" min={0} max={ACTIVITY_DETAILS[act.activityId]?.cap || 10} value={act.claimedPoints === 0 ? '' : act.claimedPoints} onChange={e => {
+                    if (isReadOnly) return;
                     const strVal = e.target.value;
                     if (strVal === '') { updateActivity(idx, 'claimedPoints', 0); return; }
                     let val = parseFloat(strVal);
@@ -192,7 +202,7 @@ const CreditPoints = ({ onNext, onBack }) => {
                     const cap = ACTIVITY_DETAILS[act.activityId]?.cap || 10;
                     if (val > cap) val = cap;
                     updateActivity(idx, 'claimedPoints', val);
-                  }} className={`${ic} text-right font-bold text-primary`} placeholder="0.0" />
+                  }} className={`${ic} text-right font-bold text-primary`} placeholder="0.0" disabled={isReadOnly} />
                   <div className="text-[10px] text-gray-500 text-right mt-1 w-full absolute -bottom-5 right-1">
                     Max allowed: <span className="font-bold text-gray-700">{ACTIVITY_DETAILS[act.activityId]?.cap || 10}</span>
                   </div>
@@ -201,9 +211,11 @@ const CreditPoints = ({ onNext, onBack }) => {
             </div>
           ))}
 
-          <button onClick={addActivity} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2 group bg-white/50">
-            <span className="material-symbols-outlined group-hover:scale-110 transition-transform">add_circle</span> Add Manual Activity
-          </button>
+          {!isReadOnly && (
+            <button onClick={addActivity} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2 group bg-white/50">
+              <span className="material-symbols-outlined group-hover:scale-110 transition-transform">add_circle</span> Add Manual Activity
+            </button>
+          )}
         </div>
 
         {/* Totals */}

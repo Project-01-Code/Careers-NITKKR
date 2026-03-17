@@ -12,9 +12,17 @@ export const checkApplicationOwnership = asyncHandler(
   async (req, res, next) => {
     const { id } = req.params;
 
-    const application = await Application.findById(id);
+    const application = await Application.findById(id).populate('jobId');
 
     if (!application) {
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
+    }
+
+    // If job is deleted, hide it from non-privileged users
+    if (
+      application.jobId?.deletedAt &&
+      req.user.role === USER_ROLES.APPLICANT
+    ) {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Application not found');
     }
 

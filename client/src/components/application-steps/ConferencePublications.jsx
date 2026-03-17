@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
-import { useApplication } from '../../context/ApplicationContext';
+import { useApplication } from '../../hooks/useApplication';
 import toast from 'react-hot-toast';
 
 const CONFERENCE_TYPES = [
@@ -22,7 +22,7 @@ const EMPTY_ROW = {
   pages: ''
 };
 
-const ConferencePublications = ({ onNext, onBack }) => {
+const ConferencePublications = ({ onNext, onBack, isReadOnly }) => {
   const { formData, updateSection } = useApplication();
   const [list, setList] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -39,6 +39,7 @@ const ConferencePublications = ({ onNext, onBack }) => {
   }, [formData?.conferencePublications, list.length]);
 
   const set = (i, field, val) => {
+    if (isReadOnly) return;
     const upd = [...list];
     upd[i] = { ...upd[i], [field]: val };
     setList(upd);
@@ -52,11 +53,13 @@ const ConferencePublications = ({ onNext, onBack }) => {
   };
 
   const addRow = () => {
+    if (isReadOnly) return;
     setList([...list, { ...EMPTY_ROW }]);
     setErrors([...errors, {}]);
   };
 
   const removeRow = (i) => {
+    if (isReadOnly) return;
     setList(list.filter((_, idx) => idx !== i));
     setErrors(errors.filter((_, idx) => idx !== i));
   };
@@ -108,7 +111,7 @@ const ConferencePublications = ({ onNext, onBack }) => {
     }
   };
 
-  const ic = (i, field) => `w-full px-3 py-2 rounded-lg border ${errors[i]?.[field] ? 'border-red-400 bg-red-50/30 text-red-900 placeholder-red-300 focus:ring-red-200 focus:border-red-500' : 'border-gray-300 focus:ring-primary/20 focus:border-primary bg-white text-gray-900'} focus:ring-2 outline-none text-sm transition-all`;
+  const ic = (i, field) => `w-full px-3 py-2 rounded-lg border ${errors[i]?.[field] ? 'border-red-400 bg-red-50/30 text-red-900 placeholder-red-300 focus:ring-red-200 focus:border-red-500' : 'border-gray-300 focus:ring-primary/20 focus:border-primary bg-white text-gray-900'} focus:ring-2 outline-none text-sm transition-all ${isReadOnly ? 'bg-gray-100 cursor-not-allowed text-gray-400' : ''}`;
   const errText = (i, field) => errors[i]?.[field] ? <p className="text-xs text-red-500 mt-1 font-medium">{errors[i][field]}</p> : null;
 
   return (
@@ -117,6 +120,7 @@ const ConferencePublications = ({ onNext, onBack }) => {
       subtitle="Details of conference publications. Leave empty if none."
       onNext={handleNext}
       onBack={onBack}
+      isReadOnly={isReadOnly}
     >
       <div className="space-y-6">
         {list.map((pub, i) => (
@@ -128,31 +132,34 @@ const ConferencePublications = ({ onNext, onBack }) => {
                 </span>
                 Conference Paper
               </h3>
-              <button
-                onClick={() => removeRow(i)}
-                className="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border border-transparent hover:border-red-100 flex items-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-[18px]">delete</span>
-                Remove
-              </button>
+              {list.length > 1 && !isReadOnly && (
+                <button
+                  onClick={() => removeRow(i)}
+                  className="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border border-transparent hover:border-red-100 flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                  Remove
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.conferenceType ? 'text-red-500' : 'text-gray-500'}`}>Conference Type <span className="text-red-500">*</span></label>
-                <select value={pub.conferenceType} onChange={e => set(i, 'conferenceType', e.target.value)} className={ic(i, 'conferenceType')}>
+                <select value={pub.conferenceType} onChange={e => set(i, 'conferenceType', e.target.value)} className={ic(i, 'conferenceType')} disabled={isReadOnly}>
                   <option value="">Select Category</option>
                   {CONFERENCE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
                 {errText(i, 'conferenceType')}
               </div>
               <div className="flex items-end pb-2">
-                <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 rounded-lg border border-gray-200 hover:border-primary/40 text-sm">
+                <label className={`flex items-center gap-2 cursor-pointer bg-white px-3 py-2 rounded-lg border border-gray-200 hover:border-primary/40 text-sm ${isReadOnly ? 'bg-gray-100 cursor-not-allowed opacity-70' : ''}`}>
                   <input
                     type="checkbox"
                     checked={pub.isFirstAuthor}
                     onChange={e => set(i, 'isFirstAuthor', e.target.checked)}
                     className="w-4 h-4 rounded"
+                    disabled={isReadOnly}
                   />
                   <span className="text-gray-700 font-medium whitespace-nowrap">First / Corresponding Author</span>
                 </label>
@@ -161,31 +168,31 @@ const ConferencePublications = ({ onNext, onBack }) => {
 
             <div className="space-y-1 block">
               <label className={`text-xs font-semibold uppercase ${errors[i]?.paperTitle ? 'text-red-500' : 'text-gray-500'}`}>Paper Title <span className="text-red-500">*</span></label>
-              <input value={pub.paperTitle} onChange={e => set(i, 'paperTitle', e.target.value)} className={ic(i, 'paperTitle')} placeholder="Full title of the research paper" />
+              <input value={pub.paperTitle} onChange={e => set(i, 'paperTitle', e.target.value)} className={ic(i, 'paperTitle')} placeholder="Full title of the research paper" disabled={isReadOnly} />
               {errText(i, 'paperTitle')}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.authors ? 'text-red-500' : 'text-gray-500'}`}>Authors <span className="text-red-500">*</span></label>
-                <input value={pub.authors} onChange={e => set(i, 'authors', e.target.value)} className={ic(i, 'authors')} placeholder="All authors, comma separated" />
+                <input value={pub.authors} onChange={e => set(i, 'authors', e.target.value)} className={ic(i, 'authors')} placeholder="All authors, comma separated" disabled={isReadOnly} />
                 {errText(i, 'authors')}
               </div>
               <div className="space-y-1 block">
                 <label className="text-xs font-semibold text-gray-500 uppercase">Co-Author Count</label>
-                <input type="number" min={0} value={pub.coAuthorCount} onChange={e => set(i, 'coAuthorCount', parseInt(e.target.value) || 0)} className={ic(i, 'coAuthorCount')} />
+                <input type="number" min={0} value={pub.coAuthorCount} onChange={e => set(i, 'coAuthorCount', parseInt(e.target.value) || 0)} className={ic(i, 'coAuthorCount')} disabled={isReadOnly} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.conferenceName ? 'text-red-500' : 'text-gray-500'}`}>Conference Name <span className="text-red-500">*</span></label>
-                <input value={pub.conferenceName} onChange={e => set(i, 'conferenceName', e.target.value)} className={ic(i, 'conferenceName')} placeholder="Full name of the conference" />
+                <input value={pub.conferenceName} onChange={e => set(i, 'conferenceName', e.target.value)} className={ic(i, 'conferenceName')} placeholder="Full name of the conference" disabled={isReadOnly} />
                 {errText(i, 'conferenceName')}
               </div>
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.organizer ? 'text-red-500' : 'text-gray-500'}`}>Organizer <span className="text-red-500">*</span></label>
-                <input value={pub.organizer} onChange={e => set(i, 'organizer', e.target.value)} className={ic(i, 'organizer')} placeholder="e.g. IEEE, ACM" />
+                <input value={pub.organizer} onChange={e => set(i, 'organizer', e.target.value)} className={ic(i, 'organizer')} placeholder="e.g. IEEE, ACM" disabled={isReadOnly} />
                 {errText(i, 'organizer')}
               </div>
             </div>
@@ -193,24 +200,26 @@ const ConferencePublications = ({ onNext, onBack }) => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.year ? 'text-red-500' : 'text-gray-500'}`}>Year <span className="text-red-500">*</span></label>
-                <input value={pub.year} onChange={e => set(i, 'year', e.target.value.replace(/\D/g, '').slice(0, 4))} className={ic(i, 'year')} maxLength={4} placeholder="YYYY" />
+                <input value={pub.year} onChange={e => set(i, 'year', e.target.value.replace(/\D/g, '').slice(0, 4))} className={ic(i, 'year')} maxLength={4} placeholder="YYYY" disabled={isReadOnly} />
                 {errText(i, 'year')}
               </div>
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.pages ? 'text-red-500' : 'text-gray-500'}`}>Pages</label>
-                <input value={pub.pages} onChange={e => set(i, 'pages', e.target.value)} className={ic(i, 'pages')} placeholder="e.g. 1-15 or NA" />
+                <input value={pub.pages} onChange={e => set(i, 'pages', e.target.value)} className={ic(i, 'pages')} placeholder="e.g. 1-15 or NA" disabled={isReadOnly} />
               </div>
             </div>
           </div>
         ))}
 
-        <button
-          onClick={addRow}
-          className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-medium hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-2 group bg-white/50"
-        >
-          <span className="material-symbols-outlined group-hover:scale-110 transition-transform">add_circle</span>
-          Add Another Conference Paper
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={addRow}
+            className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-medium hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-2 group bg-white/50"
+          >
+            <span className="material-symbols-outlined group-hover:scale-110 transition-transform">add_circle</span>
+            Add Another Conference Paper
+          </button>
+        )}
       </div>
     </SectionLayout>
   );

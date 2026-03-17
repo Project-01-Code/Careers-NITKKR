@@ -10,8 +10,11 @@ const SectionLayout = ({
   onBack, 
   isNextDisabled = false,
   nextLabel = "Save & Next",
-  isSubmit = false
+  isSubmit = false,
+  hideNext = false,
+  isReadOnly = false
 }) => {
+  const shouldHideNext = hideNext || isReadOnly;
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -42,20 +45,22 @@ const SectionLayout = ({
           Back
         </button>
 
-        <button
-          onClick={onNext}
-          disabled={isNextDisabled}
-          className={`px-8 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 shadow-lg ${
-            isNextDisabled
-              ? 'bg-gray-100 text-gray-400 shadow-none cursor-not-allowed'
-              : isSubmit
-                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-green-500/25 hover:shadow-green-500/40 hover:-translate-y-0.5'
-                : 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5'
-          }`}
-        >
-          {nextLabel}
-          {!isSubmit && <span className="material-symbols-outlined text-lg">arrow_forward</span>}
-        </button>
+        {!shouldHideNext && (
+          <button
+            onClick={onNext}
+            disabled={isNextDisabled}
+            className={`px-8 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 shadow-lg ${
+              isNextDisabled
+                ? 'bg-gray-100 text-gray-400 shadow-none cursor-not-allowed'
+                : isSubmit
+                  ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-green-500/25 hover:shadow-green-500/40 hover:-translate-y-0.5'
+                  : 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5'
+            }`}
+          >
+            {nextLabel}
+            {!isSubmit && <span className="material-symbols-outlined text-lg">arrow_forward</span>}
+          </button>
+        )}
       </div>
     </motion.div>
   );

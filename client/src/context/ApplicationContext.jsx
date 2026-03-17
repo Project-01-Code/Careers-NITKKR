@@ -1,57 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-
-const ApplicationContext = createContext();
-
-export const useApplication = () => useContext(ApplicationContext);
-
-// Map frontend section keys to server sectionType values
-const SECTION_TYPE_MAP = {
-  personalDetails: 'personal',
-  education: 'education',
-  experience: 'experience',
-  referees: 'referees',
-  publications: 'publications_journal',
-  conferencePublications: 'publications_conference',
-  booksPublications: 'publications_books',
-  patents: 'patents',
-  projects: 'sponsored_projects',
-  consultancyProjects: 'consultancy_projects',
-  phdSupervision: 'phd_supervision',
-  subjectsTaught: 'subjects_taught',
-  organizedPrograms: 'organized_programs',
-  creditPoints: 'credit_points',
-  otherInfo: 'other_info',
-  documents: 'final_documents',
-  declaration: 'declaration',
-  photo: 'photo',
-  signature: 'signature',
-  custom: 'custom',
-};
-
-const INITIAL_FORM_DATA = {
-  personalDetails: {},
-  education: [],
-  experience: [],
-  referees: [],
-  publications: [],
-  conferencePublications: [],
-  booksPublications: [],
-  patents: [],
-  projects: [],
-  consultancyProjects: [],
-  phdSupervision: [],
-  subjectsTaught: [],
-  organizedPrograms: [],
-  creditPoints: {},
-  otherInfo: {},
-  documents: {},
-  declaration: {},
-  photo: {},
-  signature: {},
-  custom: {},
-};
+import { ApplicationContext } from './ApplicationContextObj';
+import { SECTION_TYPE_MAP, INITIAL_FORM_DATA } from '../constants/applicationConstants';
 
 export const ApplicationProvider = ({ children }) => {
   const [applicationId, setApplicationId] = useState(null);
@@ -289,7 +240,11 @@ export const ApplicationProvider = ({ children }) => {
       const isRequired = jobSnapshot.requiredSections.some(
         (s) => s.sectionType === serverSectionType
       );
-      if (!isRequired) {
+      
+      // Special case: 'custom' section is allowed if job has custom fields defined
+      const isCustomAllowed = sectionName === 'custom' && jobSnapshot?.customFields?.length > 0;
+
+      if (!isRequired && !isCustomAllowed) {
         console.log(`Section '${serverSectionType}' not required for this job — saved locally only`);
         return true;
       }
@@ -323,7 +278,7 @@ export const ApplicationProvider = ({ children }) => {
     } finally {
       setSaving(false);
     }
-  }, [applicationId, jobSnapshot?.requiredSections, validateSection]);
+  }, [applicationId, jobSnapshot?.requiredSections, jobSnapshot?.customFields?.length, validateSection]);
 
   /**
    * For backward compatibility — updateSection is used by step components

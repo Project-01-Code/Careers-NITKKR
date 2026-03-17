@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import SectionLayout from '../SectionLayout';
-import { useApplication } from "../../context/ApplicationContext";
+import { useApplication } from "../../hooks/useApplication";
 
-const CustomFieldsSection = ({ customFields, onNext, onBack }) => {
+const CustomFieldsSection = ({ customFields, onNext, onBack, isReadOnly }) => {
   const { formData, saveSection } = useApplication();
   const [localData, setLocalData] = useState({});
   const [errors, setErrors] = useState({});
@@ -33,6 +33,10 @@ const CustomFieldsSection = ({ customFields, onNext, onBack }) => {
   };
 
   const handleSave = async (isNext = false) => {
+    if (isReadOnly) {
+       if (isNext && onNext) onNext();
+       return;
+    }
     if (!validate()) return;
     setSaving(true);
     try {
@@ -53,7 +57,7 @@ const CustomFieldsSection = ({ customFields, onNext, onBack }) => {
       </label>
     );
 
-    const inputClass = `w-full bg-white border-2 border-slate-200/60 rounded-xl px-4 py-3 text-secondary font-semibold focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all placeholder:text-slate-300 ${errors[fieldName] ? 'border-red-300 ring-4 ring-red-50' : ''}`;
+    const inputClass = `w-full border-2 rounded-xl px-4 py-3 text-secondary font-semibold focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all placeholder:text-slate-300 ${errors[fieldName] ? 'border-red-300 ring-4 ring-red-50' : 'border-slate-200/60 bg-white'} ${isReadOnly ? 'bg-gray-100/50 cursor-not-allowed text-gray-400' : ''}`;
 
     switch (fieldType) {
       case 'text':
@@ -64,8 +68,9 @@ const CustomFieldsSection = ({ customFields, onNext, onBack }) => {
             <input
               type={fieldType}
               value={value}
-              onChange={(e) => setLocalData({ ...localData, [fieldName]: e.target.value })}
+              onChange={(e) => !isReadOnly && setLocalData({ ...localData, [fieldName]: e.target.value })}
               className={inputClass}
+              disabled={isReadOnly}
             />
             {errors[fieldName] && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors[fieldName]}</p>}
           </div>
@@ -76,8 +81,9 @@ const CustomFieldsSection = ({ customFields, onNext, onBack }) => {
             {label}
             <select
               value={value}
-              onChange={(e) => setLocalData({ ...localData, [fieldName]: e.target.value })}
+              onChange={(e) => !isReadOnly && setLocalData({ ...localData, [fieldName]: e.target.value })}
               className={inputClass}
+              disabled={isReadOnly}
             >
               <option value="">Select Option</option>
               {options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -91,22 +97,24 @@ const CustomFieldsSection = ({ customFields, onNext, onBack }) => {
             {label}
             <textarea
               value={value}
-              onChange={(e) => setLocalData({ ...localData, [fieldName]: e.target.value })}
+              onChange={(e) => !isReadOnly && setLocalData({ ...localData, [fieldName]: e.target.value })}
               className={`${inputClass} min-h-[100px]`}
+              disabled={isReadOnly}
             />
             {errors[fieldName] && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors[fieldName]}</p>}
           </div>
         );
       case 'checkbox':
         return (
-            <div key={fieldName} className="flex items-center gap-3 p-4 bg-white border-2 border-slate-200/60 rounded-2xl">
+            <div key={fieldName} className={`flex items-center gap-3 p-4 border-2 rounded-2xl ${isReadOnly ? 'bg-gray-50 border-slate-100' : 'bg-white border-slate-200/60'}`}>
               <input
                 type="checkbox"
                 checked={!!value}
-                onChange={(e) => setLocalData({ ...localData, [fieldName]: e.target.checked })}
+                onChange={(e) => !isReadOnly && setLocalData({ ...localData, [fieldName]: e.target.checked })}
                 className="w-5 h-5 rounded border-2 border-slate-300 text-primary focus:ring-primary"
+                disabled={isReadOnly}
               />
-              <span className="text-sm font-semibold text-secondary">{fieldName} {isMandatory && <span className="text-red-500">*</span>}</span>
+              <span className={`text-sm font-semibold ${isReadOnly ? 'text-gray-400' : 'text-secondary'}`}>{fieldName} {isMandatory && <span className="text-red-500">*</span>}</span>
             </div>
           );
       default:
@@ -121,6 +129,7 @@ const CustomFieldsSection = ({ customFields, onNext, onBack }) => {
       onNext={() => handleSave(true)}
       onBack={onBack}
       isSaving={saving}
+      hideNext={isReadOnly}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {customFields.map(field => renderField(field))}

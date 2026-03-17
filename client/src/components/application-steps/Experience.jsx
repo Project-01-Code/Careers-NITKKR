@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
-import { useApplication } from '../../context/ApplicationContext';
+import { useApplication } from '../../hooks/useApplication';
 import toast from 'react-hot-toast';
 
 const EXPERIENCE_TYPE = ['Teaching', 'Industry', 'Research/Post-Doctoral'];
@@ -26,40 +26,57 @@ const EMPTY_ROW = {
   organizationType: '',
 };
 
-const Experience = ({ onNext, onBack }) => {
+const Experience = ({ onNext, onBack, isReadOnly }) => {
   const { formData, updateSection } = useApplication();
   const [list, setList] = useState([]);
   const [errors, setErrors] = useState([]);
 
+  const [initialized, setInitialized] = useState(false);
+
   useEffect(() => {
+    if (initialized) return;
     const saved = formData?.experience;
+    const data = saved?.items || (Array.isArray(saved) ? saved : []);
+    
     setTimeout(() => {
-      if (saved?.items?.length) setList(saved.items);
-      else if (Array.isArray(saved) && saved.length) setList(saved);
-      else if (list.length === 0) setList([{ ...EMPTY_ROW }]);
+      if (data.length > 0) {
+        setList(data);
+        setInitialized(true);
+      } else if (list.length === 0) {
+        setList([{ ...EMPTY_ROW }]);
+        setInitialized(true);
+      }
     }, 0);
-  }, [formData?.experience, list.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData?.experience, initialized]);
 
   const set = (i, field, val) => {
-    const upd = [...list];
-    upd[i] = { ...upd[i], [field]: val };
+    if (isReadOnly) return;
+    setList(prev => {
+      const upd = [...prev];
+      upd[i] = { ...upd[i], [field]: val };
 
-    // Automatically clear To Date if From Date changes manually to something later than To Date
-    if (field === 'fromDate' && upd[i].toDate && val && new Date(val) > new Date(upd[i].toDate)) {
-      upd[i].toDate = '';
-    }
-
-    setList(upd);
+      // Automatically clear To Date if From Date changes manually to something later than To Date
+      if (field === 'fromDate' && upd[i].toDate && val && new Date(val) > new Date(upd[i].toDate)) {
+        upd[i].toDate = '';
+      }
+      return upd;
+    });
 
     // Clear error
-    const newErrors = [...errors];
-    if (newErrors[i] && newErrors[i][field]) {
-      newErrors[i][field] = '';
-      setErrors(newErrors);
+    if (errors[i] && errors[i][field]) {
+      setErrors(prev => {
+        const newErrors = [...prev];
+        if (newErrors[i]) {
+          newErrors[i] = { ...newErrors[i], [field]: '' };
+        }
+        return newErrors;
+      });
     }
   };
 
   const toggleExpType = (i, val) => {
+    if (isReadOnly) return;
     const current = list[i].experienceType || [];
     const upd = current.includes(val) ? current.filter(v => v !== val) : [...current, val];
     set(i, 'experienceType', upd);
@@ -72,11 +89,13 @@ const Experience = ({ onNext, onBack }) => {
   };
 
   const addRow = () => {
+    if (isReadOnly) return;
     setList([...list, { ...EMPTY_ROW }]);
     setErrors([...errors, {}]);
   };
 
   const removeRow = (i) => {
+    if (isReadOnly) return;
     setList(list.filter((_, idx) => idx !== i));
     setErrors(errors.filter((_, idx) => idx !== i));
   };
@@ -119,6 +138,10 @@ const Experience = ({ onNext, onBack }) => {
   };
 
   const handleNext = async () => {
+    if (isReadOnly) {
+       if (onNext) onNext();
+       return;
+    }
     if (!validate()) {
       toast.error('Please fix the errors before proceeding');
       return;
@@ -139,11 +162,11 @@ const Experience = ({ onNext, onBack }) => {
     }
   };
 
-  const ic = (i, field) => `w-full px-3 py-2 rounded-lg border ${errors[i]?.[field] ? 'border-red-400 bg-red-50/30 text-red-900 placeholder-red-300 focus:ring-red-200 focus:border-red-500' : 'border-gray-300 focus:ring-primary/20 focus:border-primary bg-white text-gray-900'} focus:ring-2 outline-none text-sm transition-all`;
+  const ic = (i, field) => `w-full px-3 py-2 rounded-lg border ${errors[i]?.[field] ? 'border-red-400 bg-red-50/30 text-red-900 placeholder-red-300 focus:ring-red-200 focus:border-red-500' : 'border-gray-300 focus:ring-primary/20 focus:border-primary bg-white text-gray-900'} focus:ring-2 outline-none text-sm transition-all ${isReadOnly ? 'bg-gray-100 cursor-not-allowed text-gray-400' : ''}`;
   const errText = (i, field) => errors[i]?.[field] ? <p className="text-xs text-red-500 mt-1 font-medium">{errors[i][field]}</p> : null;
 
   return (
-    <SectionLayout title="Work Experience" subtitle="List experience in reverse chronological order." onNext={handleNext} onBack={onBack}>
+    <SectionLayout title="Work Experience" subtitle="List experience in reverse chronological order." onNext={handleNext} onBack={onBack} hideNext={isReadOnly}>
       <div className="space-y-6">
         {list.map((exp, i) => (
           <div key={i} className="border border-gray-200 rounded-xl p-5 bg-gray-50 space-y-4">
@@ -152,15 +175,15 @@ const Experience = ({ onNext, onBack }) => {
                 <span className="bg-white border shadow-sm w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-primary">{i + 1}</span>
                 Experience
               </h3>
-              {list.length > 1 && <button onClick={() => removeRow(i)} className="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"><span className="material-symbols-outlined text-[18px]">delete</span>Remove</button>}
+              {list.length > 1 && !isReadOnly && <button onClick={() => removeRow(i)} className="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"><span className="material-symbols-outlined text-[18px]">delete</span>Remove</button>}
             </div>
 
             <div className="space-y-1 block">
               <label className={`text-xs font-semibold uppercase ${errors[i]?.experienceType ? 'text-red-500' : 'text-gray-500'}`}>Experience Type <span className="text-red-500">*</span></label>
               <div className="flex flex-wrap gap-2">
                 {EXPERIENCE_TYPE.map(t => (
-                  <label key={t} className={`flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg border ${errors[i]?.experienceType ? 'border-red-300' : 'border-gray-200'} cursor-pointer hover:border-primary/40 text-sm`}>
-                    <input type="checkbox" checked={(exp.experienceType || []).includes(t)} onChange={() => toggleExpType(i, t)} className="w-3.5 h-3.5 rounded" />
+                  <label key={t} className={`flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg border ${errors[i]?.experienceType ? 'border-red-300' : 'border-gray-200'} cursor-pointer hover:border-primary/40 text-sm ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}>
+                    <input type="checkbox" checked={(exp.experienceType || []).includes(t)} onChange={() => toggleExpType(i, t)} className="w-3.5 h-3.5 rounded" disabled={isReadOnly} />
                     {t}
                   </label>
                 ))}
@@ -170,19 +193,19 @@ const Experience = ({ onNext, onBack }) => {
 
             <div className="space-y-1 block">
               <label className={`text-xs font-semibold uppercase ${errors[i]?.employerNameAddress ? 'text-red-500' : 'text-gray-500'}`}>Employer Name & Address <span className="text-red-500">*</span></label>
-              <textarea value={exp.employerNameAddress} onChange={e => set(i, 'employerNameAddress', e.target.value)} className={`${ic(i, 'employerNameAddress')} h-16`} placeholder="Full name and address of organization" />
+              <textarea value={exp.employerNameAddress} onChange={e => set(i, 'employerNameAddress', e.target.value)} className={`${ic(i, 'employerNameAddress')} h-16`} placeholder="Full name and address of organization" disabled={isReadOnly} />
               {errText(i, 'employerNameAddress')}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.designation ? 'text-red-500' : 'text-gray-500'}`}>Designation <span className="text-red-500">*</span></label>
-                <input value={exp.designation} onChange={e => set(i, 'designation', e.target.value)} className={ic(i, 'designation')} placeholder="e.g. Assistant Professor" />
+                <input value={exp.designation} onChange={e => set(i, 'designation', e.target.value)} className={ic(i, 'designation')} placeholder="e.g. Assistant Professor" disabled={isReadOnly} />
                 {errText(i, 'designation')}
               </div>
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.appointmentType ? 'text-red-500' : 'text-gray-500'}`}>Appointment Type <span className="text-red-500">*</span></label>
-                <select value={exp.appointmentType} onChange={e => set(i, 'appointmentType', e.target.value)} className={ic(i, 'appointmentType')}>
+                <select value={exp.appointmentType} onChange={e => set(i, 'appointmentType', e.target.value)} className={ic(i, 'appointmentType')} disabled={isReadOnly}>
                   <option value="">Select</option>
                   {APPOINTMENT_TYPE.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
@@ -190,7 +213,7 @@ const Experience = ({ onNext, onBack }) => {
               </div>
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.payScale ? 'text-red-500' : 'text-gray-500'}`}>Pay Scale <span className="text-red-500">*</span></label>
-                <input value={exp.payScale} onChange={e => set(i, 'payScale', e.target.value)} className={ic(i, 'payScale')} placeholder="e.g. Level 10" />
+                <input value={exp.payScale} onChange={e => set(i, 'payScale', e.target.value)} className={ic(i, 'payScale')} placeholder="e.g. Level 10" disabled={isReadOnly} />
                 {errText(i, 'payScale')}
               </div>
             </div>
@@ -198,19 +221,25 @@ const Experience = ({ onNext, onBack }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.fromDate ? 'text-red-500' : 'text-gray-500'}`}>From Date <span className="text-red-500">*</span></label>
-                <input type="date" max={new Date().toISOString().split("T")[0]} value={exp.fromDate} onChange={e => set(i, 'fromDate', e.target.value)} className={ic(i, 'fromDate')} />
+                <input type="date" max={new Date().toISOString().split("T")[0]} value={exp.fromDate} onChange={e => set(i, 'fromDate', e.target.value)} className={ic(i, 'fromDate')} disabled={isReadOnly} />
                 {errText(i, 'fromDate')}
               </div>
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.toDate ? 'text-red-500' : 'text-gray-500'}`}>To Date {!exp.isPresentEmployer && <span className="text-red-500">*</span>}</label>
-                <input type="date" disabled={exp.isPresentEmployer} min={exp.fromDate} max={new Date().toISOString().split("T")[0]} value={exp.isPresentEmployer ? '' : exp.toDate} onChange={e => set(i, 'toDate', e.target.value)} className={`${ic(i, 'toDate')} ${exp.isPresentEmployer ? 'bg-gray-100 cursor-not-allowed text-gray-400' : ''}`} />
+                <input type="date" disabled={exp.isPresentEmployer || isReadOnly} min={exp.fromDate} max={new Date().toISOString().split("T")[0]} value={exp.isPresentEmployer ? '' : exp.toDate} onChange={e => set(i, 'toDate', e.target.value)} className={`${ic(i, 'toDate')} ${(exp.isPresentEmployer || isReadOnly) ? 'bg-gray-100 cursor-not-allowed text-gray-400' : ''}`} />
                 {errText(i, 'toDate')}
               </div>
               <div className="flex items-end pb-2">
-                <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 rounded-lg border border-gray-200 hover:border-primary/40 text-sm">
-                  <input type="checkbox" checked={exp.isPresentEmployer} onChange={e => {
-                    set(i, 'isPresentEmployer', e.target.checked);
-                    if (e.target.checked) set(i, 'toDate', '');
+                <label className={`flex items-center gap-2 cursor-pointer bg-white px-3 py-2 rounded-lg border border-gray-200 hover:border-primary/40 text-sm ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}>
+                  <input type="checkbox" checked={exp.isPresentEmployer} disabled={isReadOnly} onChange={e => {
+                    if (isReadOnly) return;
+                    const checked = e.target.checked;
+                    setList(prev => {
+                      const upd = [...prev];
+                      upd[i] = { ...upd[i], isPresentEmployer: checked };
+                      if (checked) upd[i].toDate = '';
+                      return upd;
+                    });
                   }} className="w-4 h-4 rounded" />
                   <span className="text-gray-700 font-medium">Current Employer</span>
                 </label>
@@ -219,7 +248,7 @@ const Experience = ({ onNext, onBack }) => {
 
             <div className="space-y-1 block">
               <label className={`text-xs font-semibold uppercase ${errors[i]?.organizationType ? 'text-red-500' : 'text-gray-500'}`}>Organization Type <span className="text-red-500">*</span></label>
-              <select value={exp.organizationType} onChange={e => set(i, 'organizationType', e.target.value)} className={ic(i, 'organizationType')}>
+              <select value={exp.organizationType} onChange={e => set(i, 'organizationType', e.target.value)} className={ic(i, 'organizationType')} disabled={isReadOnly}>
                 <option value="">Select</option>
                 {ORGANIZATION_TYPE.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -227,9 +256,11 @@ const Experience = ({ onNext, onBack }) => {
             </div>
           </div>
         ))}
-        <button onClick={addRow} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2">
-          <span className="material-symbols-outlined">add_circle</span> Add Experience
-        </button>
+        {!isReadOnly && (
+          <button onClick={addRow} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2">
+            <span className="material-symbols-outlined">add_circle</span> Add Experience
+          </button>
+        )}
       </div>
     </SectionLayout>
   );
