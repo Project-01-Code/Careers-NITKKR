@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useApplication } from '../context/ApplicationContext';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useApplication } from '../hooks/useApplication';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import MainLayout from '../layouts/MainLayout';

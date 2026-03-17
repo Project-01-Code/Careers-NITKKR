@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SectionLayout from '../SectionLayout';
-import { useApplication } from '../../context/ApplicationContext';
+import { useApplication } from '../../hooks/useApplication';
 import toast from 'react-hot-toast';
 
 const EMPTY_ROW = { title: '', fromDate: '', toDate: '', sponsoringAgency: '' };
@@ -126,12 +126,12 @@ const OrganizedPrograms = ({ onNext, onBack }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.fromDate ? 'text-red-500' : 'text-gray-500'}`}>From Date <span className="text-red-500">*</span></label>
-                <input type="date" value={prog.fromDate} onChange={e => set(i, 'fromDate', e.target.value)} className={ic(i, 'fromDate')} />
+                <input type="date" max={new Date().toISOString().split("T")[0]} value={prog.fromDate} onChange={e => set(i, 'fromDate', e.target.value)} className={ic(i, 'fromDate')} />
                 {errText(i, 'fromDate')}
               </div>
               <div className="space-y-1 block">
                 <label className={`text-xs font-semibold uppercase ${errors[i]?.toDate ? 'text-red-500' : 'text-gray-500'}`}>To Date <span className="text-red-500">*</span></label>
-                <input type="date" min={prog.fromDate || ''} value={prog.toDate} onChange={e => set(i, 'toDate', e.target.value)} className={ic(i, 'toDate')} />
+                <input type="date" min={prog.fromDate || ''} max={new Date().toISOString().split("T")[0]} value={prog.toDate} onChange={e => set(i, 'toDate', e.target.value)} className={ic(i, 'toDate')} />
                 {errText(i, 'toDate')}
               </div>
               <div className="space-y-1 block">

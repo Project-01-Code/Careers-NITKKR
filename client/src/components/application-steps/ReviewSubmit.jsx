@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useApplication } from '../../context/ApplicationContext';
+import { useApplication } from '../../hooks/useApplication';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -114,8 +114,8 @@ function openRazorpayModal({ keyId, orderId, amountInPaise, currency, applicatio
 // Component
 // ---------------------------------------------------------------------------
 
-const ReviewSubmit = ({ onBack, onGoToSection }) => {
-  const { formData, jobSnapshot, applicationId, applicationNumber, validateAll, paymentStatus } = useApplication();
+const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
+  const { formData, jobSnapshot, applicationId, applicationNumber, validateAll, paymentStatus, submitApplication } = useApplication();
   const [submitting, setSubmitting] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
@@ -178,6 +178,7 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
   const progressPercent = totalMandatory > 0 ? Math.round((completedCount / totalMandatory) * 100) : 0;
 
   const handleValidateAll = async () => {
+    if (isReadOnly) return;
     setValidating(true);
     setValidationErrors([]);
     try {
@@ -203,6 +204,7 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
   // Main submit / payment handler
   // ---------------------------------------------------------------------------
   const handleFinalSubmit = async () => {
+    if (isReadOnly) return;
     setSubmitting(true);
     setValidationErrors([]);
 
@@ -274,23 +276,12 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
           razorpaySignature: paymentResponse.razorpaySignature,
         });
 
-        if (verifyRes.data?.data?.paymentStatus === 'paid') {
-          toast.success('Payment verified! Application submitted successfully!');
-          navigate('/profile', { state: { refresh: true } });
-        } else {
-          toast.error('Payment verification failed. Please contact support.');
-        }
-
-        return; // Don't fall through to Step 3
-      }
-
-      // ── Step 3: Submit directly (free applications or already paid) ─────────
+      // Step 3: Submit directly (free apps or already paid)
       await api.post(`/applications/${applicationId}/submit`);
       toast.success('Application submitted successfully!');
       navigate('/profile');
-
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Submission failed. Please try again.');
+      toast.error(error.response?.data?.message || 'Submission failed');
     } finally {
       setSubmitting(false);
     }
@@ -310,7 +301,7 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
           <span className="material-symbols-outlined text-primary text-[20px]">{icon}</span>
           {title}
         </h3>
-        {sectionKey && (
+        {sectionKey && !isReadOnly && (
           <button
             onClick={() => onGoToSection(sectionKey)}
             className="text-primary text-sm font-bold flex items-center gap-1 hover:underline"
@@ -330,8 +321,12 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
 
       {/* Header */}
       <header className="mb-10 text-center animate-fade-in">
-        <h1 className="text-3xl font-extrabold text-secondary mb-2">Review Your Application</h1>
-        <p className="text-gray-500">Please verify all information before final submission.</p>
+        <h1 className="text-3xl font-extrabold text-secondary mb-2">
+          {isReadOnly ? 'Application Summary' : 'Review Your Application'}
+        </h1>
+        <p className="text-gray-500">
+          {isReadOnly ? 'Summary of your submitted application for reference.' : 'Please verify all information before final submission.'}
+        </p>
         <div className="mt-4 inline-flex items-center gap-3">
           <span className="px-4 py-1 bg-primary/10 text-primary rounded-full text-sm font-bold">
             App No: {applicationNumber || 'Draft'}
@@ -345,7 +340,9 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
         </div>
       </header>
 
-      {/* Section Completion Checklist */}
+      {/* ═══════════════════════════════════ */}
+      {/* Section Completion Checklist        */}
+      {/* ═══════════════════════════════════ */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8 shadow-sm">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-secondary flex items-center gap-2">
@@ -356,12 +353,16 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
             {completedCount}/{totalMandatory} Complete
           </span>
         </div>
+
+        {/* Progress Bar */}
         <div className="w-full h-2.5 bg-gray-100 rounded-full mb-5 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-700 ${progressPercent === 100 ? 'bg-green-500' : progressPercent > 50 ? 'bg-primary' : 'bg-amber-500'}`}
             style={{ width: `${progressPercent}%` }}
           />
         </div>
+
+        {/* Section Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {knownSections.map((sec) => {
             const done = hasSectionData(sec.sectionType);
@@ -387,6 +388,10 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
           })}
         </div>
       </div>
+
+      {/* ═══════════════════════════════════ */}
+      {/* Data Summary Sections               */}
+      {/* ═══════════════════════════════════ */}
 
       {/* Personal Details */}
       {isRequired('personal') && (
@@ -479,6 +484,162 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
         </SummarySection>
       )}
 
+      {/* Publications */}
+      {isRequired('publications_journal') && (
+        <SummarySection title="Journal Publications" icon="article" sectionKey="publications">
+          <div className="space-y-3">
+            {(Array.isArray(formData.publications) ? formData.publications : []).map((item, i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-bold text-gray-900">{item.title}</h4>
+                <p className="text-sm text-gray-600">{item.journalName} ({item.year}) • Impact Factor: {item.impactFactor || 'N/A'}</p>
+                <p className="text-xs text-secondary font-medium mt-1 uppercase tracking-wider">{item.authorshipType}</p>
+              </div>
+            ))}
+            {(!formData.publications || formData.publications.length === 0) && (
+              <p className="text-sm text-gray-400 italic">No journal publications added.</p>
+            )}
+          </div>
+        </SummarySection>
+      )}
+
+      {/* Conference Publications */}
+      {isRequired('publications_conference') && (
+        <SummarySection title="Conference Publications" icon="campaign" sectionKey="conferencePublications">
+          <div className="space-y-3">
+            {(Array.isArray(formData.conferencePublications) ? formData.conferencePublications : []).map((item, i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-bold text-gray-900">{item.title}</h4>
+                <p className="text-sm text-gray-600">{item.conferenceName} ({item.year})</p>
+              </div>
+            ))}
+          </div>
+        </SummarySection>
+      )}
+
+      {/* PhD Supervision */}
+      {isRequired('phd_supervision') && (
+        <SummarySection title="PhD Supervision" icon="supervisor_account" sectionKey="phdSupervision">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(Array.isArray(formData.phdSupervision) ? formData.phdSupervision : []).map((item, i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-bold text-gray-900">{item.studentName}</h4>
+                <p className="text-sm text-gray-600">{item.thesisTitle}</p>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-xs font-bold text-primary px-2 py-0.5 bg-primary/5 rounded uppercase">{item.status}</span>
+                  <span className="text-xs text-gray-500 uppercase font-bold">{item.supervisionType}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SummarySection>
+      )}
+
+      {/* Books & Chapters */}
+      {isRequired('publications_books') && (
+        <SummarySection title="Books & Chapters" icon="menu_book" sectionKey="booksPublications">
+          <div className="space-y-3">
+            {(Array.isArray(formData.booksPublications) ? formData.booksPublications : []).map((item, i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-bold text-gray-900">{item.title}</h4>
+                <p className="text-sm text-gray-600">{item.publisher} ({item.year}) • ISBN: {item.isbn || 'N/A'}</p>
+              </div>
+            ))}
+          </div>
+        </SummarySection>
+      )}
+
+      {/* Patents */}
+      {isRequired('patents') && (
+        <SummarySection title="Patents" icon="workspace_premium" sectionKey="patents">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(Array.isArray(formData.patents) ? formData.patents : []).map((item, i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-bold text-gray-900">{item.title}</h4>
+                <p className="text-xs text-gray-500 mb-2">Registration No: {item.registrationNo}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-primary px-2 py-0.5 bg-primary/5 rounded uppercase">{item.status}</span>
+                  <span className="text-xs text-gray-400 font-bold">{item.year}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SummarySection>
+      )}
+
+      {/* Projects */}
+      {isRequired('sponsored_projects') && (
+        <SummarySection title="Sponsored Projects" icon="science" sectionKey="projects">
+          <div className="space-y-3">
+            {(Array.isArray(formData.projects) ? formData.projects : []).map((item, i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-bold text-gray-900">{item.title}</h4>
+                <p className="text-sm text-gray-600">Agency: {item.agency} • ₹{item.amount?.toLocaleString('en-IN')}</p>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-xs font-bold text-primary px-2 py-0.5 bg-primary/5 rounded uppercase">{item.status}</span>
+                  <span className="text-xs text-secondary font-bold uppercase">{item.role}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SummarySection>
+      )}
+
+      {/* Consultancy */}
+      {isRequired('consultancy_projects') && (
+        <SummarySection title="Consultancy Projects" icon="handshake" sectionKey="consultancyProjects">
+          <div className="space-y-3">
+            {(Array.isArray(formData.consultancyProjects) ? formData.consultancyProjects : []).map((item, i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-bold text-gray-900">{item.title}</h4>
+                <p className="text-sm text-gray-600">Client: {item.client} • ₹{item.amount?.toLocaleString('en-IN')}</p>
+              </div>
+            ))}
+          </div>
+        </SummarySection>
+      )}
+
+      {/* Organized Programs */}
+      {isRequired('organized_programs') && (
+        <SummarySection title="Organized Programs" icon="event" sectionKey="organizedPrograms">
+          <div className="space-y-3">
+            {(Array.isArray(formData.organizedPrograms) ? formData.organizedPrograms : []).map((item, i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-bold text-gray-900">{item.title}</h4>
+                <p className="text-sm text-gray-600">{item.role} • {item.duration}</p>
+              </div>
+            ))}
+          </div>
+        </SummarySection>
+      )}
+
+      {/* Subjects Taught */}
+      {isRequired('subjects_taught') && (
+        <SummarySection title="Subjects Taught" icon="class" sectionKey="subjectsTaught">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(Array.isArray(formData.subjectsTaught) ? formData.subjectsTaught : []).map((item, i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-bold text-gray-900">{item.subjectName}</h4>
+                <p className="text-xs text-gray-500 uppercase font-bold">{item.level} • {item.count} times</p>
+              </div>
+            ))}
+          </div>
+        </SummarySection>
+      )}
+
+      {/* Other Info */}
+      {isRequired('other_info') && (
+        <SummarySection title="Other Information" icon="info" sectionKey="otherInfo">
+          <div className="space-y-4">
+             {Object.entries(formData.otherInfo || {}).map(([key, val]) => (
+               <div key={key} className="space-y-1">
+                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{key.replace(/([A-Z])/g, ' $1')}</p>
+                 <p className="text-sm text-gray-700 leading-relaxed font-medium">{val || 'N/A'}</p>
+               </div>
+             ))}
+          </div>
+        </SummarySection>
+      )}
+
       {/* Documents & Uploads */}
       {(isRequired('final_documents') || isRequired('photo') || isRequired('signature')) && (
         <SummarySection title="Uploads" icon="cloud_upload" sectionKey="documents">
@@ -541,9 +702,23 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
         </SummarySection>
       )}
 
+      {/* Custom Information */}
+      {isRequired('custom') && (
+        <SummarySection title="Custom Information" icon="extension" sectionKey="custom">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12">
+            {Object.entries(formData.custom || {}).map(([key, val]) => (
+              <DataRow key={key} label={key} value={typeof val === 'boolean' ? (val ? 'Yes' : 'No') : val} />
+            ))}
+            {Object.keys(formData.custom || {}).length === 0 && (
+              <p className="text-sm text-gray-400 italic">No custom information provided.</p>
+            )}
+          </div>
+        </SummarySection>
+      )}
+
       {/* Credit Points */}
       {isRequired('credit_points') && (
-        <SummarySection title="Credit Point Calculation" icon="calculate" sectionKey="credit_points">
+        <SummarySection title="Credit Point Calculation" icon="calculate" sectionKey="creditPoints">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
@@ -615,7 +790,9 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
         </SummarySection>
       )}
 
-      {/* Validate All Button */}
+      {/* ═══════════════════════════════════ */}
+      {/* Validate All Button                 */}
+      {/* ═══════════════════════════════════ */}
       <div className="mb-6">
         <button
           onClick={handleValidateAll}
@@ -635,6 +812,7 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
           )}
         </button>
 
+        {/* Validation passed indicator */}
         {validationRun && validationErrors.length === 0 && (
           <div className="mt-4 bg-green-50 border-2 border-green-200 rounded-2xl p-5 flex items-center gap-3 animate-fade-in">
             <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
@@ -647,6 +825,7 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
           </div>
         )}
 
+        {/* Validation Errors */}
         {validationErrors.length > 0 && (
           <div className="mt-4 bg-red-50 border-2 border-red-200 rounded-2xl p-6 animate-fade-in">
             <h3 className="text-lg font-bold text-red-800 mb-4 flex items-center gap-2">
@@ -672,23 +851,20 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
 
       {/* Payment Info Card */}
       {feeRequired && (
-        <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200 rounded-2xl p-6 mb-8 shadow-sm">
+        <div className={`border rounded-2xl p-6 mb-8 shadow-sm ${isReadOnly ? 'bg-gray-50 border-gray-100' : 'bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-200'}`}>
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-              <span className="material-symbols-outlined text-indigo-600 text-2xl">payments</span>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${isReadOnly ? 'bg-gray-100' : 'bg-indigo-100'}`}>
+              <span className={`material-symbols-outlined text-2xl ${isReadOnly ? 'text-gray-400' : 'text-indigo-600'}`}>payments</span>
             </div>
             <div className="flex-1">
               <h3 className="font-bold text-indigo-900 text-lg">Application Fee</h3>
               <p className="text-sm text-indigo-700 mt-1">
-                Payment is collected securely via Razorpay. A modal will open — no page redirect.
+                This position requires an application fee. You will be securely redirected to Stripe for payment.
               </p>
               <div className="flex items-center gap-4 mt-4">
-                <div className="px-6 py-2 bg-white rounded-xl border border-indigo-200 shadow-sm">
-                  <span className="text-2xl font-extrabold text-indigo-900">₹{feeAmount.toLocaleString('en-IN')}</span>
-                  <span className="text-xs text-indigo-500 ml-1">INR</span>
-                  <span className="text-[10px] text-indigo-400 block mt-1">
-                    {formData.personalDetails?.category ? `for ${formData.personalDetails.category}` : 'Base Fee'} {formData.personalDetails?.disability ? '+ PwD' : ''} {feeAmount > 0 ? '+ ₹50 txn fee' : ''}
-                  </span>
+                <div className={`px-6 py-2 bg-white rounded-xl border shadow-sm ${isReadOnly ? 'border-gray-100' : 'border-indigo-200'}`}>
+                  <span className={`text-2xl font-extrabold ${isReadOnly ? 'text-gray-700' : 'text-indigo-900'}`}>₹{feeAmount.toLocaleString('en-IN')}</span>
+                  <span className={`text-xs ml-1 ${isReadOnly ? 'text-gray-400' : 'text-indigo-500'}`}>INR</span>
                 </div>
                 {paymentStatus === 'paid' || paymentStatus === 'exempted' ? (
                   <span className="px-4 py-2 bg-green-100 text-green-700 rounded-xl text-sm font-bold flex items-center gap-2">
@@ -696,22 +872,26 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
                     {paymentStatus === 'exempted' ? 'Fee Exempted' : 'Paid Successfully'}
                   </span>
                 ) : (
-                  <span className="px-4 py-2 bg-amber-100 text-amber-700 rounded-xl text-sm font-bold flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[16px]">schedule</span>
-                    Payment Pending
-                  </span>
+                  !isReadOnly && (
+                    <span className="px-4 py-2 bg-amber-100 text-amber-700 rounded-xl text-sm font-bold flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[16px]">schedule</span>
+                      Payment Pending
+                    </span>
+                  )
                 )}
               </div>
             </div>
           </div>
           <div className="mt-4 flex items-center gap-2 text-xs text-indigo-600">
             <span className="material-symbols-outlined text-[14px]">lock</span>
-            Secured by Razorpay. Your payment details are never stored on our servers.
+            Secured by Stripe. Your payment details are never stored on our servers.
           </div>
         </div>
       )}
 
-      {/* Final Submit Action */}
+      {/* ═══════════════════════════════════ */}
+      {/* Final Submit Action                 */}
+      {/* ═══════════════════════════════════ */}
       <div className="p-8 bg-secondary rounded-3xl text-white text-center shadow-2xl relative overflow-hidden">
         <div className="relative z-10">
           <h2 className="text-2xl font-bold mb-2">Ready to Submit?</h2>
@@ -721,9 +901,10 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
           {feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted' && (
             <p className="text-amber-300 mb-6 text-sm font-medium flex items-center gap-1 justify-center">
               <span className="material-symbols-outlined text-[16px]">info</span>
-              A Razorpay payment modal will open. No page redirect.
+              You will be redirected to Stripe to complete payment.
             </p>
           )}
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
             <button
               onClick={onBack}
@@ -735,7 +916,6 @@ const ReviewSubmit = ({ onBack, onGoToSection }) => {
               </span>
             </button>
             <button
-              id="submit-application-btn"
               onClick={handleFinalSubmit}
               disabled={submitting}
               className="px-10 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-extrabold transition-all shadow-lg hover:shadow-primary/30 flex items-center justify-center gap-2 disabled:opacity-50"

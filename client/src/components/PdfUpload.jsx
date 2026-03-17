@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 
-const PdfUpload = ({ label, description, value, onChange, applicationId, sectionType, maxSizeMB = 5 }) => {
+const PdfUpload = ({ label, description, value, onChange, applicationId, sectionType, maxSizeMB = 5, disabled }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -90,13 +90,15 @@ const PdfUpload = ({ label, description, value, onChange, applicationId, section
                   <span className="material-symbols-outlined text-sm">check_circle</span>
                   <span className="text-sm font-medium truncate max-w-[120px]">{value.name || 'Uploaded Document'}</span>
                 </div>
-                <button
-                  onClick={handleRemove}
-                  className="text-green-600 hover:text-red-500 bg-white p-1 rounded transition-colors"
-                  title="Remove"
-                >
-                  <span className="material-symbols-outlined text-sm block">delete</span>
-                </button>
+                {!disabled && (
+                  <button
+                    onClick={handleRemove}
+                    className="text-green-600 hover:text-red-500 bg-white p-1 rounded transition-colors"
+                    title="Remove"
+                  >
+                    <span className="material-symbols-outlined text-sm block">delete</span>
+                  </button>
+                )}
               </div>
               {value.url && !value.url.startsWith('blob:') && (
                 <a href={value.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline mt-1 mr-1">
@@ -105,7 +107,7 @@ const PdfUpload = ({ label, description, value, onChange, applicationId, section
               )}
             </div>
           ) : (
-            <label className="flex items-center gap-2 px-6 py-2 bg-gray-50 border border-gray-200 text-gray-600 font-medium rounded-lg cursor-pointer hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all w-full justify-center">
+            <label className={`flex items-center gap-2 px-6 py-2 font-medium rounded-lg transition-all w-full justify-center border ${disabled ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-100' : 'bg-gray-50 border-gray-200 text-gray-600 cursor-pointer hover:bg-primary/5 hover:border-primary/30 hover:text-primary'}`}>
               <span className="material-symbols-outlined text-lg">upload_file</span>
               Upload PDF
               <input
@@ -113,7 +115,7 @@ const PdfUpload = ({ label, description, value, onChange, applicationId, section
                 accept="application/pdf"
                 className="hidden"
                 onChange={handleFileChange}
-                disabled={loading}
+                disabled={loading || disabled}
               />
             </label>
           )}

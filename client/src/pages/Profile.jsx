@@ -280,33 +280,44 @@ const Profile = () => {
                               </div>
 
                               <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                                {app.status === 'draft' ? (
-                                  <>
-                                    <button
-                                      onClick={() => handleResume(app)}
-                                      className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-medium text-sm hover:bg-primary hover:text-white transition-colors flex items-center gap-1.5"
-                                    >
-                                      <span className="material-symbols-outlined text-[16px]">edit</span>
-                                      Resume
-                                    </button>
-                                    <button
-                                      onClick={() => handleDelete(app._id)}
-                                      className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"
-                                    >
-                                      <span className="material-symbols-outlined text-[16px]">delete</span>
-                                      Delete
-                                    </button>
-                                  </>
-                                ) : (
-                                  <>
-                                    {/* Receipt available for everything else */}
-                                    <button
-                                      onClick={() => handleDownloadReceipt(app._id)}
-                                      className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
-                                    >
-                                      <span className="material-symbols-outlined text-[16px]">download</span>
-                                      Receipt
-                                    </button>
+                                    {app.status === 'draft' ? (
+                                      <>
+                                        <button
+                                          onClick={() => handleResume(app)}
+                                          className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-medium text-sm hover:bg-primary hover:text-white transition-colors flex items-center gap-1.5"
+                                        >
+                                          <span className="material-symbols-outlined text-[16px]">edit</span>
+                                          Resume
+                                        </button>
+                                        <button
+                                          onClick={() => handleDelete(app._id)}
+                                          className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                                        >
+                                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                                          Delete
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        {/* View Application (Read-only) */}
+                                        {['submitted', 'under_review', 'shortlisted', 'rejected', 'selected', 'withdrawn'].includes(app.status) && (
+                                          <button
+                                            onClick={() => handleResume(app)}
+                                            className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-indigo-100 transition-colors flex items-center gap-1.5"
+                                          >
+                                            <span className="material-symbols-outlined text-[16px]">visibility</span>
+                                            View Application
+                                          </button>
+                                        )}
+
+                                        {/* Receipt available for everything else */}
+                                        <button
+                                          onClick={() => handleDownloadReceipt(app._id)}
+                                          className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
+                                        >
+                                          <span className="material-symbols-outlined text-[16px]">download</span>
+                                          Receipt
+                                        </button>
 
                                     {/* Withdraw only for submitted */}
                                     {app.status === 'submitted' && (
@@ -405,6 +416,7 @@ const Profile = () => {
                             name="dateOfBirth"
                             value={form.dateOfBirth}
                             onChange={handleChange}
+                            max={new Date().toISOString().split("T")[0]}
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-gray-50 focus:bg-white"
                           />
                         </div>

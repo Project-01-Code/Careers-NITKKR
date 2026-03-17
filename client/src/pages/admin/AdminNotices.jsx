@@ -9,12 +9,14 @@ import { motion } from 'framer-motion';
 const AdminNotices = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = parseInt(searchParams.get('page') || '1');
+  const viewParam = searchParams.get('view') || 'active';
 
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [activeView, setActiveView] = useState(viewParam);
   const fileRef = useRef(null);
 
   const [form, setForm] = useState({
@@ -30,7 +32,8 @@ const AdminNotices = () => {
   const fetchNotices = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/notices', { params: { page, limit: 10 } });
+      const params = { page, limit: 10, isActive: activeView === 'active' ? 'true' : 'false' };
+      const res = await api.get('/notices/admin', { params });
       const data = res.data.data;
 
       const list = data.notices || (Array.isArray(data) ? data : []);
@@ -47,11 +50,20 @@ const AdminNotices = () => {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchNotices(); }, [page]);
+  useEffect(() => { fetchNotices(); }, [page, activeView]);
 
   const setPage = (p) => {
     const newParams = new URLSearchParams(searchParams);
     newParams.set('page', p.toString());
+    newParams.set('view', activeView);
+    setSearchParams(newParams);
+  };
+
+  const switchView = (view) => {
+    setActiveView(view);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('view', view);
+    newParams.set('page', '1');
     setSearchParams(newParams);
   };
 
@@ -83,6 +95,17 @@ const AdminNotices = () => {
       fetchNotices();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to archive');
+    }
+  };
+
+  const handleUnarchive = async (id) => {
+    if (!confirm('Restore this notice?')) return;
+    try {
+      await api.patch(`/notices/${id}/unarchive`);
+      toast.success('Notice restored');
+      fetchNotices();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to restore');
     }
   };
 
@@ -139,6 +162,34 @@ const AdminNotices = () => {
           >
             <span className="material-symbols-outlined text-lg">{showForm ? 'close' : 'add'}</span>
             {showForm ? 'Cancel' : 'Create Notice'}
+          </button>
+        </div>
+
+        {/* Active / Archived Toggle */}
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+          <button
+            onClick={() => switchView('active')}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeView === 'active'
+              ? 'bg-white text-secondary shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-base">visibility</span>
+              Active
+            </span>
+          </button>
+          <button
+            onClick={() => switchView('archived')}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeView === 'archived'
+              ? 'bg-white text-secondary shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-base">archive</span>
+              Archived
+            </span>
           </button>
         </div>
 
@@ -237,9 +288,17 @@ const AdminNotices = () => {
           </div>
         ) : notices.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
-            <span className="material-symbols-outlined text-5xl text-gray-300 mb-3">campaign_off</span>
-            <h3 className="text-lg font-bold text-gray-600">No notices yet</h3>
-            <p className="text-gray-400 text-sm mt-1">Create your first notice to get started.</p>
+            <span className="material-symbols-outlined text-5xl text-gray-300 mb-3">
+              {activeView === 'archived' ? 'inventory_2' : 'campaign_off'}
+            </span>
+            <h3 className="text-lg font-bold text-gray-600">
+              {activeView === 'archived' ? 'No archived notices' : 'No notices yet'}
+            </h3>
+            <p className="text-gray-400 text-sm mt-1">
+              {activeView === 'archived'
+                ? 'Archived notices will appear here.'
+                : 'Create your first notice to get started.'}
+            </p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
@@ -297,10 +356,15 @@ const AdminNotices = () => {
                             className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-primary" title="Edit">
                             <span className="material-symbols-outlined text-lg">edit</span>
                           </button>
-                          {notice.isActive !== false && (
+                          {notice.isActive !== false ? (
                             <button onClick={() => handleArchive(notice._id)}
                               className="p-1.5 hover:bg-orange-50 rounded-lg transition-colors text-gray-500 hover:text-orange-600" title="Archive">
                               <span className="material-symbols-outlined text-lg">archive</span>
+                            </button>
+                          ) : (
+                            <button onClick={() => handleUnarchive(notice._id)}
+                              className="p-1.5 hover:bg-green-50 rounded-lg transition-colors text-gray-500 hover:text-green-600" title="Restore">
+                              <span className="material-symbols-outlined text-lg">unarchive</span>
                             </button>
                           )}
                         </div>
@@ -317,7 +381,7 @@ const AdminNotices = () => {
         {totalPages > 1 && (
           <div className="flex justify-center items-center gap-2 pb-6">
             <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
               className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm disabled:opacity-40 hover:border-primary hover:text-primary transition-colors bg-white shadow-sm"
             >
@@ -327,7 +391,7 @@ const AdminNotices = () => {
               Page {page} of {totalPages}
             </span>
             <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
               className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm disabled:opacity-40 hover:border-primary hover:text-primary transition-colors bg-white shadow-sm"
             >
