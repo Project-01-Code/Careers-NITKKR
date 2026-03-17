@@ -275,6 +275,3 @@ export function validateFinalPDF(file) {
 
   return errors;
 }
-
-// Malware scanning is handled by malwareScanner.service.js and malwareScan.middleware.js
-// (ClamAV scan runs after Multer, before Cloudinary upload).

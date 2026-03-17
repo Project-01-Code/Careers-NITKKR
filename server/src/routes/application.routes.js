@@ -36,7 +36,6 @@ import {
 } from '../validators/application.validator.js';
 import { uploadImageBySection } from '../middlewares/imageUpload.middleware.js';
 import { uploadPDFToMemory } from '../middlewares/pdfUpload.middleware.js';
-import { malwareScan } from '../middlewares/malwareScan.middleware.js';
 
 const router = Router();
 
@@ -77,7 +76,6 @@ router.post(
   checkApplicationOwnership,
   checkApplicationEditable,
   uploadPDFToMemory.single('pdf'),
-  malwareScan,
   uploadFinalDocuments
 );
 
@@ -88,7 +86,6 @@ router.post(
   checkApplicationEditable,
   validate(sectionTypeParamSchema),
   uploadPDFToMemory.single('pdf'),
-  malwareScan,
   uploadSectionPDF
 );
 router.delete(
@@ -105,7 +102,6 @@ router.post(
   checkApplicationOwnership,
   checkApplicationEditable,
   uploadImageBySection,
-  malwareScan,
   uploadPhotoOrSignature
 );
 

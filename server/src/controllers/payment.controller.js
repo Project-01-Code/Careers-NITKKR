@@ -43,9 +43,15 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     application.paymentStatus === PAYMENT_STATUS.PAID ||
     application.paymentStatus === PAYMENT_STATUS.EXEMPTED
   ) {
-    throw new ApiError(
-      HTTP_STATUS.BAD_REQUEST,
-      'Fee already paid or exempted for this application'
+    return res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(
+        HTTP_STATUS.OK,
+        {
+          alreadyPaid: true,
+          paymentStatus: application.paymentStatus,
+        },
+        'Fee already paid or exempted for this application'
+      )
     );
   }
 
@@ -63,17 +69,45 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     // Retrieve the session from Stripe to get a fresh URL
     const stripeSession = await stripeService.retrieveCheckoutSession(existingPending.sessionId);
     
-    return res.status(HTTP_STATUS.OK).json(
-      new ApiResponse(
-        HTTP_STATUS.OK,
-        {
-          sessionId: existingPending.sessionId,
-          url: stripeSession.url,
-          alreadyPending: true,
-        },
-        'A payment session already exists for this application. Redirecting to complete payment.'
-      )
-    );
+    // If the session is unexpectedly paid, sync it and prevent duplicate payment
+    if (stripeSession.payment_status === 'paid') {
+      existingPending.status = PAYMENT_STATUS.PAID;
+      existingPending.paymentIntentId = stripeSession.payment_intent;
+      await existingPending.save();
+      
+      markApplicationSubmitted(application, PAYMENT_STATUS.PAID, userId);
+      await application.save();
+      
+      return res.status(HTTP_STATUS.OK).json(
+        new ApiResponse(
+          HTTP_STATUS.OK,
+          {
+            alreadyPaid: true,
+            paymentStatus: PAYMENT_STATUS.PAID,
+          },
+          'Payment was already completed successfully'
+        )
+      );
+    }
+
+    // If the session is still open, reuse it and redirect the user
+    if (stripeSession.status === 'open' && stripeSession.url) {
+      return res.status(HTTP_STATUS.OK).json(
+        new ApiResponse(
+          HTTP_STATUS.OK,
+          {
+            sessionId: existingPending.sessionId,
+            url: stripeSession.url,
+            alreadyPending: true,
+          },
+          'A payment session already exists for this application. Redirecting to complete payment.'
+        )
+      );
+    }
+    
+    // If it's expired or completed unpaid, mark it failed and continue below to create a new session
+    existingPending.status = PAYMENT_STATUS.FAILED;
+    await existingPending.save();
   }
 
   // ── 5. Load the associated job (fee config lives here) ────────────────────

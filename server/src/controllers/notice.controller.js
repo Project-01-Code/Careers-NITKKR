@@ -10,19 +10,6 @@ import {
 } from '../services/upload.service.js';
 
 /**
- * Helper: read file into buffer and clean up the temp file.
- * @param {string} filePath - path on disk
- * @returns {Promise<Buffer>}
- */
-async function readAndClean(filePath) {
-  const buffer = await fs.readFile(filePath);
-  await fs.unlink(filePath).catch((e) =>
-    console.warn('[notice.controller] temp-file cleanup failed:', e.message)
-  );
-  return buffer;
-}
-
-/**
  * Helper: upload a PDF buffer to Cloudinary.
  * @param {Buffer} buffer
  * @param {string} originalName
@@ -51,8 +38,7 @@ export const createNotice = asyncHandler(async (req, res) => {
   let cloudinaryId = null;
 
   if (req.file) {
-    const buffer = await readAndClean(req.file.path);
-    const result = await uploadPDF(buffer, req.file.originalname);
+    const result = await uploadPDF(req.file.buffer, req.file.originalname);
     pdfUrl = result.pdfUrl;
     cloudinaryId = result.cloudinaryId;
   }
@@ -153,12 +139,10 @@ export const updateNotice = asyncHandler(async (req, res) => {
   if (!notice) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Notice not found');
 
   if (req.file) {
-    const buffer = await readAndClean(req.file.path);
-
     // Delete old PDF from Cloudinary (non-throwing)
     await deleteFromCloudinary(notice.cloudinaryId, 'raw');
 
-    const result = await uploadPDF(buffer, req.file.originalname);
+    const result = await uploadPDF(req.file.buffer, req.file.originalname);
     notice.pdfUrl = result.pdfUrl;
     notice.cloudinaryId = result.cloudinaryId;
   }

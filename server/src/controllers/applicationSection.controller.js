@@ -103,17 +103,8 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
     );
   }
 
-  let buffer;
-  try {
-    buffer = await fs.readFile(file.path);
-  } finally {
-    await fs.unlink(file.path).catch(() => {});
-  }
-
-  const fileWithBuffer = { ...file, buffer };
-
   // Validate PDF (magic bytes use buffer)
-  const pdfErrors = validatePDFUpload(fileWithBuffer, sectionConfig);
+  const pdfErrors = validatePDFUpload(file, sectionConfig);
   if (pdfErrors.length > 0) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
@@ -130,7 +121,7 @@ export const uploadSectionPDF = asyncHandler(async (req, res) => {
   const appNo = application.applicationNumber;
   let uploaded;
   try {
-    uploaded = await uploadToCloudinary(buffer, {
+    uploaded = await uploadToCloudinary(file.buffer, {
       folder: `nit_kkr_careers/applications/${appNo}/${sectionType}`,
       publicId: `${appNo}_${sectionType}`,
       resourceType: 'raw',
@@ -270,17 +261,8 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
     );
   }
 
-  let buffer;
-  try {
-    buffer = await fs.readFile(file.path);
-  } finally {
-    await fs.unlink(file.path).catch(() => {});
-  }
-
-  const fileWithBuffer = { ...file, buffer };
-
   // Validate image (magic bytes + MIME + size)
-  const imageErrors = validateImageUpload(fileWithBuffer, sectionType);
+  const imageErrors = validateImageUpload(file, sectionType);
   if (imageErrors.length > 0) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
@@ -297,7 +279,7 @@ export const uploadPhotoOrSignature = asyncHandler(async (req, res) => {
   const appNo = application.applicationNumber;
   let uploaded;
   try {
-    uploaded = await uploadToCloudinary(buffer, {
+    uploaded = await uploadToCloudinary(file.buffer, {
       folder: `nit_kkr_careers/applications/${appNo}/${sectionType}`,
       publicId: `${appNo}_${sectionType}`,
       resourceType: 'image',
@@ -383,16 +365,7 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
   const application = req.application;
   const file = req.file;
 
-  let buffer;
-  try {
-    buffer = await fs.readFile(file.path);
-  } finally {
-    await fs.unlink(file.path).catch(() => {});
-  }
-
-  const fileWithBuffer = { ...file, buffer };
-
-  const pdfErrors = validateFinalPDF(fileWithBuffer);
+  const pdfErrors = validateFinalPDF(file);
   if (pdfErrors.length > 0) {
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
@@ -409,7 +382,7 @@ export const uploadFinalDocuments = asyncHandler(async (req, res) => {
   const appNo = application.applicationNumber;
   let uploaded;
   try {
-    uploaded = await uploadToCloudinary(buffer, {
+    uploaded = await uploadToCloudinary(file.buffer, {
       folder: `nit_kkr_careers/applications/${appNo}/documents`,
       publicId: `${appNo}_documents`,
       resourceType: 'raw',
