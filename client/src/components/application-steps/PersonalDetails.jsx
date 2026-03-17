@@ -348,29 +348,14 @@ const PersonalDetails = ({ onNext, onBack, isReadOnly }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               {label('Mobile (10 digits)', true)}
-              <div className="flex items-center rounded-lg border border-gray-300 bg-white focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden group/mobile">
-                <div className="bg-gray-50 border-r border-gray-200 min-w-[80px]">
-                  <select
-                    value={d.countryCode || '+91'}
-                    onChange={e => set('countryCode', e.target.value)}
-                    className="w-full bg-transparent pl-2 pr-6 py-2.5 outline-none text-xs font-bold text-secondary cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23667c99%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E')] bg-[length:8px] bg-[right_8px_center] bg-no-repeat"
-                    disabled={isReadOnly}
-                  >
-                    <option value="+91">+91</option>
-                    <option value="+1">+1</option>
-                    <option value="+44">+44</option>
-                    <option value="+971">+971</option>
-                  </select>
-                </div>
-                <input 
-                  value={d.mobile} 
-                  onChange={e => set('mobile', e.target.value.replace(/\D/g, '').slice(0, 10))} 
-                  className="flex-1 px-3 py-2.5 outline-none bg-transparent text-gray-900 text-sm font-medium" 
-                  maxLength={10} 
-                  placeholder="9876543210" 
-                  disabled={isReadOnly} 
-                />
-              </div>
+              <input 
+                value={d.mobile} 
+                onChange={e => set('mobile', e.target.value.replace(/\D/g, '').slice(0, 10))} 
+                className={ic('mobile')} 
+                maxLength={10} 
+                placeholder="9876543210" 
+                disabled={isReadOnly} 
+              />
               {err('mobile')}
             </div>
             <div className="space-y-1">

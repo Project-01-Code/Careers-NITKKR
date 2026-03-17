@@ -1,162 +1,230 @@
 /**
- * Credit Points Service
+ * Credit Points Service — Note-2 Rubric
  *
- * Auto-calculates credit points for Activities 1 through 4 based on the saved sections.
- * This server-side calculation prevents manipulation of academic scores by the applicant.
- *
- * Rubric Target: NIT Kurukshetra, Assistant Professor Grade-I (Level-12)
+ * Auto-calculates credit points for Activities 1-5, 18, 19 from saved sections.
+ * Server-side calculation prevents manipulation of academic scores.
  */
 
 /**
- * Activity 1: Externally Sponsored R&D Projects
+ * Activity 1: External Sponsored R&D Projects (completed/ongoing) OR Patents Granted
  *
- * Logic:
- * - PI only (no co-investigators): 5 points
- * - PI (with co-investigators):    4 points
- * - Co-PI:                         2 points
- *
- * @param {Array} items - List of sponsored project entries.
- * @returns {Object} Points breakdown for Activity 1.
+ * 8 credit points per project / patent.
+ * If >1 person in a project: PI gets 5, rest (8-5)=3 split equally among others.
+ * For patents: inventor logic mirrors project logic.
  */
 function calcSponsoredProjectCredits(items = []) {
-  let onlyPI = 0,
-    asPI = 0,
-    asCoPI = 0;
+  let total = 0;
+  const breakdown = [];
+
   for (const p of items) {
     if (p.isPrincipalInvestigator) {
-      if (p.coInvestigatorCount === 0) onlyPI += 5;
-      else asPI += 4;
+      if (p.coInvestigatorCount === 0) {
+        // Sole PI: gets full 8 points
+        total += 8;
+        breakdown.push({ title: p.title, role: 'Sole PI', points: 8 });
+      } else {
+        // PI with others: gets 5 points
+        total += 5;
+        breakdown.push({ title: p.title, role: 'PI (shared)', points: 5 });
+      }
     } else {
-      asCoPI += 2;
-    }
-  }
-  return { onlyPI, asPI, asCoPI, total: onlyPI + asPI + asCoPI };
-}
-
-/**
- * Activity 2: Consultancy Projects
- *
- * Qualifies if amount >= ₹5,00,000 (5 Lakhs).
- * 3 points per qualifying project.
- *
- * @param {Array} items - List of consultancy project entries.
- * @returns {Object} Points breakdown for Activity 2.
- */
-function calcConsultancyCredits(items = []) {
-  const qualifyingLimit = 500000;
-  const qualifying = items.filter((c) => c.amount >= qualifyingLimit);
-  const points = qualifying.length * 3;
-  return { count: qualifying.length, total: points };
-}
-
-/**
- * Activity 3: PhD Supervision (Awarded only)
- *
- * Logic:
- * - Sole Supervisor: 10 points
- * - 1st Supervisor:   7 points
- * - Co-Supervisor:    3 points
- *
- * @param {Array} items - List of PhD supervision entries.
- * @returns {Object} Points breakdown for Activity 3.
- */
-function calcPhdCredits(items = []) {
-  let soleSupervisor = 0,
-    firstSupervisor = 0,
-    coSupervisor = 0;
-  for (const p of items) {
-    // Only 'Awarded' status qualifies for points
-    if (p.status !== 'Awarded') continue;
-
-    if (p.isFirstSupervisor && p.coSupervisorCount === 0) soleSupervisor += 10;
-    else if (p.isFirstSupervisor) firstSupervisor += 7;
-    else coSupervisor += 3;
-  }
-  return {
-    soleSupervisor,
-    firstSupervisor,
-    coSupervisor,
-    total: soleSupervisor + firstSupervisor + coSupervisor,
-  };
-}
-
-/**
- * Activity 4: Journal Papers in SCI/Scopus (Unpaid only)
- *
- * Logic depends on author position and total author count:
- * - First Author / Main Supervisor:
- *   - Sole author: 7
- *   - 2 authors:   6
- *   - 3+ authors:  5
- * - Co-author / Co-Supervisor:
- *   - 2 authors:   3
- *   - 3+ authors:  2
- *
- * @param {Array} items - List of journal publication entries.
- * @returns {Object} Points breakdown for Activity 4.
- */
-function calcJournalCredits(items = []) {
-  let firstAuthorTotal = 0;
-  let coAuthorTotal = 0;
-
-  for (const p of items) {
-    // Filter for Indexed (SCI/Scopus) and Unpaid journals only
-    if (p.journalType !== 'SCI / Scopus Journals') continue;
-    if (p.isPaidJournal) continue;
-
-    const totalAuthors = p.coAuthorCount + 1; // Includes the applicant
-
-    if (p.isFirstAuthor) {
-      if (totalAuthors === 1) firstAuthorTotal += 7;
-      else if (totalAuthors === 2) firstAuthorTotal += 6;
-      else firstAuthorTotal += 5;
-    } else {
-      if (totalAuthors === 2) coAuthorTotal += 3;
-      else coAuthorTotal += 2;
+      // Co-PI: gets share of remaining 3 points
+      const coCount = Math.max(p.coInvestigatorCount, 1);
+      const share = parseFloat((3 / coCount).toFixed(2));
+      total += share;
+      breakdown.push({ title: p.title, role: 'Co-PI', points: share });
     }
   }
 
-  return {
-    firstAuthor: firstAuthorTotal,
-    coAuthor: coAuthorTotal,
-    total: firstAuthorTotal + coAuthorTotal,
-  };
+  return { breakdown, total: parseFloat(total.toFixed(2)) };
 }
 
 /**
  * Activity 1b: Patents Granted
  *
- * Logic:
- * - Sole Inventor:      10 points
- * - Principal Inventor:  7 points
- * - Co-Inventor:         3 points
- *
- * @param {Array} items - List of patent entries.
- * @returns {Object} Points breakdown for Patents.
+ * 8 credit points per patent as inventor.
+ * Same split logic: sole inventor=8, principal inventor=5, co-inventor gets share of 3.
+ * Only 'Granted' patents qualify.
  */
 function calcPatentCredits(items = []) {
-  let onlyInventor = 0,
-    asInventor = 0,
-    asCoInventor = 0;
+  let total = 0;
+  const breakdown = [];
+
   for (const p of items) {
-    // Only 'Granted' patents qualify
     if (p.status !== 'Granted') continue;
 
-    if (p.isPrincipalInventor && p.coInventorCount === 0) onlyInventor += 10;
-    else if (p.isPrincipalInventor) asInventor += 7;
-    else asCoInventor += 3;
+    if (p.isPrincipalInventor) {
+      if (p.coInventorCount === 0) {
+        total += 8;
+        breakdown.push({ title: p.patentTitle, role: 'Sole Inventor', points: 8 });
+      } else {
+        total += 5;
+        breakdown.push({ title: p.patentTitle, role: 'Principal Inventor (shared)', points: 5 });
+      }
+    } else {
+      const coCount = Math.max(p.coInventorCount, 1);
+      const share = parseFloat((3 / coCount).toFixed(2));
+      total += share;
+      breakdown.push({ title: p.patentTitle, role: 'Co-Inventor', points: share });
+    }
   }
-  return {
-    onlyInventor,
-    asInventor,
-    asCoInventor,
-    total: onlyInventor + asInventor + asCoInventor,
-  };
+
+  return { breakdown, total: parseFloat(total.toFixed(2)) };
 }
 
 /**
- * Orchestrates the auto-calculation of credits from all relevant sections.
- * Called during credit points evaluation.
+ * Activity 2: Consultancy Projects
+ *
+ * 2 credit points per ₹5,00,000 of consultancy (aggregated across all projects).
+ * Maximum of 10 credit points.
+ */
+function calcConsultancyCredits(items = []) {
+  const totalAmount = items.reduce((sum, c) => sum + (c.amount || 0), 0);
+  const units = Math.floor(totalAmount / 500000);
+  const rawPoints = units * 2;
+  const total = Math.min(rawPoints, 10);
+
+  return { totalAmount, units, total };
+}
+
+/**
+ * Activity 3: PhD Guidance (completed / thesis submitted cases)
+ *
+ * 8 credit points per PhD student.
+ * Guide (1st Supervisor): gets 5 points per student.
+ * Remaining 3 points divided equally among other supervisors.
+ * Both 'Awarded' and 'Submitted' qualify.
+ */
+function calcPhdCredits(items = []) {
+  let total = 0;
+  const breakdown = [];
+
+  for (const p of items) {
+    if (p.status !== 'Awarded' && p.status !== 'Submitted') continue;
+
+    if (p.isFirstSupervisor) {
+      if (p.coSupervisorCount === 0) {
+        // Sole supervisor: gets full 8
+        total += 8;
+        breakdown.push({ scholar: p.scholarName, role: 'Sole Guide', points: 8 });
+      } else {
+        // Guide with co-supervisors: gets 5
+        total += 5;
+        breakdown.push({ scholar: p.scholarName, role: 'Guide (1st Supervisor)', points: 5 });
+      }
+    } else {
+      // Co-supervisor: share of remaining 3
+      const coCount = Math.max(p.coSupervisorCount, 1);
+      const share = parseFloat((3 / coCount).toFixed(2));
+      total += share;
+      breakdown.push({ scholar: p.scholarName, role: 'Co-Supervisor', points: share });
+    }
+  }
+
+  return { breakdown, total: parseFloat(total.toFixed(2)) };
+}
+
+/**
+ * Activity 4: Journal Papers in SCI / Scopus (Paid journals not allowed)
+ *
+ * 4 credit points per paper since last promotion.
+ * First author or Main supervisor gets 2 credit points.
+ * Rest (4-2)=2 divided among others.
+ */
+function calcJournalCredits(items = []) {
+  let total = 0;
+  const breakdown = [];
+
+  for (const p of items) {
+    if (p.journalType !== 'SCI / Scopus Journals') continue;
+    if (p.isPaidJournal) continue;
+
+    if (p.isFirstAuthor) {
+      if (p.coAuthorCount === 0) {
+        // Sole author: gets full 4
+        total += 4;
+        breakdown.push({ paper: p.paperTitle, role: 'Sole Author', points: 4 });
+      } else {
+        // First author: gets 2
+        total += 2;
+        breakdown.push({ paper: p.paperTitle, role: 'First Author', points: 2 });
+      }
+    } else {
+      // Co-author: share of remaining 2
+      const coCount = Math.max(p.coAuthorCount, 1);
+      const share = parseFloat((2 / coCount).toFixed(2));
+      total += share;
+      breakdown.push({ paper: p.paperTitle, role: 'Co-Author', points: share });
+    }
+  }
+
+  return { breakdown, total: parseFloat(total.toFixed(2)) };
+}
+
+/**
+ * Activity 5: Conference Papers (SCI/Scopus/Web of Science/Internationally Renowned)
+ *
+ * 1 credit point per paper, max 10 credit points.
+ * First author or Main Supervisor gets 0.6.
+ * Rest (1-0.6)=0.4 divided among others.
+ */
+function calcConferenceCredits(items = []) {
+  let total = 0;
+  const breakdown = [];
+
+  for (const p of items) {
+    if (total >= 10) break; // cap at 10
+
+    if (p.isFirstAuthor) {
+      if (p.coAuthorCount === 0) {
+        const pts = Math.min(1, 10 - total);
+        total += pts;
+        breakdown.push({ paper: p.paperTitle, role: 'Sole Author', points: pts });
+      } else {
+        const pts = Math.min(0.6, 10 - total);
+        total += pts;
+        breakdown.push({ paper: p.paperTitle, role: 'First Author', points: pts });
+      }
+    } else {
+      const coCount = Math.max(p.coAuthorCount, 1);
+      const share = parseFloat(Math.min(0.4 / coCount, 10 - total).toFixed(2));
+      total += share;
+      breakdown.push({ paper: p.paperTitle, role: 'Co-Author', points: share });
+    }
+  }
+
+  total = Math.min(parseFloat(total.toFixed(2)), 10);
+  return { breakdown, total };
+}
+
+/**
+ * Activity 18: Text/Reference Books from reputed international publishers
+ *
+ * 6 credit points per book, max 18 credit points.
+ * Only type="Book" qualifies (not Book Chapter or Monograph).
+ */
+function calcIntlBookCredits(items = []) {
+  const books = items.filter((b) => b.type === 'Book');
+  const rawPoints = books.length * 6;
+  const total = Math.min(rawPoints, 18);
+  return { count: books.length, total };
+}
+
+/**
+ * Activity 19: Books from national publishers or book chapters from intl publishers
+ *
+ * 2 credit points per unit, max 6 credit points.
+ * type="Book Chapter" qualifies.
+ */
+function calcBookChapterCredits(items = []) {
+  const chapters = items.filter((b) => b.type === 'Book Chapter');
+  const rawPoints = chapters.length * 2;
+  const total = Math.min(rawPoints, 6);
+  return { count: chapters.length, total };
+}
+
+/**
+ * Orchestrates auto-calculation of credits from all relevant sections.
  *
  * @param {Object} application - The Mongoose Application document.
  * @returns {Object} Comprehensive breakdown of all auto-calculated credits.
@@ -167,35 +235,41 @@ export function calculateAutoCredits(application) {
     return section?.data?.items || [];
   };
 
-  const sponsored = calcSponsoredProjectCredits(getItems('sponsored_projects'));
+  const sponsoredProjects = calcSponsoredProjectCredits(getItems('sponsored_projects'));
   const patents = calcPatentCredits(getItems('patents'));
   const consultancy = calcConsultancyCredits(getItems('consultancy_projects'));
-  const phd = calcPhdCredits(getItems('phd_supervision'));
-  const journals = calcJournalCredits(getItems('publications_journal'));
+  const phdCompleted = calcPhdCredits(getItems('phd_supervision'));
+  const journalPapers = calcJournalCredits(getItems('publications_journal'));
+  const conferencePapers = calcConferenceCredits(getItems('publications_conference'));
+  const intlBooks = calcIntlBookCredits(getItems('publications_books'));
+  const bookChapters = calcBookChapterCredits(getItems('publications_books'));
 
   const autoTotal =
-    sponsored.total +
+    sponsoredProjects.total +
     patents.total +
     consultancy.total +
-    phd.total +
-    journals.total;
+    phdCompleted.total +
+    journalPapers.total +
+    conferencePapers.total +
+    intlBooks.total +
+    bookChapters.total;
 
   return {
-    sponsoredProjects: sponsored,
+    sponsoredProjects,
     patents,
     consultancy,
-    phdCompleted: phd,
-    journalPapers: journals,
-    autoTotal,
+    phdCompleted,
+    journalPapers,
+    conferencePapers,
+    intlBooks,
+    bookChapters,
+    autoTotal: parseFloat(autoTotal.toFixed(2)),
   };
 }
 
 /**
- * Calculates the sum of points for manually claimed activities (5-22).
- * Note: These are subject to administrative audit.
- *
- * @param {Array} manualActivities - List of manually entered activities.
- * @returns {number} Total manual points claimed.
+ * Sum of points for manually claimed activities (6-17, 20-22).
+ * Subject to administrative audit.
  */
 export function calcManualCredits(manualActivities = []) {
   return manualActivities.reduce((sum, a) => sum + (a.claimedPoints || 0), 0);
