@@ -32,7 +32,7 @@ const MAX_SESSIONS = parseInt(process.env.MAX_SESSIONS, 10) || 5;
 const cookieOptions = {
   httpOnly: true,
   secure: !IS_DEV,
-  sameSite: 'strict',
+  sameSite: IS_DEV ? 'strict' : 'none',
 };
 
 /** Mongoose projection that strips sensitive fields from user documents. */
