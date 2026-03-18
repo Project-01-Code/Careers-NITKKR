@@ -4,6 +4,7 @@ const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT, 10),
   secure: false, // TLS via STARTTLS on port 587
+  family: 4, // Force IPv4 to avoid ENETUNREACH on Render
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -13,34 +14,11 @@ const transporter = nodemailer.createTransport({
 const FROM =
   process.env.EMAIL_FROM || 'NIT Kurukshetra Careers <noreply@nitkkr.ac.in>';
 
-/**
- * Verify SMTP connection.
- */
-export const verifySMTP = async () => {
-  try {
-    await transporter.verify();
-    console.log('✅ SMTP connection verified');
-  } catch (error) {
-    console.error('❌ SMTP connection failed:', error.message);
-    // Don't throw, just log. SMTP might be down but server can still run.
-  }
-};
-
-/**
- * Helper to wrap sendMail with logging for fire-and-forget usage.
- */
 const sendMailWithLogging = async (mailOptions) => {
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`📧 Email sent to ${mailOptions.to}: ${info.messageId}`);
-    return info;
+    return await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error(`❌ Failed to send email to ${mailOptions.to}:`, error.message);
-    // Log more details in dev or if specific error
-    if (process.env.NODE_ENV !== 'production') {
-      console.error(error);
-    }
-    // Re-throw if caller expects it, but our service currently uses fire-and-forget
+    console.error(`❌ Email failed to ${mailOptions.to}:`, error.message);
     throw error;
   }
 };
