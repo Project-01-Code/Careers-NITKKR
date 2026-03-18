@@ -86,11 +86,8 @@ const startServer = async () => {
       'CLOUDINARY_CLOUD_NAME',
       'CLOUDINARY_API_KEY',
       'CLOUDINARY_API_SECRET',
-      // Email
-      'SMTP_HOST',
-      'SMTP_PORT',
-      'SMTP_USER',
-      'SMTP_PASS',
+      // Email (via SendGrid - https://sendgrid.com)
+      'SENDGRID_API_KEY',
       'EMAIL_FROM',
       // Razorpay
       'RAZORPAY_KEY_ID',
