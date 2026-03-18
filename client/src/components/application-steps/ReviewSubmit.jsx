@@ -135,21 +135,28 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
   };
   const feeAmount = getUserFee();
 
+  // Helper: extract items array from data that may be a flat array OR {items: [...]}
+  const getItems = useCallback((data) => {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === 'object' && Array.isArray(data.items)) return data.items;
+    return [];
+  }, []);
+
   const hasSectionData = useCallback((sectionType) => {
     const sectionMap = {
       personal: () => formData.personalDetails && Object.keys(formData.personalDetails).length > 0 && formData.personalDetails?.name,
-      education: () => Array.isArray(formData.education) && formData.education.length > 0,
-      experience: () => Array.isArray(formData.experience) && formData.experience.length > 0,
-      referees: () => Array.isArray(formData.referees) && formData.referees.length > 0,
-      publications_journal: () => Array.isArray(formData.publications) && formData.publications.length > 0,
-      publications_conference: () => Array.isArray(formData.conferencePublications) && formData.conferencePublications.length > 0,
-      publications_books: () => Array.isArray(formData.booksPublications) && formData.booksPublications.length > 0,
-      patents: () => Array.isArray(formData.patents) && formData.patents.length > 0,
-      sponsored_projects: () => Array.isArray(formData.projects) && formData.projects.length > 0,
-      consultancy_projects: () => Array.isArray(formData.consultancyProjects) && formData.consultancyProjects.length > 0,
-      phd_supervision: () => Array.isArray(formData.phdSupervision) && formData.phdSupervision.length > 0,
-      subjects_taught: () => Array.isArray(formData.subjectsTaught) && formData.subjectsTaught.length > 0,
-      organized_programs: () => Array.isArray(formData.organizedPrograms) && formData.organizedPrograms.length > 0,
+      education: () => getItems(formData.education).length > 0,
+      experience: () => getItems(formData.experience).length > 0,
+      referees: () => getItems(formData.referees).length > 0,
+      publications_journal: () => getItems(formData.publications).length > 0,
+      publications_conference: () => getItems(formData.conferencePublications).length > 0,
+      publications_books: () => getItems(formData.booksPublications).length > 0,
+      patents: () => getItems(formData.patents).length > 0,
+      sponsored_projects: () => getItems(formData.projects).length > 0,
+      consultancy_projects: () => getItems(formData.consultancyProjects).length > 0,
+      phd_supervision: () => getItems(formData.phdSupervision).length > 0,
+      subjects_taught: () => getItems(formData.subjectsTaught).length > 0,
+      organized_programs: () => getItems(formData.organizedPrograms).length > 0,
       credit_points: () => formData.creditPoints && Object.keys(formData.creditPoints).length > 0,
       other_info: () => formData.otherInfo && Object.keys(formData.otherInfo).length > 0,
       photo: () => !!formData.photo?.imageUrl,
@@ -158,7 +165,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       declaration: () => formData.declaration && Object.keys(formData.declaration).length > 0,
     };
     return sectionMap[sectionType]?.() || false;
-  }, [formData]);
+  }, [formData, getItems]);
 
   const allTrackedSections = [...sections];
   const knownSections = allTrackedSections.filter(s => SECTION_LABELS[s.sectionType]);
@@ -426,7 +433,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {(Array.isArray(formData.education) ? formData.education : []).map((item, i) => (
+                {getItems(formData.education).map((item, i) => (
                   <tr key={i} className="text-gray-900">
                     <td className="py-3 font-medium">{item.examPassed}</td>
                     <td className="py-3">{item.discipline}</td>
@@ -437,7 +444,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
                 ))}
               </tbody>
             </table>
-            {(!formData.education || formData.education.length === 0) && (
+            {getItems(formData.education).length === 0 && (
               <p className="text-sm text-gray-400 italic py-4">No education records added.</p>
             )}
           </div>
@@ -448,7 +455,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('experience') && (
         <SummarySection title="Experience" icon="work" sectionKey="experience">
           <div className="space-y-3">
-            {(Array.isArray(formData.experience) ? formData.experience : []).map((item, i) => (
+            {getItems(formData.experience).map((item, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-xl">
                 <div className="flex justify-between items-start mb-1">
                   <h4 className="font-bold text-gray-900">{item.designation}</h4>
@@ -460,7 +467,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
                 <p className="text-xs text-secondary font-medium mt-1">{item.fromDate} — {item.isPresentEmployer ? 'Present' : item.toDate}</p>
               </div>
             ))}
-            {(!formData.experience || formData.experience.length === 0) && (
+            {getItems(formData.experience).length === 0 && (
               <p className="text-sm text-gray-400 italic">No experience records added.</p>
             )}
           </div>
@@ -471,7 +478,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('referees') && (
         <SummarySection title="Referees" icon="group" sectionKey="referees">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {(Array.isArray(formData.referees) ? formData.referees : []).map((ref, i) => (
+            {getItems(formData.referees).map((ref, i) => (
               <div key={i} className="p-4 border border-gray-100 rounded-2xl bg-gray-50/50">
                 <h4 className="font-bold text-secondary mb-3">Referee {i + 1}</h4>
                 <DataRow label="Name" value={ref.name} />
@@ -479,7 +486,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
                 <DataRow label="Email" value={ref.officialEmail} />
               </div>
             ))}
-            {(!formData.referees || formData.referees.length === 0) && (
+            {getItems(formData.referees).length === 0 && (
               <p className="text-sm text-gray-400 italic">No referee records added.</p>
             )}
           </div>
@@ -490,14 +497,14 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('publications_journal') && (
         <SummarySection title="Journal Publications" icon="article" sectionKey="publications">
           <div className="space-y-3">
-            {(Array.isArray(formData.publications) ? formData.publications : []).map((item, i) => (
+            {getItems(formData.publications).map((item, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-xl">
-                <h4 className="font-bold text-gray-900">{item.title}</h4>
-                <p className="text-sm text-gray-600">{item.journalName} ({item.year}) • Impact Factor: {item.impactFactor || 'N/A'}</p>
-                <p className="text-xs text-secondary font-medium mt-1 uppercase tracking-wider">{item.authorshipType}</p>
+                <h4 className="font-bold text-gray-900">{item.paperTitle || item.title}</h4>
+                <p className="text-sm text-gray-600">{item.journalName} ({item.year}) • {item.journalType}</p>
+                <p className="text-xs text-secondary font-medium mt-1 uppercase tracking-wider">{item.isFirstAuthor ? 'First Author' : 'Co-Author'}</p>
               </div>
             ))}
-            {(!formData.publications || formData.publications.length === 0) && (
+            {getItems(formData.publications).length === 0 && (
               <p className="text-sm text-gray-400 italic">No journal publications added.</p>
             )}
           </div>
@@ -508,12 +515,15 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('publications_conference') && (
         <SummarySection title="Conference Publications" icon="campaign" sectionKey="conferencePublications">
           <div className="space-y-3">
-            {(Array.isArray(formData.conferencePublications) ? formData.conferencePublications : []).map((item, i) => (
+            {getItems(formData.conferencePublications).map((item, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-xl">
-                <h4 className="font-bold text-gray-900">{item.title}</h4>
+                <h4 className="font-bold text-gray-900">{item.paperTitle || item.title}</h4>
                 <p className="text-sm text-gray-600">{item.conferenceName} ({item.year})</p>
               </div>
             ))}
+            {getItems(formData.conferencePublications).length === 0 && (
+              <p className="text-sm text-gray-400 italic">No conference publications added.</p>
+            )}
           </div>
         </SummarySection>
       )}
@@ -522,16 +532,19 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('phd_supervision') && (
         <SummarySection title="PhD Supervision" icon="supervisor_account" sectionKey="phdSupervision">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(Array.isArray(formData.phdSupervision) ? formData.phdSupervision : []).map((item, i) => (
+            {getItems(formData.phdSupervision).map((item, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-xl">
-                <h4 className="font-bold text-gray-900">{item.studentName}</h4>
-                <p className="text-sm text-gray-600">{item.thesisTitle}</p>
+                <h4 className="font-bold text-gray-900">{item.scholarName}</h4>
+                <p className="text-sm text-gray-600">{item.researchTopic}</p>
                 <div className="flex justify-between items-center mt-2">
                   <span className="text-xs font-bold text-primary px-2 py-0.5 bg-primary/5 rounded uppercase">{item.status}</span>
-                  <span className="text-xs text-gray-500 uppercase font-bold">{item.supervisionType}</span>
+                  <span className="text-xs text-gray-500 uppercase font-bold">{item.isFirstSupervisor ? 'First Supervisor' : 'Co-Supervisor'}</span>
                 </div>
               </div>
             ))}
+            {getItems(formData.phdSupervision).length === 0 && (
+              <p className="text-sm text-gray-400 italic">No PhD supervision records added.</p>
+            )}
           </div>
         </SummarySection>
       )}
@@ -540,12 +553,15 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('publications_books') && (
         <SummarySection title="Books & Chapters" icon="menu_book" sectionKey="booksPublications">
           <div className="space-y-3">
-            {(Array.isArray(formData.booksPublications) ? formData.booksPublications : []).map((item, i) => (
+            {getItems(formData.booksPublications).map((item, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-xl">
                 <h4 className="font-bold text-gray-900">{item.title}</h4>
-                <p className="text-sm text-gray-600">{item.publisher} ({item.year}) • ISBN: {item.isbn || 'N/A'}</p>
+                <p className="text-sm text-gray-600">{item.publisher} ({item.year}) • Type: {item.type || 'N/A'}</p>
               </div>
             ))}
+            {getItems(formData.booksPublications).length === 0 && (
+              <p className="text-sm text-gray-400 italic">No books or chapters added.</p>
+            )}
           </div>
         </SummarySection>
       )}
@@ -554,16 +570,19 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('patents') && (
         <SummarySection title="Patents" icon="workspace_premium" sectionKey="patents">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(Array.isArray(formData.patents) ? formData.patents : []).map((item, i) => (
+            {getItems(formData.patents).map((item, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-xl">
-                <h4 className="font-bold text-gray-900">{item.title}</h4>
-                <p className="text-xs text-gray-500 mb-2">Registration No: {item.registrationNo}</p>
+                <h4 className="font-bold text-gray-900">{item.patentTitle || item.title}</h4>
+                <p className="text-xs text-gray-500 mb-2">Inventors: {item.inventors}</p>
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-bold text-primary px-2 py-0.5 bg-primary/5 rounded uppercase">{item.status}</span>
                   <span className="text-xs text-gray-400 font-bold">{item.year}</span>
                 </div>
               </div>
             ))}
+            {getItems(formData.patents).length === 0 && (
+              <p className="text-sm text-gray-400 italic">No patents added.</p>
+            )}
           </div>
         </SummarySection>
       )}
@@ -572,16 +591,19 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('sponsored_projects') && (
         <SummarySection title="Sponsored Projects" icon="science" sectionKey="projects">
           <div className="space-y-3">
-            {(Array.isArray(formData.projects) ? formData.projects : []).map((item, i) => (
+            {getItems(formData.projects).map((item, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-xl">
                 <h4 className="font-bold text-gray-900">{item.title}</h4>
-                <p className="text-sm text-gray-600">Agency: {item.agency} • ₹{item.amount?.toLocaleString('en-IN')}</p>
+                <p className="text-sm text-gray-600">Agency: {item.sponsoringAgency} • ₹{item.amount?.toLocaleString('en-IN')}</p>
                 <div className="flex justify-between items-center mt-2">
                   <span className="text-xs font-bold text-primary px-2 py-0.5 bg-primary/5 rounded uppercase">{item.status}</span>
-                  <span className="text-xs text-secondary font-bold uppercase">{item.role}</span>
+                  <span className="text-xs text-secondary font-bold uppercase">{item.isPrincipalInvestigator ? 'PI' : 'Co-PI'}</span>
                 </div>
               </div>
             ))}
+            {getItems(formData.projects).length === 0 && (
+              <p className="text-sm text-gray-400 italic">No sponsored projects added.</p>
+            )}
           </div>
         </SummarySection>
       )}
@@ -590,12 +612,15 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('consultancy_projects') && (
         <SummarySection title="Consultancy Projects" icon="handshake" sectionKey="consultancyProjects">
           <div className="space-y-3">
-            {(Array.isArray(formData.consultancyProjects) ? formData.consultancyProjects : []).map((item, i) => (
+            {getItems(formData.consultancyProjects).map((item, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-xl">
                 <h4 className="font-bold text-gray-900">{item.title}</h4>
-                <p className="text-sm text-gray-600">Client: {item.client} • ₹{item.amount?.toLocaleString('en-IN')}</p>
+                <p className="text-sm text-gray-600">Agency: {item.fundingAgency} • ₹{item.amount?.toLocaleString('en-IN')}</p>
               </div>
             ))}
+            {getItems(formData.consultancyProjects).length === 0 && (
+              <p className="text-sm text-gray-400 italic">No consultancy projects added.</p>
+            )}
           </div>
         </SummarySection>
       )}
@@ -604,12 +629,15 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('organized_programs') && (
         <SummarySection title="Organized Programs" icon="event" sectionKey="organizedPrograms">
           <div className="space-y-3">
-            {(Array.isArray(formData.organizedPrograms) ? formData.organizedPrograms : []).map((item, i) => (
+            {getItems(formData.organizedPrograms).map((item, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-xl">
                 <h4 className="font-bold text-gray-900">{item.title}</h4>
-                <p className="text-sm text-gray-600">{item.role} • {item.duration}</p>
+                <p className="text-sm text-gray-600">{item.sponsoringAgency} • {item.fromDate} to {item.toDate}</p>
               </div>
             ))}
+            {getItems(formData.organizedPrograms).length === 0 && (
+              <p className="text-sm text-gray-400 italic">No organized programs added.</p>
+            )}
           </div>
         </SummarySection>
       )}
@@ -618,12 +646,15 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('subjects_taught') && (
         <SummarySection title="Subjects Taught" icon="class" sectionKey="subjectsTaught">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(Array.isArray(formData.subjectsTaught) ? formData.subjectsTaught : []).map((item, i) => (
+            {getItems(formData.subjectsTaught).map((item, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-xl">
                 <h4 className="font-bold text-gray-900">{item.subjectName}</h4>
-                <p className="text-xs text-gray-500 uppercase font-bold">{item.level} • {item.count} times</p>
+                <p className="text-xs text-gray-500 uppercase font-bold">{item.category}</p>
               </div>
             ))}
+            {getItems(formData.subjectsTaught).length === 0 && (
+              <p className="text-sm text-gray-400 italic">No subjects added.</p>
+            )}
           </div>
         </SummarySection>
       )}
@@ -725,14 +756,14 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
                 <p className="text-xs text-primary font-bold uppercase mb-1">Total Credits Claimed</p>
-                <p className="text-2xl font-black text-primary">{formData.credit_points?.totalCreditsClaimed || '0.0'}</p>
+                <p className="text-2xl font-black text-primary">{formData.creditPoints?.totalCreditsClaimed || '0.0'}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                 <p className="text-xs text-gray-500 font-bold uppercase mb-1">Manual Activities</p>
-                <p className="text-2xl font-black text-gray-700">{formData.credit_points?.manualActivities?.length || 0} Entries</p>
+                <p className="text-2xl font-black text-gray-700">{formData.creditPoints?.manualActivities?.length || 0} Entries</p>
               </div>
             </div>
-            {formData.credit_points?.manualActivities?.length > 0 && (
+            {formData.creditPoints?.manualActivities?.length > 0 && (
               <div className="mt-4 border border-gray-100 rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
@@ -742,7 +773,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {formData.credit_points.manualActivities.map((act, i) => (
+                    {formData.creditPoints.manualActivities.map((act, i) => (
                       <tr key={i}>
                         <td className="px-4 py-2">
                           <p className="font-medium text-gray-800">Activity {act.activityId}</p>
