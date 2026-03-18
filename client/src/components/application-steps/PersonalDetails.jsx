@@ -109,6 +109,21 @@ const PersonalDetails = ({ onNext, onBack, isReadOnly }) => {
     }
   }, [jobSnapshot]);
 
+  // Synchronize correspondence address to permanent address if checkbox is checked
+  useEffect(() => {
+    if (d.sameAsCorrespondence && !isReadOnly) {
+      setD(prev => ({
+        ...prev,
+        permAddress: prev.corrAddress,
+        permCity: prev.corrCity,
+        permDistrict: prev.corrDistrict,
+        permState: prev.corrState,
+        permPincode: prev.corrPincode,
+        permPhone: prev.phone,
+      }));
+    }
+  }, [d.corrAddress, d.corrCity, d.corrDistrict, d.corrState, d.corrPincode, d.phone, d.sameAsCorrespondence, isReadOnly]);
+
   const set = (field, value) => {
     if (isReadOnly) return;
     setD(prev => ({ ...prev, [field]: value }));
@@ -131,20 +146,10 @@ const PersonalDetails = ({ onNext, onBack, isReadOnly }) => {
 
   const copyAddress = () => {
     if (isReadOnly) return;
-    if (d.sameAsCorrespondence) {
-      setD(prev => ({ ...prev, sameAsCorrespondence: false }));
-    } else {
-      setD(prev => ({
-        ...prev,
-        sameAsCorrespondence: true,
-        permAddress: prev.corrAddress,
-        permCity: prev.corrCity,
-        permDistrict: prev.corrDistrict,
-        permState: prev.corrState,
-        permPincode: prev.corrPincode,
-        permPhone: prev.phone,
-      }));
-    }
+    setD(prev => ({
+      ...prev,
+      sameAsCorrespondence: !prev.sameAsCorrespondence
+    }));
   };
 
   const validate = () => {
