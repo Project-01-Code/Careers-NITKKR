@@ -40,20 +40,20 @@ graph TB
         A[React 19 + Vite] --> B[TailwindCSS + Framer Motion]
         A --> C[Redux Context + Hooks]
     end
-    
+
     subgraph "Backend Layer"
         D[Node.js + Express] --> E[MongoDB + Mongoose]
         D --> F[Redis Cache]
         D --> G[JWT Auth]
     end
-    
+
     subgraph "External Services"
         H[Stripe Payments]
         I[Cloudinary Storage]
         J[Nodemailer Email]
         K[ClamAV Security]
     end
-    
+
     A --> D
     D --> H
     D --> I
@@ -64,6 +64,7 @@ graph TB
 ### Technology Stack
 
 **Frontend Technologies:**
+
 - **React 19.2.0** - Latest with concurrent features
 - **Vite 7.3.1** - Ultra-fast build tool
 - **TailwindCSS 4.1.18** - Utility-first CSS framework
@@ -72,6 +73,7 @@ graph TB
 - **Axios 1.13.5** - HTTP client with interceptors
 
 **Backend Technologies:**
+
 - **Node.js ≥18.0.0** - LTS runtime environment
 - **Express 5.2.1** - Web application framework
 - **MongoDB ≥5.0** - NoSQL database with Mongoose ODM
@@ -80,6 +82,7 @@ graph TB
 - **Zod 4.3.6** - Runtime type validation
 
 **Integration Services:**
+
 - **Stripe 20.4.0** - Payment processing
 - **Cloudinary 1.41.3** - Cloud storage and CDN
 - **Nodemailer 8.0.1** - Email communications
@@ -91,6 +94,7 @@ graph TB
 ### Core Functionality
 
 #### 🎯 Job Management
+
 - **Dynamic Job Creation**: Flexible job posting with custom fields
 - **Eligibility Criteria**: Comprehensive age, experience, and qualification requirements
 - **Application Fee Structure**: Category-based pricing (General, SC/ST, OBC, EWS, PwD)
@@ -99,6 +103,7 @@ graph TB
 - **Department Organization**: Hierarchical department structure
 
 #### 📝 Application Processing
+
 - **Multi-Step Forms**: Progressive application completion
 - **Document Upload**: Secure file upload with malware scanning
 - **Real-time Validation**: Instant feedback on form completion
@@ -107,6 +112,7 @@ graph TB
 - **Data Snapshots**: Job configuration preservation at application time
 
 #### 👥 User Management
+
 - **Role-Based Access Control**: Four-tier permission system
   - **Applicant**: Application management and profile updates
   - **Department Head**: Department-specific job and application oversight
@@ -117,6 +123,7 @@ graph TB
 - **Email Verification**: OTP-based secure email verification
 
 #### 💳 Payment Processing
+
 - **Category-Based Pricing**: Different fees for different applicant categories
 - **Secure Checkout**: Stripe-hosted payment pages
 - **Instant Confirmation**: Real-time payment status updates
@@ -125,6 +132,7 @@ graph TB
 - **Payment History**: Complete transaction audit trail
 
 #### 📧 Communication System
+
 - **Automated Notifications**: Email alerts for application updates
 - **Deadline Reminders**: Automated reminders before application deadlines
 - **Status Updates**: Real-time notifications for application status changes
@@ -132,6 +140,7 @@ graph TB
 - **Personalized Communication**: Targeted emails based on user roles
 
 #### 📈 Analytics & Reporting
+
 - **Application Metrics**: Real-time application statistics
 - **Job Performance**: Analytics on job posting effectiveness
 - **Demographic Insights**: Applicant demographic analysis
@@ -142,6 +151,7 @@ graph TB
 ### Security Features
 
 #### 🔐 Authentication & Authorization
+
 - **Multi-Factor Authentication**: JWT with refresh token rotation
 - **Role-Based Permissions**: Granular access control system
 - **Session Management**: Secure token-based sessions
@@ -149,6 +159,7 @@ graph TB
 - **Account Lockout**: Protection against brute force attacks
 
 #### 🛡️ Application Security
+
 - **Input Validation**: Comprehensive Zod schema validation
 - **SQL Injection Prevention**: Parameterized queries with Mongoose
 - **XSS Protection**: Content Security Policy and input sanitization
@@ -156,6 +167,7 @@ graph TB
 - **Rate Limiting**: API abuse prevention with configurable limits
 
 #### 📁 File Security
+
 - **Malware Scanning**: ClamAV integration for all uploads
 - **File Type Validation**: Strict file type and size restrictions
 - **Cloud Storage**: Secure Cloudinary storage with CDN
@@ -163,6 +175,7 @@ graph TB
 - **Audit Logging**: Complete file access and modification logs
 
 #### 🌐 Network Security
+
 - **HTTPS Enforcement**: SSL/TLS for all communications
 - **Security Headers**: Helmet middleware for HTTP security
 - **CORS Configuration**: Cross-origin resource sharing controls
@@ -354,6 +367,7 @@ Careers-NITKKR/
 ### Prerequisites
 
 #### System Requirements
+
 - **Node.js** ≥18.0.0 (LTS version recommended)
 - **npm** ≥8.0.0 or **yarn** ≥1.22.0
 - **MongoDB** ≥5.0 (Community or Atlas)
@@ -362,6 +376,7 @@ Careers-NITKKR/
 - **Docker** ≥20.10.0 (optional, for containerized deployment)
 
 #### Development Environment
+
 - **IDE**: VS Code with recommended extensions
 - **Browser**: Chrome DevTools for debugging
 - **API Testing**: Postman or Insomnia
@@ -370,12 +385,14 @@ Careers-NITKKR/
 ### Setup Process
 
 #### 1. Clone Repository
+
 ```bash
 git clone <repository-url>
 cd Careers-NITKKR
 ```
 
 #### 2. Install Dependencies
+
 ```bash
 # Install root dependencies
 npm install
@@ -388,6 +405,7 @@ cd client && npm install && cd ..
 ```
 
 #### 3. Environment Configuration
+
 ```bash
 # Copy environment templates
 cp server/.env.example server/.env
@@ -408,6 +426,7 @@ cp client/.env.example client/.env
 ```
 
 #### 4. Database Setup
+
 ```bash
 # Start MongoDB service
 mongod
@@ -417,6 +436,7 @@ cd server && npm run seed && cd ..
 ```
 
 #### 5. Start Development Servers
+
 ```bash
 # Start all services (recommended)
 npm run dev
@@ -430,17 +450,18 @@ cd client && npm run dev
 ```
 
 #### 6. Verify Installation
+
 - **Frontend**: http://localhost:3000
 - **Backend**: http://localhost:8000
 - **Health Check**: http://localhost:8000/health
 - **API Documentation**: http://localhost:8000/api-docs
-
 
 ## 🔧 Development
 
 ### Development Commands
 
 #### Root Level Commands
+
 ```bash
 npm run dev              # Start all development services
 npm run build            # Build for production
@@ -452,6 +473,7 @@ npm run clean            # Clean build artifacts
 ```
 
 #### Backend Commands
+
 ```bash
 cd server
 npm run dev              # Start development server with nodemon
@@ -464,6 +486,7 @@ npm run backup           # Backup database
 ```
 
 #### Frontend Commands
+
 ```bash
 cd client
 npm run dev              # Start Vite development server
@@ -477,6 +500,7 @@ npm run type-check       # Run TypeScript type checking
 ### Code Quality
 
 #### ESLint Configuration
+
 ```bash
 # Check for linting errors
 npm run lint
@@ -489,6 +513,7 @@ npx eslint src/components/Button.jsx
 ```
 
 #### Prettier Formatting
+
 ```bash
 # Format all files
 npm run format
@@ -500,8 +525,8 @@ npm run format:check
 npx prettier --write src/App.jsx
 ```
 
-
 #### Performance Monitoring
+
 ```bash
 # Check response times
 curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8000/api/v1/jobs
@@ -512,8 +537,6 @@ docker stats careers-backend
 # Check database performance
 mongostat --host localhost:27017
 ```
-
-
 
 ## 📄 License
 
