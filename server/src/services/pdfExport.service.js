@@ -136,7 +136,7 @@ export const generateApplicationPDF = async (applicationId, options = {}) => {
             doc,
             lay,
             'Transaction ID',
-            payment.paymentIntentId || payment.sessionId,
+            payment.razorpayPaymentId || payment.orderId,
             y
           );
           y = drawKVRow(doc, lay, 'Amount', `INR ${payment.amount}`, y);

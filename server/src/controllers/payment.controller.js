@@ -54,10 +54,11 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
 
   // ── 4. Load job to calculate the expected fee ─────────────────────────────────────
   // Do this BEFORE the PENDING check so we always have the current expected amount.
-  const job = await mongoose.model('Job').findById(application.jobId).lean();
-  if (!job) {
-    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Associated job not found');
-  }
+ // ✅ Replace with this
+const job = application.jobSnapshot;
+if (!job) {
+  throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job snapshot not found on application');
+}
 
   // ── 5. Derive category & disability from personal section ──────────────────────────
   const personalData = application.sections?.get('personal')?.data ?? {};
@@ -229,11 +230,11 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     throw new ApiError(HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Application not found');
   }
 
-  const job = await mongoose.model('Job').findById(application.jobId).lean();
-  if (!job) {
-    throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Associated job not found during verification');
-  }
-
+ // ✅ Replace with this
+const job = application.jobSnapshot;
+if (!job) {
+  throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Job snapshot not found during verification');
+}
   const personalData  = application.sections?.get('personal')?.data ?? {};
   const rawCategory   = personalData.category ?? 'GEN';
   const isPwd         = Boolean(personalData.disability);

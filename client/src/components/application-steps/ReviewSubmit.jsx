@@ -53,7 +53,6 @@ const SECTION_ICONS = {
 // Razorpay helpers
 // ---------------------------------------------------------------------------
 
-/** Dynamically load the Razorpay checkout.js script (idempotent). */
 function loadRazorpayScript() {
   return new Promise((resolve) => {
     if (window.Razorpay) {
@@ -68,12 +67,11 @@ function loadRazorpayScript() {
   });
 }
 
-/** Open the Razorpay modal and return a promise that resolves when payment is complete or rejected on cancel. */
 function openRazorpayModal({ keyId, orderId, amountInPaise, currency, applicationId, userName, userEmail }) {
   return new Promise((resolve, reject) => {
     const options = {
       key: keyId,
-      amount: amountInPaise,   // Razorpay expects paise
+      amount: amountInPaise,
       currency: currency?.toUpperCase() ?? 'INR',
       name: 'NIT Kurukshetra',
       description: 'Application Fee',
@@ -84,7 +82,6 @@ function openRazorpayModal({ keyId, orderId, amountInPaise, currency, applicatio
       },
       notes: { applicationId },
       theme: { color: '#1e40af' },
-      // Called by Razorpay on successful payment — contains signature for verification
       handler: (response) => {
         resolve({
           razorpayOrderId:   response.razorpay_order_id,
@@ -96,17 +93,11 @@ function openRazorpayModal({ keyId, orderId, amountInPaise, currency, applicatio
 
     const rzp = new window.Razorpay(options);
 
-    // Called when user closes the modal without paying
     rzp.on('payment.failed', (response) => {
       reject(new Error(response.error?.description || 'Payment failed'));
     });
 
     rzp.open();
-
-    // Handle modal dismiss (user clicks the × button)
-    // Razorpay doesn't provide an ondismiss callback in the standard SDK;
-    // payment.failed fires for explicit failures; dismissed without action
-    // simply leaves the promise pending until the user retries or navigates away.
   });
 }
 
@@ -126,7 +117,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
   const feeConfig = jobSnapshot?.applicationFee;
   const feeRequired = feeConfig?.isRequired;
 
-  // Compute the user's fee from category-based fee structure (for display only)
   const getUserFee = () => {
     if (!feeConfig) return 0;
     const category = formData.personalDetails?.category;
@@ -141,7 +131,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
     };
     const isPwd = formData.personalDetails?.disability;
     const baseFee = isPwd ? feeConfig.pwd : (categoryFeeMap[category] ?? feeConfig.general ?? 0);
-    return baseFee > 0 ? baseFee + 50 : 0; // Add ₹50 transaction fee
+    return baseFee > 0 ? baseFee + 50 : 0;
   };
   const feeAmount = getUserFee();
 
@@ -205,6 +195,13 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
   // ---------------------------------------------------------------------------
   const handleFinalSubmit = async () => {
     if (isReadOnly) return;
+
+    // ✅ FIX 1: If already paid/exempted, just navigate to profile directly
+    if (paymentStatus === 'paid' || paymentStatus === 'exempted') {
+      navigate('/profile', { state: { refresh: true } });
+      return;
+    }
+
     setSubmitting(true);
     setValidationErrors([]);
 
@@ -242,7 +239,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           return;
         }
 
-        // 2b. Load Razorpay script (cached after first load)
+        // 2b. Load Razorpay script
         const scriptLoaded = await loadRazorpayScript();
         if (!scriptLoaded) {
           toast.error('Failed to load payment gateway. Check your internet connection and retry.');
@@ -250,37 +247,49 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           return;
         }
 
-        // 2c. Open modal — awaits user completing or dismissing payment
+        // 2c. Open modal
         let paymentResponse;
         try {
           paymentResponse = await openRazorpayModal({
-            keyId:        paymentData.keyId,
-            orderId:      paymentData.orderId,
+            keyId:         paymentData.keyId,
+            orderId:       paymentData.orderId,
             amountInPaise: paymentData.amountInPaise,
-            currency:     paymentData.currency,
+            currency:      paymentData.currency,
             applicationId,
-            // ⚠️ ASSUMPTION: user info is available via req.user in the context.
-            // Replace with actual user name/email from auth context if available.
           });
         } catch (modalError) {
-          // User cancelled or payment failed in the modal
           toast.error(modalError.message || 'Payment was not completed. You can retry anytime.');
           setSubmitting(false);
           return;
         }
 
-        // 2d. Verify payment signature on the backend
-        const verifyRes = await api.post('/payments/verify-payment', {
+        // 2d. Verify payment on backend
+        await api.post('/payments/verify-payment', {
           razorpayOrderId:   paymentResponse.razorpayOrderId,
           razorpayPaymentId: paymentResponse.razorpayPaymentId,
           razorpaySignature: paymentResponse.razorpaySignature,
         });
+
+        // ✅ FIX 2: Payment verified — backend already submitted the application.
+        // Navigate directly to profile. Do NOT call /submit again.
+        toast.success('Payment successful! Application submitted.');
+        navigate('/profile', { state: { refresh: true } });
+        return;
       }
-      // Step 3: Submit directly (free apps or already paid)
+
+      // ── Step 3: Free applications (no fee required) — submit directly ──────
       await api.post(`/applications/${applicationId}/submit`);
       toast.success('Application submitted successfully!');
-      navigate('/profile');
+      navigate('/profile', { state: { refresh: true } });
+
     } catch (error) {
+      // ✅ FIX 3: If backend says already submitted, just navigate to profile
+      if (error?.response?.status === 400 &&
+          error?.response?.data?.message?.includes('already submitted')) {
+        toast.success('Application already submitted!');
+        navigate('/profile', { state: { refresh: true } });
+        return;
+      }
       toast.error(error.response?.data?.message || 'Submission failed');
     } finally {
       setSubmitting(false);
@@ -340,9 +349,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
         </div>
       </header>
 
-      {/* ═══════════════════════════════════ */}
-      {/* Section Completion Checklist        */}
-      {/* ═══════════════════════════════════ */}
+      {/* Section Completion Checklist */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8 shadow-sm">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-secondary flex items-center gap-2">
@@ -354,7 +361,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           </span>
         </div>
 
-        {/* Progress Bar */}
         <div className="w-full h-2.5 bg-gray-100 rounded-full mb-5 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-700 ${progressPercent === 100 ? 'bg-green-500' : progressPercent > 50 ? 'bg-primary' : 'bg-amber-500'}`}
@@ -362,7 +368,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           />
         </div>
 
-        {/* Section Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {knownSections.map((sec) => {
             const done = hasSectionData(sec.sectionType);
@@ -388,10 +393,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           })}
         </div>
       </div>
-
-      {/* ═══════════════════════════════════ */}
-      {/* Data Summary Sections               */}
-      {/* ═══════════════════════════════════ */}
 
       {/* Personal Details */}
       {isRequired('personal') && (
@@ -630,12 +631,12 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
       {isRequired('other_info') && (
         <SummarySection title="Other Information" icon="info" sectionKey="otherInfo">
           <div className="space-y-4">
-             {Object.entries(formData.otherInfo || {}).map(([key, val]) => (
-               <div key={key} className="space-y-1">
-                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{key.replace(/([A-Z])/g, ' $1')}</p>
-                 <p className="text-sm text-gray-700 leading-relaxed font-medium">{val || 'N/A'}</p>
-               </div>
-             ))}
+            {Object.entries(formData.otherInfo || {}).map(([key, val]) => (
+              <div key={key} className="space-y-1">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{key.replace(/([A-Z])/g, ' $1')}</p>
+                <p className="text-sm text-gray-700 leading-relaxed font-medium">{val || 'N/A'}</p>
+              </div>
+            ))}
           </div>
         </SummarySection>
       )}
@@ -790,13 +791,11 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
         </SummarySection>
       )}
 
-      {/* ═══════════════════════════════════ */}
-      {/* Validate All Button                 */}
-      {/* ═══════════════════════════════════ */}
+      {/* Validate All Button */}
       <div className="mb-6">
         <button
           onClick={handleValidateAll}
-          disabled={validating}
+          disabled={validating || isReadOnly}
           className="w-full py-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 text-primary font-bold text-sm hover:bg-primary/10 hover:border-primary/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {validating ? (
@@ -812,7 +811,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           )}
         </button>
 
-        {/* Validation passed indicator */}
         {validationRun && validationErrors.length === 0 && (
           <div className="mt-4 bg-green-50 border-2 border-green-200 rounded-2xl p-5 flex items-center gap-3 animate-fade-in">
             <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
@@ -825,7 +823,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           </div>
         )}
 
-        {/* Validation Errors */}
         {validationErrors.length > 0 && (
           <div className="mt-4 bg-red-50 border-2 border-red-200 rounded-2xl p-6 animate-fade-in">
             <h3 className="text-lg font-bold text-red-800 mb-4 flex items-center gap-2">
@@ -859,7 +856,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
             <div className="flex-1">
               <h3 className="font-bold text-indigo-900 text-lg">Application Fee</h3>
               <p className="text-sm text-indigo-700 mt-1">
-                This position requires an application fee. You will be securely redirected to Stripe for payment.
+                This position requires an application fee. Payment is processed securely via Razorpay.
               </p>
               <div className="flex items-center gap-4 mt-4">
                 <div className={`px-6 py-2 bg-white rounded-xl border shadow-sm ${isReadOnly ? 'border-gray-100' : 'border-indigo-200'}`}>
@@ -884,14 +881,12 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           </div>
           <div className="mt-4 flex items-center gap-2 text-xs text-indigo-600">
             <span className="material-symbols-outlined text-[14px]">lock</span>
-            Secured by Stripe. Your payment details are never stored on our servers.
+            Secured by Razorpay. Your payment details are never stored on our servers.
           </div>
         </div>
       )}
 
-      {/* ═══════════════════════════════════ */}
-      {/* Final Submit Action                 */}
-      {/* ═══════════════════════════════════ */}
+      {/* Final Submit Action */}
       <div className="p-8 bg-secondary rounded-3xl text-white text-center shadow-2xl relative overflow-hidden">
         <div className="relative z-10">
           <h2 className="text-2xl font-bold mb-2">Ready to Submit?</h2>
@@ -901,7 +896,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           {feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted' && (
             <p className="text-amber-300 mb-6 text-sm font-medium flex items-center gap-1 justify-center">
               <span className="material-symbols-outlined text-[16px]">info</span>
-              You will be redirected to Stripe to complete payment.
+              You will be redirected to Razorpay to complete payment.
             </p>
           )}
 
@@ -917,7 +912,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
             </button>
             <button
               onClick={handleFinalSubmit}
-              disabled={submitting}
+              disabled={submitting || isReadOnly}
               className="px-10 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-extrabold transition-all shadow-lg hover:shadow-primary/30 flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {submitting ? (
@@ -937,7 +932,6 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
         </div>
       </div>
 
-      {/* Footer Note */}
       <p className="text-center text-xs text-gray-400 mt-6">
         Application No. {applicationNumber || 'Draft'} • NIT Kurukshetra Careers Portal
       </p>

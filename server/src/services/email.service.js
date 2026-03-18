@@ -1,24 +1,30 @@
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT, 10),
-  secure: false, // TLS via STARTTLS on port 587
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// SendGrid sends over HTTPS (port 443), bypassing Render's SMTP port restrictions.
+// Docs: https://github.com/sendgrid/sendgrid-nodejs/tree/main/packages/mail
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-const FROM =
-  process.env.EMAIL_FROM || 'NIT Kurukshetra Careers <noreply@nitkkr.ac.in>';
+const FROM = process.env.EMAIL_FROM || 'noreply@nitkkr.ac.in';
+
+/**
+ * Helper to wrap sgMail.send with essential error logging.
+ */
+const sendMailWithLogging = async (mailOptions) => {
+  try {
+    await sgMail.send(mailOptions);
+  } catch (error) {
+    const details = error.response?.body?.errors?.[0]?.message ?? error.message;
+    console.error(`❌ Email failed to ${mailOptions.to}:`, details);
+    throw error;
+  }
+};
 
 /**
  * Send email verification OTP to the applicant.
  * Fire-and-forget - do not await the returned promise in the caller.
  */
 export const sendVerificationOTP = (email, otp) => {
-  return transporter.sendMail({
+  return sendMailWithLogging({
     from: FROM,
     to: email,
     subject: 'Verify your email - NIT Kurukshetra Careers',
@@ -38,7 +44,7 @@ export const sendVerificationOTP = (email, otp) => {
  * Fire-and-forget - do not await the returned promise in the caller.
  */
 export const sendPasswordResetOTP = (email, otp) => {
-  return transporter.sendMail({
+  return sendMailWithLogging({
     from: FROM,
     to: email,
     subject: 'Password Reset OTP - NIT Kurukshetra Careers',
@@ -61,7 +67,7 @@ export const sendApplicationConfirmation = (
   email,
   { applicationNumber, jobTitle }
 ) => {
-  return transporter.sendMail({
+  return sendMailWithLogging({
     from: FROM,
     to: email,
     subject: `Application Submitted - ${applicationNumber}`,
@@ -92,7 +98,7 @@ export const sendApplicationStatusUpdate = (
   email,
   { applicationNumber, status, remarks }
 ) => {
-  return transporter.sendMail({
+  return sendMailWithLogging({
     from: FROM,
     to: email,
     subject: `Application Status Updated - ${applicationNumber}`,
