@@ -680,8 +680,8 @@ const megaSeed = async () => {
         amount:           1500,
         currency:         'INR',
         status:           PAYMENT_STATUS.PAID,
-        sessionId:        'cs_test_vikram_001',
-        paymentIntentId:  'pi_test_vikram_001',
+        orderId:          'order_test_vikram_001',
+        razorpayPaymentId: 'pay_test_vikram_001',
         createdAt:        new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
       },
       {
@@ -690,7 +690,7 @@ const megaSeed = async () => {
         amount:           0,
         currency:         'INR',
         status:           PAYMENT_STATUS.EXEMPTED,
-        sessionId:        'exempt_priya_001',
+        orderId:          'order_exempt_priya_001',
       },
     ]);
 
