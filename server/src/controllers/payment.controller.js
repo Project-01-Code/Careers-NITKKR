@@ -4,6 +4,7 @@ import { ApiError } from '../utils/apiError.js';
 import { HTTP_STATUS, PAYMENT_STATUS } from '../constants.js';
 import { Application } from '../models/application.model.js';
 import { Payment } from '../models/payment.model.js';
+import { Job } from '../models/job.model.js';
 import mongoose from 'mongoose';
 import { razorpayService } from '../services/razorpay.service.js';
 import { calculateApplicationFee, markApplicationSubmitted } from '../services/payment.service.js';
@@ -54,7 +55,7 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
 
   // ── 4. Load job to calculate the expected fee ─────────────────────────────────────
   // Do this BEFORE the PENDING check so we always have the current expected amount.
-  const job = await mongoose.model('Job').findById(application.jobId).lean();
+  const job = await Job.findById(application.jobId).lean();
   if (!job) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Associated job not found');
   }
@@ -229,7 +230,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     throw new ApiError(HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Application not found');
   }
 
-  const job = await mongoose.model('Job').findById(application.jobId).lean();
+  const job = await Job.findById(application.jobId).lean();
   if (!job) {
     throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Associated job not found during verification');
   }
