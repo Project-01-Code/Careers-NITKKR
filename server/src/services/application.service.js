@@ -120,7 +120,7 @@ export async function createApplication(userId, jobId) {
 export function validateSectionCompleteness(section, sectionConfig) {
   const errors = [];
 
-  if (sectionConfig.isMandatory && (!section || !section.data)) {
+  if (sectionConfig.isMandatory && sectionConfig.sectionType !== 'credit_points' && (!section || !section.data)) {
     errors.push({ field: 'data', message: 'Section data is required' });
   }
 

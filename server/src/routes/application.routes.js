@@ -18,7 +18,6 @@ import {
 import {
   validateAllBeforeSubmission,
   submitApplication,
-  withdrawApplication,
   exportApplicationSummary,
 } from '../controllers/applicationSubmission.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
@@ -126,12 +125,6 @@ router.post(
   validateAllBeforeSubmission
 );
 router.post('/:id/submit', checkApplicationOwnership, submitApplication);
-router.post(
-  '/:id/withdraw',
-  checkApplicationOwnership,
-  validate(withdrawApplicationSchema),
-  withdrawApplication
-);
 
 // Application Summary Download (submitted applications only)
 router.get('/:id/docket', checkApplicationOwnership, exportApplicationSummary);
