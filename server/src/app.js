@@ -18,6 +18,9 @@ import apiRouter from './routes/index.js';
 
 const app = express();
 
+// Trust reverse proxy (e.g., Render, Nginx) so rate limiter can use X-Forwarded-For correctly
+app.set('trust proxy', 1);
+
 /* ------------------- SECURITY MIDDLEWARE ------------------- */
 
 // Helmet - Security headers

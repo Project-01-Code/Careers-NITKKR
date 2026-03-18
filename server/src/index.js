@@ -86,15 +86,13 @@ const startServer = async () => {
       'CLOUDINARY_CLOUD_NAME',
       'CLOUDINARY_API_KEY',
       'CLOUDINARY_API_SECRET',
-      // Email
-      'SMTP_HOST',
-      'SMTP_PORT',
-      'SMTP_USER',
-      'SMTP_PASS',
+      // Email (via SendGrid - https://sendgrid.com)
+      'SENDGRID_API_KEY',
       'EMAIL_FROM',
       // Razorpay
       'RAZORPAY_KEY_ID',
       'RAZORPAY_KEY_SECRET',
+      'CORS_ORIGIN',
     ];
 
     const missingVars = requiredEnvVars.filter(
@@ -113,9 +111,6 @@ const startServer = async () => {
     await connectDB();
 
     // Start background services
-    // NOTE: Background workers are currently running in the main server process.
-    // If scaling to multiple server instances horizontally, extract these into a separate
-    // worker service (or use Redis/BullMQ) to avoid duplicate execution and database locks.
     startBackgroundWorker();
 
     // Create HTTP server

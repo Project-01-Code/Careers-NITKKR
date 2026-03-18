@@ -48,12 +48,14 @@ const ApplicationForm = () => {
     applicationNumber,
     applicationStatus,
     applicationId,
+    jobId: contextJobId,
     SECTION_TYPE_MAP 
   } = useApplication();
 
   // Reset context when jobId changes or on unmount to prevent stale state
   useEffect(() => {
     resetApplication();
+    setShowSummary(false); // Reset local state too
   }, [jobId, resetApplication]);
 
   useEffect(() => {
@@ -162,7 +164,10 @@ const ApplicationForm = () => {
 
   // Auto-advance to the first incomplete step after initialization
   useEffect(() => {
-    if (!loading && jobId && steps.length > 0 && !hasAutoAdvanced.current) {
+    // We check that we aren't loading, context matches jobId, and steps exist
+    const isContextReady = !loading && (jobId === String(jobSnapshot?._id) || jobId === String(contextJobId));
+    
+    if (isContextReady && steps.length > 0 && !hasAutoAdvanced.current) {
       hasAutoAdvanced.current = true;
       
       if (applicationStatus !== 'draft') {
@@ -270,7 +275,10 @@ const ApplicationForm = () => {
     );
   };
 
-  if (loading) {
+  // We are "loading" if the API says so, OR if the context hasn't synced to the current job yet
+  const isLoadingOrSyncing = loading || (jobId !== String(jobSnapshot?._id) && jobId !== String(contextJobId));
+
+  if (isLoadingOrSyncing) {
     return (
       <MainLayout hideFooter={true}>
         <div className="flex items-center justify-center min-h-[60vh]">
