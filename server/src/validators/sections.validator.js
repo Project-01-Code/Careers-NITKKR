@@ -343,8 +343,12 @@ export const subjectsTaughtSchema = z.object({
   items: z.array(subjectEntrySchema).min(0),
 });
 
+const MANUAL_ACTIVITY_IDS = [6,7,8,9,10,11,12,13,14,15,16,17,20,21,22];
 const manualActivitySchema = z.object({
-  activityId: z.number().int().min(5).max(22),
+  activityId: z.number().int().refine(
+    (id) => MANUAL_ACTIVITY_IDS.includes(id),
+    { message: `Activity ID must be one of: ${MANUAL_ACTIVITY_IDS.join(', ')}` }
+  ),
   description: z.string().trim().min(1, 'Activity description is required'),
   claimedPoints: z.number().min(0, 'Credit points cannot be negative'),
 });

@@ -168,7 +168,9 @@ const sendRegistrationOTP = asyncHandler(async (req, res) => {
   }
 
   const otp = await createAndStoreOTP(email, TOKEN_TYPES.EMAIL_VERIFICATION);
-  sendVerificationOTP(email, otp).catch(() => { });
+  sendVerificationOTP(email, otp).catch((err) => { 
+    console.error('Failed to send verification OTP email:', err);
+  });
 
   return res
     .status(HTTP_STATUS.OK)
@@ -537,7 +539,9 @@ const sendPasswordResetOTPHandler = asyncHandler(async (req, res) => {
   }
 
   const otp = await createAndStoreOTP(email, TOKEN_TYPES.PASSWORD_RESET);
-  sendPasswordResetOTP(email, otp).catch(() => { });
+  sendPasswordResetOTP(email, otp).catch((err) => { 
+    console.error('Failed to send password reset OTP email:', err);
+  });
 
   return res
     .status(HTTP_STATUS.OK)
