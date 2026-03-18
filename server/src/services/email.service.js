@@ -1,24 +1,20 @@
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT, 10),
-  secure: false, // TLS via STARTTLS on port 587
-  family: 4, // Force IPv4 to avoid ENETUNREACH on Render
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// SendGrid sends over HTTPS (port 443), bypassing Render's SMTP port restrictions.
+// Docs: https://github.com/sendgrid/sendgrid-nodejs/tree/main/packages/mail
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-const FROM =
-  process.env.EMAIL_FROM || 'NIT Kurukshetra Careers <noreply@nitkkr.ac.in>';
+const FROM = process.env.EMAIL_FROM || 'noreply@nitkkr.ac.in';
 
+/**
+ * Helper to wrap sgMail.send with essential error logging.
+ */
 const sendMailWithLogging = async (mailOptions) => {
   try {
-    return await transporter.sendMail(mailOptions);
+    await sgMail.send(mailOptions);
   } catch (error) {
-    console.error(`❌ Email failed to ${mailOptions.to}:`, error.message);
+    const details = error.response?.body?.errors?.[0]?.message ?? error.message;
+    console.error(`❌ Email failed to ${mailOptions.to}:`, details);
     throw error;
   }
 };
