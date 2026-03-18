@@ -106,7 +106,7 @@ function openRazorpayModal({ keyId, orderId, amountInPaise, currency, applicatio
 // ---------------------------------------------------------------------------
 
 const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
-  const { formData, jobSnapshot, applicationId, applicationNumber, validateAll, paymentStatus, submitApplication } = useApplication();
+  const { formData, jobSnapshot, applicationId, applicationNumber, validateAll, paymentStatus } = useApplication();
   const [submitting, setSubmitting] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
@@ -263,8 +263,9 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           return;
         }
 
-        // 2d. Verify payment on backend
-        await api.post('/payments/verify-payment', {
+        // 2d. Verify payment signature on the backend
+        // eslint-disable-next-line no-unused-vars
+        const verifyRes = await api.post('/payments/verify-payment', {
           razorpayOrderId:   paymentResponse.razorpayOrderId,
           razorpayPaymentId: paymentResponse.razorpayPaymentId,
           razorpaySignature: paymentResponse.razorpaySignature,

@@ -24,10 +24,12 @@ import PaymentCancel from './pages/PaymentCancel';
 import ForgotPassword from './pages/ForgotPassword';
 import Help from './pages/Help';
 import NotFound from './pages/NotFound';
+import CookieConsent from './components/CookieConsent';
 
 function App() {
   return (
     <Router>
+      <CookieConsent />
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />

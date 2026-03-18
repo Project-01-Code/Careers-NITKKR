@@ -109,6 +109,27 @@ export const ApplicationProvider = ({ children }) => {
 
       return newApp;
     } catch (err) {
+      if (err.response?.status === 409) {
+        // Handle "already exists" conflict — fetch the record created by parallel call
+        try {
+          const res = await api.get('/applications', {
+            params: { jobId: currentJobId, limit: 1 },
+          });
+          const existing = res.data.data?.applications?.[0];
+          if (existing) {
+            setApplicationId(existing._id);
+            setApplicationNumber(existing.applicationNumber);
+            setApplicationStatus(existing.status);
+            setPaymentStatus(existing.paymentStatus);
+            setJobSnapshot(existing.jobSnapshot);
+            if (existing.sections) populateSectionsFromServer(existing.sections);
+            return existing;
+          }
+        } catch (retryErr) {
+          console.error('Retry after conflict failed:', retryErr);
+        }
+      }
+
       const msg = err.response?.data?.message || 'Failed to initialize application';
       console.error('initApplication error:', msg);
       toast.error(msg);
@@ -163,7 +184,7 @@ export const ApplicationProvider = ({ children }) => {
       const isRequired = jobSnapshot.requiredSections.some(
         (s) => s.sectionType === serverSectionType
       );
-      
+
       // Special case: 'documents' frontend key covers photo, signature, AND final_documents
       // If photo or signature is required but final_documents isn't, we still want to allow proceeding
       // frontend validator in DocumentUpload.jsx handles the photo/signature presence.
@@ -180,12 +201,12 @@ export const ApplicationProvider = ({ children }) => {
       // we still need to check if photo/signature are required.
       // But since we are here, we are validating the 'documents' step.
       if (sectionName === 'documents' && !isRequired) {
-         setCompletedSections((prev) => {
-           const next = new Set(prev);
-           next.add(sectionName);
-           return next;
-         });
-         return true;
+        setCompletedSections((prev) => {
+          const next = new Set(prev);
+          next.add(sectionName);
+          return next;
+        });
+        return true;
       }
     }
 
@@ -240,7 +261,7 @@ export const ApplicationProvider = ({ children }) => {
       const isRequired = jobSnapshot.requiredSections.some(
         (s) => s.sectionType === serverSectionType
       );
-      
+
       // Special case: 'custom' section is allowed if job has custom fields defined
       const isCustomAllowed = sectionName === 'custom' && jobSnapshot?.customFields?.length > 0;
 
@@ -324,7 +345,7 @@ export const ApplicationProvider = ({ children }) => {
   }, [applicationId]);
 
   /**
-   * Create payment order (Stripe Checkout)
+   * Create payment order (Razorpay Checkout)
    */
   const createPaymentOrder = useCallback(async () => {
     if (!applicationId) {

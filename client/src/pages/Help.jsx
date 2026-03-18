@@ -13,7 +13,7 @@ const faqData = [
     },
     {
         question: 'What is the application fee?',
-        answer: 'The application fee is ₹1000, payable via Stripe secure checkout (Credit/Debit cards, UPI, Net Banking). The fee is non-refundable. Certain categories may be eligible for fee exemption as per government norms.',
+        answer: 'The application fee depends on the job, payable via Razorpay secure checkout (Credit/Debit cards, UPI, Net Banking). The fee is non-refundable. Certain categories may be eligible for fee exemption as per government norms.',
     },
     {
         question: 'Can I save my application as a draft?',
