@@ -174,66 +174,6 @@ export const submitApplication = asyncHandler(async (req, res) => {
   );
 });
 
-/**
- * Withdraw a submitted application.
- * Can only be done while the application is in 'submitted' state.
- *
- * @route   POST /api/v1/applications/:id/withdraw
- * @access  Private (Applicant only)
- */
-export const withdrawApplication = asyncHandler(async (req, res) => {
-  const application = req.application; // Loaded by middleware
-  const { reason } = req.body;
-
-  // Guard: can only withdraw if currently submitted
-  if (application.status !== APPLICATION_STATUS.SUBMITTED) {
-    throw new ApiError(
-      HTTP_STATUS.BAD_REQUEST,
-      `Only submitted applications can be withdrawn. Current status: ${application.status}`
-    );
-  }
-
-  const oldStatus = application.status;
-
-  // Update status
-  application.status = APPLICATION_STATUS.WITHDRAWN;
-
-  // Add to status history
-  application.statusHistory.push({
-    status: APPLICATION_STATUS.WITHDRAWN,
-    changedBy: req.user._id,
-    changedAt: new Date(),
-    remarks: reason || 'Application withdrawn by applicant',
-  });
-
-  await application.save();
-
-  // Audit log
-  await logAction({
-    userId: req.user._id,
-    action: AUDIT_ACTIONS.APPLICATION_WITHDRAWN,
-    resourceType: RESOURCE_TYPES.APPLICATION,
-    resourceId: application._id,
-    req,
-    changes: {
-      before: { status: oldStatus },
-      after: { status: APPLICATION_STATUS.WITHDRAWN },
-      reason,
-    },
-  });
-
-  res.status(HTTP_STATUS.OK).json(
-    new ApiResponse(
-      HTTP_STATUS.OK,
-      {
-        applicationNumber: application.applicationNumber,
-        status: application.status,
-      },
-      'Application withdrawn successfully'
-    )
-  );
-});
-
 
 /**
  * Export the application summary as a PDF.

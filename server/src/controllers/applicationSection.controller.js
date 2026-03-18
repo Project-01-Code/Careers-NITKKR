@@ -228,7 +228,9 @@ export const validateSection = asyncHandler(async (req, res) => {
     );
     errors.push(...dataErrors);
   } else if (sectionConfig.isMandatory) {
-    errors.push({ field: 'data', message: 'Section data is required' });
+    if (sectionType !== 'credit_points') {
+      errors.push({ field: 'data', message: 'Section data is required' });
+    }
   }
 
   // Validate PDF
