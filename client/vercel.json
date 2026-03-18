@@ -5,14 +5,7 @@
       "destination": "https://careers-nitkkr.onrender.com/api/:path*"
     },
     {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "header",
-          "key": "accept",
-          "value": "text/html"
-        }
-      ],
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
