@@ -14,11 +14,43 @@ const FROM =
   process.env.EMAIL_FROM || 'NIT Kurukshetra Careers <noreply@nitkkr.ac.in>';
 
 /**
+ * Verify SMTP connection.
+ */
+export const verifySMTP = async () => {
+  try {
+    await transporter.verify();
+    console.log('✅ SMTP connection verified');
+  } catch (error) {
+    console.error('❌ SMTP connection failed:', error.message);
+    // Don't throw, just log. SMTP might be down but server can still run.
+  }
+};
+
+/**
+ * Helper to wrap sendMail with logging for fire-and-forget usage.
+ */
+const sendMailWithLogging = async (mailOptions) => {
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`📧 Email sent to ${mailOptions.to}: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error(`❌ Failed to send email to ${mailOptions.to}:`, error.message);
+    // Log more details in dev or if specific error
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(error);
+    }
+    // Re-throw if caller expects it, but our service currently uses fire-and-forget
+    throw error;
+  }
+};
+
+/**
  * Send email verification OTP to the applicant.
  * Fire-and-forget - do not await the returned promise in the caller.
  */
 export const sendVerificationOTP = (email, otp) => {
-  return transporter.sendMail({
+  return sendMailWithLogging({
     from: FROM,
     to: email,
     subject: 'Verify your email - NIT Kurukshetra Careers',
@@ -38,7 +70,7 @@ export const sendVerificationOTP = (email, otp) => {
  * Fire-and-forget - do not await the returned promise in the caller.
  */
 export const sendPasswordResetOTP = (email, otp) => {
-  return transporter.sendMail({
+  return sendMailWithLogging({
     from: FROM,
     to: email,
     subject: 'Password Reset OTP - NIT Kurukshetra Careers',
@@ -61,7 +93,7 @@ export const sendApplicationConfirmation = (
   email,
   { applicationNumber, jobTitle }
 ) => {
-  return transporter.sendMail({
+  return sendMailWithLogging({
     from: FROM,
     to: email,
     subject: `Application Submitted - ${applicationNumber}`,
@@ -92,7 +124,7 @@ export const sendApplicationStatusUpdate = (
   email,
   { applicationNumber, status, remarks }
 ) => {
-  return transporter.sendMail({
+  return sendMailWithLogging({
     from: FROM,
     to: email,
     subject: `Application Status Updated - ${applicationNumber}`,
