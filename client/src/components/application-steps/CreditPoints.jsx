@@ -51,13 +51,13 @@ const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
   const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
-    if (formData?.credit_points && typeof formData.credit_points === 'object') {
-      const cp = formData.credit_points;
+    if (formData?.creditPoints && typeof formData.creditPoints === 'object') {
+      const cp = formData.creditPoints;
       setTimeout(() => {
         setManualActivities(cp.manualActivities || []);
       }, 0);
     }
-  }, [formData?.credit_points]);
+  }, [formData?.creditPoints]);
 
   // Fetch auto-calc summary from server
   useEffect(() => {
@@ -125,13 +125,13 @@ const CreditPoints = ({ onNext, onBack, isReadOnly }) => {
     const bad = manualActivities.some(a => !a.description?.trim() || a.claimedPoints < 0);
     if (bad) { toast.error('Please fill description and valid points for all activities'); return; }
 
-    await updateSection('credit_points', {
+    const saved = await updateSection('creditPoints', {
       manualActivities,
       totalCreditsClaimed: combinedTotal,
       totalCreditsAllowed: 0,
     });
 
-    if (onNext) onNext();
+    if (saved && onNext) onNext();
   };
 
   const ic = `w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-sm ${isReadOnly ? 'bg-gray-100 cursor-not-allowed text-gray-400' : ''}`;
