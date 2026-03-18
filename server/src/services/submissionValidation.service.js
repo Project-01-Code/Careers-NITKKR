@@ -104,7 +104,7 @@ export function validateAllSections(application) {
     }
 
     // 5. General existence check for standard sections
-    if (!section || !section.data || Object.keys(section.data).length === 0) {
+    if (sectionType !== 'credit_points' && (!section || !section.data || Object.keys(section.data).length === 0)) {
       errors.push({
         section: sectionType,
         field: 'data',

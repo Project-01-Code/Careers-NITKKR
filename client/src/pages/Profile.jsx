@@ -101,26 +101,6 @@ const Profile = () => {
     }
   };
 
-  // Withdraw a submitted application
-  const handleWithdraw = async (appId) => {
-    const reason = window.prompt('Please provide a reason for withdrawal (optional):');
-    if (reason === null) return; // User cancelled
-    
-    const confirmMessage = reason 
-      ? `Are you sure you want to withdraw this application?\n\nReason: ${reason}`
-      : 'Are you sure you want to withdraw this application?';
-    
-    if (!window.confirm(confirmMessage)) return;
-    
-    try {
-      await api.post(`/applications/${appId}/withdraw`, { reason });
-      toast.success('Application withdrawn successfully');
-      fetchApplications(); // Refresh list
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to withdraw application');
-    }
-  };
-
   // Download summary PDF
   const handleDownloadSummary = async (appId) => {
     try {
@@ -308,26 +288,14 @@ const Profile = () => {
                                             <span className="material-symbols-outlined text-[16px]">visibility</span>
                                             View Application
                                           </button>
-                                        )}
-
-                                        <button
-                                          onClick={() => handleDownloadSummary(app._id)}
-                                          className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
-                                        >
-                                          <span className="material-symbols-outlined text-[16px]">download</span>
-                                          Summary
-                                        </button>
-
-                                    {/* Withdraw only for submitted */}
-                                    {app.status === 'submitted' && (
-                                      <button
-                                        onClick={() => handleWithdraw(app._id)}
-                                        className="bg-orange-50 text-orange-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-orange-100 transition-colors flex items-center gap-1.5"
-                                      >
-                                        <span className="material-symbols-outlined text-[16px]">undo</span>
-                                        Withdraw
-                                      </button>
-                                    )}
+                                        )}                                    {/* Summary only for non-draft */}
+                                    <button
+                                      onClick={() => handleDownloadSummary(app._id)}
+                                      className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors flex items-center gap-1.5"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">download</span>
+                                      Summary
+                                    </button>
 
                                     {app.status === 'withdrawn' && (
                                       <span className="text-sm text-gray-400 italic px-4 py-2">Withdrawn</span>
