@@ -10,6 +10,8 @@ import {
   RESOURCE_TYPES,
   HTTP_STATUS,
 } from '../constants.js';
+import { Job } from '../models/job.model.js';
+import { Review } from '../models/review.model.js';
 import { logAction } from '../utils/auditLogger.js';
 import mongoose from 'mongoose';
 
@@ -96,6 +98,42 @@ export const submitApplication = asyncHandler(async (req, res) => {
       HTTP_STATUS.CONFLICT,
       'Application submission failed. It might have already been submitted or is no longer a draft.'
     );
+  }
+
+  // Auto-assign reviewers defined at the Job level IF they exist
+  try {
+    const job = await Job.findById(updatedApplication.jobId).select('assignedReviewers').lean();
+    const reviewerIds = job?.assignedReviewers || [];
+    
+    if (reviewerIds.length > 0) {
+      // Add reviewers to application assignedReviewers array
+      await mongoose.model('Application').findByIdAndUpdate(
+        updatedApplication._id,
+        { $addToSet: { assignedReviewers: { $each: reviewerIds } } }
+      );
+
+      // Create initial Review documents
+      const reviewBulkOps = reviewerIds.map(revId => ({
+        updateOne: {
+          filter: { applicationId: updatedApplication._id, reviewerId: revId },
+          update: {
+            $setOnInsert: {
+              reviewerId: revId,
+              applicationId: updatedApplication._id,
+              status: 'PENDING', // Initial status matches constant
+            },
+          },
+          upsert: true,
+        },
+      }));
+      
+      if (reviewBulkOps.length > 0) {
+        await Review.bulkWrite(reviewBulkOps);
+      }
+    }
+  } catch (syncError) {
+    // We don't fail the whole submission if reviewer sync fails, but log it
+    console.error('Failed to auto-assign reviewers on submission:', syncError);
   }
 
   // Use the updated application for audit logging

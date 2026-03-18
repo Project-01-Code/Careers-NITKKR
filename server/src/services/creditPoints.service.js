@@ -36,7 +36,7 @@ function calcSponsoredProjectCredits(items = []) {
     }
   }
 
-  return { breakdown, total: parseFloat(total.toFixed(2)) };
+  return { breakdown, total: Math.min(parseFloat(total.toFixed(2)), 10) };
 }
 
 /**
@@ -69,7 +69,7 @@ function calcPatentCredits(items = []) {
     }
   }
 
-  return { breakdown, total: parseFloat(total.toFixed(2)) };
+  return { breakdown, total: Math.min(parseFloat(total.toFixed(2)), 10) };
 }
 
 /**
@@ -121,7 +121,7 @@ function calcPhdCredits(items = []) {
     }
   }
 
-  return { breakdown, total: parseFloat(total.toFixed(2)) };
+  return { breakdown, total: Math.min(parseFloat(total.toFixed(2)), 10) };
 }
 
 /**
@@ -158,7 +158,7 @@ function calcJournalCredits(items = []) {
     }
   }
 
-  return { breakdown, total: parseFloat(total.toFixed(2)) };
+  return { breakdown, total: Math.min(parseFloat(total.toFixed(2)), 10) };
 }
 
 /**

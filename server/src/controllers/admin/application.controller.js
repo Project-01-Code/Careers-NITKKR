@@ -722,6 +722,11 @@ export const verifySectionDocuments = asyncHandler(async (req, res) => {
   section.verifiedAt = new Date();
   section.verificationNotes = notes || '';
 
+  // Optionally update data (e.g., set allowedPoints in credit system)
+  if (req.body.data) {
+    section.data = { ...section.data, ...req.body.data };
+  }
+
   application.sections.set(sectionType, section);
   await application.save();
 
