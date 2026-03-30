@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../layouts/MainLayout';
+import SEO from '../components/SEO';
 import api from '../services/api';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
@@ -53,6 +54,11 @@ const Notices = () => {
 
   return (
     <MainLayout>
+      <SEO 
+        title="Notices & Announcements" 
+        description="Stay updated with the latest recruitment notices, corrigendums, and important announcements from NIT Kurukshetra."
+        keywords="NIT KKR Notices, Recruitment Announcements, NIT Kurukshetra Notifications"
+      />
       {/* Header */}
       <div className="bg-secondary text-white py-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent" />

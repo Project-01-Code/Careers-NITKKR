@@ -9,6 +9,7 @@ import React, {
 import { useSearchParams } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import JobCard from "../components/JobCard";
+import SEO from "../components/SEO";
 import api from "../services/api";
 
 // ─────────────────────────────────────────────────────────────
@@ -469,6 +470,10 @@ const Jobs = () => {
   // ─────────────────────────────────────────────────────────────
   return (
     <MainLayout>
+      <SEO 
+        title="Open Vacancies" 
+        description="Explore current faculty and research positions at NIT Kurukshetra. Filter by department, designation, and pay level."
+      />
       {/* Hero */}
       <div className="bg-secondary text-white py-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent" />

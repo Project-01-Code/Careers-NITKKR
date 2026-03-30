@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://careers-nitkkr.vercel.app/sitemap.xml

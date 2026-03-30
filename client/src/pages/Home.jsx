@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import CategoryCard from '../components/CategoryCard';
+import SEO from '../components/SEO';
 import api from '../services/api';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
@@ -36,7 +37,12 @@ const Home = () => {
 
   return (
     <MainLayout>
+      <SEO 
+        title="Home" 
+        description="Welcome to NIT Kurukshetra Faculty Recruitment portal. Join the legacy of excellence and apply for various faculty positions."
+      />
       {/* Hero Section */}
+
       <section className="relative w-full h-[500px] flex items-center overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 hover:scale-105"

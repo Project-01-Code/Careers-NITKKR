@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
+import SEO from '../components/SEO';
 
 const faqData = [
     {
@@ -50,6 +51,11 @@ const Help = () => {
 
     return (
         <MainLayout>
+            <SEO 
+                title="Help Center" 
+                description="Frequently asked questions and technical support for the NIT Kurukshetra recruitment portal."
+                keywords="NIT KKR Help, Recruitment Support, FAQ NIT Kurukshetra"
+            />
             {/* Hero */}
             <div className="bg-secondary text-white py-12 relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent" />

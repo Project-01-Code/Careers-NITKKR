@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 import toast from 'react-hot-toast';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
@@ -40,8 +41,12 @@ const Login = () => {
   };
 
   return (
-
-    <section className="min-h-[calc(100vh-80px)] flex items-center justify-center py-12 px-4">
+    <>
+      <SEO 
+        title="Login" 
+        description="Sign in to your NIT Kurukshetra Faculty Recruitment account to manage your applications."
+      />
+      <section className="min-h-[calc(100vh-80px)] flex items-center justify-center py-12 px-4">
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -141,6 +146,7 @@ const Login = () => {
         </div>
       </motion.div>
     </section>
+    </>
   );
 };
 
