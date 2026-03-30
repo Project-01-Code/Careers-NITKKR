@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
+import SEO from '../components/SEO';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 // eslint-disable-next-line no-unused-vars
@@ -82,6 +83,11 @@ const JobDetail = () => {
 
   return (
     <MainLayout>
+      <SEO 
+        title={job.title}
+        description={`Apply for ${job.title} at NIT Kurukshetra. Department: ${typeof job.department === 'object' ? job.department.name : job.department}. Advertisement No: ${job.advertisementNo}.`}
+        keywords={`${job.title}, ${job.designation}, NIT KKR, Faculty Jobs, ${typeof job.department === 'object' ? job.department.name : job.department}`}
+      />
       {/* Header */}
       <div className="bg-secondary text-white py-10 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent" />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 import toast from 'react-hot-toast';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
@@ -87,7 +88,12 @@ const Register = () => {
   };
 
   return (
-    <section className="min-h-[calc(100vh-80px)] flex items-center justify-center py-12 px-4">
+    <>
+      <SEO 
+        title="Create Account" 
+        description="Register for an account to apply for faculty and research positions at NIT Kurukshetra."
+      />
+      <section className="min-h-[calc(100vh-80px)] flex items-center justify-center py-12 px-4">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -350,6 +356,7 @@ const Register = () => {
         </div>
       </motion.div>
     </section>
+    </>
   );
 };
 
