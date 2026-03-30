@@ -14,7 +14,6 @@ const Register = () => {
   const [lastName, setLastName] = useState('');
 
   const [phone, setPhone] = useState('');
-  const [countryCode, setCountryCode] = useState('+91');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
@@ -206,30 +205,19 @@ const Register = () => {
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1.5 col-span-2 sm:col-span-1">
                   <label className="text-sm font-medium text-gray-700 font-inter">Phone Number</label>
-                  <div className="flex items-center rounded-xl border border-gray-200 bg-white/50 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary transition-all overflow-hidden group">
-                    <div className="bg-gray-50 border-r border-gray-200 min-w-[100px] flex items-center justify-center">
-                      <select
-                        value={countryCode}
-                        onChange={(e) => setCountryCode(e.target.value)}
-                        className="bg-transparent pl-3 pr-8 py-3 outline-none text-sm font-bold text-secondary cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23667c99%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E')] bg-[length:10px] bg-[right_10px_center] bg-no-repeat"
-                      >
-                        <option value="+91">🇮🇳 +91</option>
-                      </select>
-                    </div>
-                    <div className="relative flex-1">
-                      <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl pointer-events-none group-focus-within:text-primary transition-colors">call</span>
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                          setPhone(val);
-                        }}
-                        placeholder="Mobile Number"
-                        className="w-full pl-11 pr-4 py-3 outline-none bg-transparent text-secondary font-medium tracking-wide"
-                        required
-                      />
-                    </div>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xl pointer-events-none transition-colors">call</span>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setPhone(val);
+                      }}
+                      placeholder="10-digit Mobile Number"
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white/50 text-sm"
+                      required
+                    />
                   </div>
                 </div>
                 <div className="space-y-1.5">
