@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Lazy load components for performance
 const Home = lazy(() => import('./pages/Home'));
@@ -20,7 +21,6 @@ const AdminUserManagement = lazy(() => import('./pages/admin/AdminUserManagement
 const AdminFeeExemption = lazy(() => import('./pages/admin/AdminFeeExemption'));
 const ApplicationReview = lazy(() => import('./pages/admin/ApplicationReview'));
 const ReviewerQueue = lazy(() => import('./pages/admin/ReviewerQueue'));
-const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
 const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
 const PaymentCancel = lazy(() => import('./pages/PaymentCancel'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
