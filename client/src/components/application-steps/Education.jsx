@@ -212,7 +212,7 @@ const Education = ({ onNext, onBack, isReadOnly }) => {
                   <select 
                     value={edu._system} 
                     onChange={e => set(i, '_system', e.target.value)} 
-                    className={`${ic(i, '_system')} w-24 px-1 text-[10px] font-bold`}
+                    className={`${ic(i, '_system').replace('w-full', '')} w-[110px] px-1 text-[11px] font-bold`}
                     disabled={isReadOnly}
                   >
                     <option value="CGPA (10pt)">CGPA /10</option>
@@ -222,7 +222,7 @@ const Education = ({ onNext, onBack, isReadOnly }) => {
                   <input 
                     value={edu._value} 
                     onChange={e => set(i, '_value', e.target.value)} 
-                    className={`${ic(i, '_value')} flex-1`} 
+                    className={`${ic(i, '_value').replace('w-full', '')} flex-1 min-w-0`} 
                     placeholder={edu._system === 'Percentage (%)' ? 'e.g. 85.5' : 'e.g. 8.5'}
                     disabled={isReadOnly}
                   />

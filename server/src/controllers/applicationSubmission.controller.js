@@ -10,6 +10,8 @@ import {
   RESOURCE_TYPES,
   HTTP_STATUS,
 } from '../constants.js';
+import { Job } from '../models/job.model.js';
+import { Review } from '../models/review.model.js';
 import { logAction } from '../utils/auditLogger.js';
 import mongoose from 'mongoose';
 
@@ -98,6 +100,42 @@ export const submitApplication = asyncHandler(async (req, res) => {
     );
   }
 
+  // Auto-assign reviewers defined at the Job level IF they exist
+  try {
+    const job = await Job.findById(updatedApplication.jobId).select('assignedReviewers').lean();
+    const reviewerIds = job?.assignedReviewers || [];
+    
+    if (reviewerIds.length > 0) {
+      // Add reviewers to application assignedReviewers array
+      await mongoose.model('Application').findByIdAndUpdate(
+        updatedApplication._id,
+        { $addToSet: { assignedReviewers: { $each: reviewerIds } } }
+      );
+
+      // Create initial Review documents
+      const reviewBulkOps = reviewerIds.map(revId => ({
+        updateOne: {
+          filter: { applicationId: updatedApplication._id, reviewerId: revId },
+          update: {
+            $setOnInsert: {
+              reviewerId: revId,
+              applicationId: updatedApplication._id,
+              status: 'PENDING', // Initial status matches constant
+            },
+          },
+          upsert: true,
+        },
+      }));
+      
+      if (reviewBulkOps.length > 0) {
+        await Review.bulkWrite(reviewBulkOps);
+      }
+    }
+  } catch (syncError) {
+    // We don't fail the whole submission if reviewer sync fails, but log it
+    console.error('Failed to auto-assign reviewers on submission:', syncError);
+  }
+
   // Use the updated application for audit logging
   const oldStatus = application.status;
 
@@ -132,66 +170,6 @@ export const submitApplication = asyncHandler(async (req, res) => {
         status: updatedApplication.status,
       },
       'Application submitted successfully'
-    )
-  );
-});
-
-/**
- * Withdraw a submitted application.
- * Can only be done while the application is in 'submitted' state.
- *
- * @route   POST /api/v1/applications/:id/withdraw
- * @access  Private (Applicant only)
- */
-export const withdrawApplication = asyncHandler(async (req, res) => {
-  const application = req.application; // Loaded by middleware
-  const { reason } = req.body;
-
-  // Guard: can only withdraw if currently submitted
-  if (application.status !== APPLICATION_STATUS.SUBMITTED) {
-    throw new ApiError(
-      HTTP_STATUS.BAD_REQUEST,
-      `Only submitted applications can be withdrawn. Current status: ${application.status}`
-    );
-  }
-
-  const oldStatus = application.status;
-
-  // Update status
-  application.status = APPLICATION_STATUS.WITHDRAWN;
-
-  // Add to status history
-  application.statusHistory.push({
-    status: APPLICATION_STATUS.WITHDRAWN,
-    changedBy: req.user._id,
-    changedAt: new Date(),
-    remarks: reason || 'Application withdrawn by applicant',
-  });
-
-  await application.save();
-
-  // Audit log
-  await logAction({
-    userId: req.user._id,
-    action: AUDIT_ACTIONS.APPLICATION_WITHDRAWN,
-    resourceType: RESOURCE_TYPES.APPLICATION,
-    resourceId: application._id,
-    req,
-    changes: {
-      before: { status: oldStatus },
-      after: { status: APPLICATION_STATUS.WITHDRAWN },
-      reason,
-    },
-  });
-
-  res.status(HTTP_STATUS.OK).json(
-    new ApiResponse(
-      HTTP_STATUS.OK,
-      {
-        applicationNumber: application.applicationNumber,
-        status: application.status,
-      },
-      'Application withdrawn successfully'
     )
   );
 });

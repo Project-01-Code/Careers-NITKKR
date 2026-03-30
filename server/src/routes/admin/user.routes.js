@@ -23,7 +23,7 @@ router.post('/', verifyJWT, requireRole(USER_ROLES.ADMIN), createUser);
 router.patch(
   '/promote-by-email',
   verifyJWT,
-  requireRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+  requireRole(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN),
   promoteUserByEmail
 );
 

@@ -228,41 +228,43 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Department Distribution */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h3 className="font-bold text-secondary mb-6">
-              Jobs by Department
-            </h3>
-            <div className="space-y-4">
-              {deptStats.map((dept, idx) => (
-                <div key={idx} className="space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 font-medium">
-                      {dept.name}
-                    </span>
-                    <span className="text-secondary font-bold">
-                      {dept.count}
-                    </span>
+          {/* Department Distribution  - Hidden for Reviewers */}
+          {isAdmin && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <h3 className="font-bold text-secondary mb-6">
+                Jobs by Department
+              </h3>
+              <div className="space-y-4">
+                {deptStats.map((dept, idx) => (
+                  <div key={idx} className="space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 font-medium">
+                        {dept.name}
+                      </span>
+                      <span className="text-secondary font-bold">
+                        {dept.count}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{
+                          width: `${(dept.count / (stats?.jobs?.total || 1)) * 100}%`,
+                        }}
+                        transition={{ duration: 1, delay: 0.5 + idx * 0.1 }}
+                        className="h-full bg-primary rounded-full"
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{
-                        width: `${(dept.count / (stats?.jobs?.total || 1)) * 100}%`,
-                      }}
-                      transition={{ duration: 1, delay: 0.5 + idx * 0.1 }}
-                      className="h-full bg-primary rounded-full"
-                    />
+                ))}
+                {(!deptStats || deptStats.length === 0) && (
+                  <div className="text-center py-8 text-gray-400">
+                    No department data available
                   </div>
-                </div>
-              ))}
-              {(!deptStats || deptStats.length === 0) && (
-                <div className="text-center py-8 text-gray-400">
-                  No department data available
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </AdminLayout>

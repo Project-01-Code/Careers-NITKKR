@@ -1,519 +1,617 @@
-# Careers NITKKR - Faculty Recruitment Portal
+# Careers NITKKR — Faculty Recruitment Portal
 
 <div align="center">
 
 ![NITKKR Logo](./client/src/assets/nitlogo.png)
 
-**Enterprise-Grade Faculty Recruitment Management System**
+**Full-Stack Faculty Recruitment Management System**
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/react-19.2.0-blue.svg)](https://reactjs.org/)
-[![MongoDB](https://img.shields.io/badge/mongodb-%2347A248.svg)](https://www.mongodb.com/)
+[![Express](https://img.shields.io/badge/express-5.2.1-lightgrey.svg)](https://expressjs.com/)
+[![MongoDB](https://img.shields.io/badge/mongodb-mongoose%209.1.5-%2347A248.svg)](https://www.mongodb.com/)
+[![Razorpay](https://img.shields.io/badge/payments-razorpay-blue.svg)](https://razorpay.com/)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 
-A comprehensive, scalable, and secure web-based recruitment management system for National Institute of Technology Kurukshetra (NITKKR) that streamlines the entire faculty recruitment lifecycle from job posting to final selection.
+A comprehensive web-based recruitment management system for **National Institute of Technology, Kurukshetra (NITKKR)** that handles the entire faculty hiring lifecycle — from job posting and multi-step applications to payment processing, review assignment, and final selection.
 
 </div>
+
+---
 
 ## 🚀 Quick Start
 
 ```bash
-# Clone and setup
+# 1. Clone
 git clone <repository-url> && cd Careers-NITKKR
-chmod +x setup.sh && ./setup.sh
 
-# Start development servers
-npm run dev
+# 2. Install dependencies
+npm install                        # root (lint/format tooling)
+cd server && npm install && cd ..  # backend
+cd client && npm install && cd ..  # frontend
+
+# 3. Configure environment
+cp server/.env.example server/.env   # then edit with your keys
+cp client/.env.example client/.env
+
+# 4. Seed the database (creates super-admin, sample jobs, departments)
+cd server && npm run seed && cd ..
+
+# 5. Start development
+cd server && npm run dev    # Terminal 1 → http://localhost:8000
+cd client && npm run dev    # Terminal 2 → http://localhost:5173
 ```
 
-**Access**: [Frontend](http://localhost:3000) • [Backend](http://localhost:8000) • [Health Check](http://localhost:8000/health)
+> **Default Super Admin** (created by seed): `superadmin@nitkkr.ac.in` / `Admin@123`
+
+---
 
 ## 🏗️ Architecture
 
-### System Overview
-
-Careers NITKKR follows a modern microservices-ready architecture with clear separation of concerns:
-
-```mermaid
-graph TB
-    subgraph "Frontend Layer"
-        A[React 19 + Vite] --> B[TailwindCSS + Framer Motion]
-        A --> C[Redux Context + Hooks]
-    end
-    
-    subgraph "Backend Layer"
-        D[Node.js + Express] --> E[MongoDB + Mongoose]
-        D --> F[Redis Cache]
-        D --> G[JWT Auth]
-    end
-    
-    subgraph "External Services"
-        H[Stripe Payments]
-        I[Cloudinary Storage]
-        J[Nodemailer Email]
-        K[ClamAV Security]
-    end
-    
-    A --> D
-    D --> H
-    D --> I
-    D --> J
-    D --> K
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        FRONTEND (React 19 + Vite)               │
+│  TailwindCSS 4 · Framer Motion · React Router 7 · Axios        │
+│  Context API (Auth + Application) · react-hot-toast             │
+└────────────────────────────┬────────────────────────────────────┘
+                             │  REST API (JSON)
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     BACKEND (Express 5 + Node.js)               │
+│  JWT Auth · Zod Validation · Multer Uploads · Helmet · CORS     │
+│  Rate Limiting · Morgan Logging · Compression                   │
+├──────────┬───────────┬───────────┬──────────────┬───────────────┤
+│ MongoDB  │Cloudinary │ Razorpay  │  SendGrid    │   PDFKit      │
+│(Mongoose)│ (Images)  │(Payments) │  (Email)     │ (PDF Export)  │
+└──────────┴───────────┴───────────┴──────────────┴───────────────┘
 ```
 
 ### Technology Stack
 
-**Frontend Technologies:**
-- **React 19.2.0** - Latest with concurrent features
-- **Vite 7.3.1** - Ultra-fast build tool
-- **TailwindCSS 4.1.18** - Utility-first CSS framework
-- **Framer Motion 12.34.0** - Production-ready animations
-- **React Router 7.13.0** - Modern routing
-- **Axios 1.13.5** - HTTP client with interceptors
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| **Frontend** | React | 19.2.0 |
+| | Vite | 7.3.1 |
+| | TailwindCSS | 4.1.18 |
+| | Framer Motion | 12.34.0 |
+| | React Router DOM | 7.13.0 |
+| | Axios | 1.13.5 |
+| **Backend** | Express | 5.2.1 |
+| | Mongoose (MongoDB) | 9.1.5 |
+| | JSON Web Token | 9.0.3 |
+| | Zod | 4.3.6 |
+| | bcryptjs | 3.0.3 |
+| | Multer | 2.0.2 |
+| **Integrations** | Razorpay | 2.9.6 |
+| | Cloudinary | 1.41.3 |
+| | SendGrid Mail | 8.1.6 |
+| | PDFKit | 0.17.2 |
+| **Dev Tools** | Nodemon | 3.1.11 |
+| | ESLint | 9.39.1 |
+| | Prettier | 3.8.1 |
 
-**Backend Technologies:**
-- **Node.js ≥18.0.0** - LTS runtime environment
-- **Express 5.2.1** - Web application framework
-- **MongoDB ≥5.0** - NoSQL database with Mongoose ODM
-- **Redis ≥6.0** - In-memory caching and session storage
-- **JWT 9.0.3** - Stateless authentication
-- **Zod 4.3.6** - Runtime type validation
-
-**Integration Services:**
-- **Stripe 20.4.0** - Payment processing
-- **Cloudinary 1.41.3** - Cloud storage and CDN
-- **Nodemailer 8.0.1** - Email communications
-- **ClamAV 2.4.0** - Malware scanning
-- **bcryptjs 3.0.3** - Password hashing
+---
 
 ## 📊 Features
 
-### Core Functionality
+### 👤 User Roles (4-tier RBAC)
 
-#### 🎯 Job Management
-- **Dynamic Job Creation**: Flexible job posting with custom fields
-- **Eligibility Criteria**: Comprehensive age, experience, and qualification requirements
-- **Application Fee Structure**: Category-based pricing (General, SC/ST, OBC, EWS, PwD)
-- **Document Management**: Advertisement, application forms, and annexures
-- **Timeline Control**: Scheduled publishing and automated closing
-- **Department Organization**: Hierarchical department structure
+| Role | Capabilities |
+|------|-------------|
+| **Applicant** | Register, browse jobs, apply with multi-step form, upload documents, make payments, track applications |
+| **Reviewer** | Review assigned applications, submit scorecards with recommendations |
+| **Admin** | Create/manage jobs, manage applications, assign reviewers, publish notices, exempt fees |
+| **Super Admin** | All admin powers + user role management, system-wide dashboard |
 
-#### 📝 Application Processing
-- **Multi-Step Forms**: Progressive application completion
-- **Document Upload**: Secure file upload with malware scanning
-- **Real-time Validation**: Instant feedback on form completion
-- **Application Tracking**: Complete status history and notifications
-- **Payment Integration**: Seamless Stripe payment processing
-- **Data Snapshots**: Job configuration preservation at application time
+### 📝 Multi-Step Application Form (19 Sections)
 
-#### 👥 User Management
-- **Role-Based Access Control**: Four-tier permission system
-  - **Applicant**: Application management and profile updates
-  - **Department Head**: Department-specific job and application oversight
-  - **Admin**: Full job and application management
-  - **Super Admin**: System configuration and user management
-- **Profile Management**: Comprehensive user profiles with preferences
-- **Authentication**: JWT-based with refresh token rotation
-- **Email Verification**: OTP-based secure email verification
+The application form dynamically shows only sections required by the job:
 
-#### 💳 Payment Processing
-- **Category-Based Pricing**: Different fees for different applicant categories
-- **Secure Checkout**: Stripe-hosted payment pages
-- **Instant Confirmation**: Real-time payment status updates
-- **Receipt Generation**: Digital receipts with transaction details
-- **Refund Management**: Automated and manual refund processing
-- **Payment History**: Complete transaction audit trail
+1. **Personal Details** — Name, DOB, category, addresses, PhD info
+2. **Education** — Qualifications with NIRF ranking of institutes
+3. **Experience** — Teaching, industry, and research positions
+4. **Referees** — Two mandatory referees with contact details
+5. **Journal Publications** — SCI/Scopus papers with authorship tracking
+6. **Conference Publications** — Conference papers with co-author counts
+7. **Books & Monographs** — Books, chapters, monographs
+8. **Patents** — Patents with status (Granted/Applied/Published)
+9. **Sponsored Projects** — R&D projects with PI/Co-PI tracking
+10. **Consultancy Projects** — Consultancy work with funding details
+11. **PhD Supervision** — Scholar supervision (Awarded/Submitted/Ongoing)
+12. **Subjects Taught** — UG/PG subjects taught
+13. **Organized Programs** — FDPs, workshops, conferences organized
+14. **Credit Points** — Auto-calculated + manual credit point system (Note-2 Rubric)
+15. **Other Information** — Awards, recognitions, additional details
+16. **Custom Fields** — Job-specific custom fields defined by admin
+17. **Documents** — Photo, signature, merged PDF upload
+18. **Declaration** — Terms acceptance and verification
+19. **Review & Submit** — Full application summary with validation
 
-#### 📧 Communication System
-- **Automated Notifications**: Email alerts for application updates
-- **Deadline Reminders**: Automated reminders before application deadlines
-- **Status Updates**: Real-time notifications for application status changes
-- **System Announcements**: Broadcast messages to all users
-- **Personalized Communication**: Targeted emails based on user roles
+### 💳 Payment Processing
 
-#### 📈 Analytics & Reporting
-- **Application Metrics**: Real-time application statistics
-- **Job Performance**: Analytics on job posting effectiveness
-- **Demographic Insights**: Applicant demographic analysis
-- **Revenue Tracking**: Payment and revenue analytics
-- **Department Reports**: Department-specific recruitment metrics
-- **Export Capabilities**: CSV and PDF report generation
+- **Razorpay Integration** — Secure payment gateway with modal checkout
+- **Category-Based Fees** — Different fees for GEN, OBC, SC/ST, EWS, PwD
+- **Automatic Exemption** — Fee waived when amount resolves to ₹0
+- **Payment Verification** — Server-side signature verification
+- **Auto-Submit on Payment** — Application submitted immediately after successful payment
 
-### Security Features
+### 📊 Credit Points (Note-2 Rubric)
 
-#### 🔐 Authentication & Authorization
-- **Multi-Factor Authentication**: JWT with refresh token rotation
-- **Role-Based Permissions**: Granular access control system
-- **Session Management**: Secure token-based sessions
-- **Password Security**: bcrypt hashing with salt rounds
-- **Account Lockout**: Protection against brute force attacks
+Auto-calculated from saved sections:
+- **Activity 1**: Sponsored R&D Projects + Patents (8 pts each, PI/Co-PI split)
+- **Activity 2**: Consultancy (2 pts per ₹5 lakh)
+- **Activity 3**: PhD Guidance (8 pts per scholar, supervisor split)
+- **Activity 4**: SCI/Scopus Journal Papers (4 pts each)
+- **Activity 5**: Conference Papers (1 pt each)
+- **Activities 6–22**: Manual claims with per-activity caps
+- **Activities 18–19**: Books & chapters (6/2 pts)
 
-#### 🛡️ Application Security
-- **Input Validation**: Comprehensive Zod schema validation
-- **SQL Injection Prevention**: Parameterized queries with Mongoose
-- **XSS Protection**: Content Security Policy and input sanitization
-- **CSRF Protection**: CSRF tokens for state-changing operations
-- **Rate Limiting**: API abuse prevention with configurable limits
+### 🔐 Security
 
-#### 📁 File Security
-- **Malware Scanning**: ClamAV integration for all uploads
-- **File Type Validation**: Strict file type and size restrictions
-- **Cloud Storage**: Secure Cloudinary storage with CDN
-- **Access Control**: Role-based file access permissions
-- **Audit Logging**: Complete file access and modification logs
+- JWT authentication with access + refresh token rotation
+- Password hashing with bcryptjs
+- Zod schema validation on all inputs
+- Helmet security headers
+- CORS with configurable origins
+- Rate limiting (10,000 req / 15 min window)
+- Application ownership verification middleware
+- Role-based route protection
 
-#### 🌐 Network Security
-- **HTTPS Enforcement**: SSL/TLS for all communications
-- **Security Headers**: Helmet middleware for HTTP security
-- **CORS Configuration**: Cross-origin resource sharing controls
-- **API Rate Limiting**: DDoS protection and abuse prevention
-- **IP Whitelisting**: Admin panel access restrictions
+### 📧 Email System
+
+- OTP-based email verification on registration
+- Password reset flow with secure tokens
+- SendGrid integration for transactional emails
+
+### 📄 PDF Export
+
+- Application summary/docket generation using PDFKit
+- Downloadable by applicants after submission
+
+---
 
 ## 📁 Project Structure
 
 ```
 Careers-NITKKR/
-├── client/                     # React Frontend Application
-│   ├── public/                # Static assets & PWA config
-│   │   ├── icons/            # Application icons & favicons
-│   │   ├── images/           # Static images
-│   │   └── manifest.json     # Progressive Web App configuration
-│   ├── src/
-│   │   ├── components/       # Reusable UI components
-│   │   │   ├── common/       # Shared components (Button, Modal, etc.)
-│   │   │   ├── forms/        # Form-specific components
-│   │   │   ├── layout/       # Layout components (Header, Sidebar)
-│   │   │   └── ui/           # UI primitives (Input, Select, etc.)
-│   │   ├── pages/            # Page-level components
-│   │   │   ├── auth/         # Authentication pages
-│   │   │   ├── jobs/         # Job-related pages
-│   │   │   ├── application/  # Application pages
-│   │   │   ├── admin/        # Admin dashboard pages
-│   │   │   └── profile/      # User profile pages
-│   │   ├── hooks/            # Custom React hooks
-│   │   ├── services/         # API service layer
-│   │   ├── utils/            # Utility functions
-│   │   ├── context/          # React contexts for state management
-│   │   ├── constants/        # Application constants & enums
-│   │   ├── assets/           # Static assets (images, fonts)
-│   │   ├── styles/           # Global styles and Tailwind config
-│   │   ├── App.jsx           # Root application component
-│   │   └── main.jsx          # Application entry point
-│   ├── package.json          # Frontend dependencies
-│   ├── vite.config.js        # Vite build configuration
-│   ├── tailwind.config.js    # TailwindCSS configuration
-│   └── README.md             # Frontend-specific documentation
-├── server/                    # Node.js Backend API
-│   ├── src/
-│   │   ├── controllers/      # Request handlers & business logic
-│   │   │   ├── auth/         # Authentication controllers
-│   │   │   ├── jobs/         # Job management controllers
-│   │   │   ├── application/  # Application processing controllers
-│   │   │   ├── admin/        # Admin operation controllers
-│   │   │   └── payment/      # Payment processing controllers
-│   │   ├── models/           # MongoDB data models & schemas
-│   │   │   ├── User.js       # User account model
-│   │   │   ├── Job.js        # Job posting model
-│   │   │   ├── Application.js # Application model
-│   │   │   ├── Department.js # Department model
-│   │   │   ├── Payment.js    # Payment transaction model
-│   │   │   ├── Notice.js     # Notice/announcement model
-│   │   │   └── AuditLog.js   # Audit trail model
-│   │   ├── routes/           # API route definitions
-│   │   │   ├── auth.routes.js
-│   │   │   ├── job.routes.js
-│   │   │   ├── application.routes.js
-│   │   │   ├── admin.routes.js
-│   │   │   ├── payment.routes.js
-│   │   │   └── index.js      # Route aggregation
-│   │   ├── middlewares/      # Custom Express middleware
-│   │   │   ├── auth.middleware.js      # Authentication middleware
-│   │   │   ├── validation.middleware.js # Input validation
-│   │   │   ├── error.middleware.js     # Global error handling
-│   │   │   ├── security.middleware.js  # Security headers & protection
-│   │   │   └── upload.middleware.js    # File upload handling
-│   │   ├── services/         # Business logic & external service integrations
-│   │   │   ├── auth.service.js         # Authentication & token management
-│   │   │   ├── email.service.js        # Email communication service
-│   │   │   ├── payment.service.js      # Stripe payment processing
-│   │   │   ├── file.service.js         # File upload & Cloudinary integration
-│   │   │   ├── notification.service.js  # Notification management
-│   │   │   └── background.service.js    # Background job processing
-│   │   ├── utils/            # Utility functions & helpers
-│   │   │   ├── logger.js      # Structured logging utility
-│   │   │   ├── validator.js    # Input validation helpers
-│   │   │   ├── helpers.js      # General utility functions
-│   │   │   ├── constants.js    # System constants
-│   │   │   └── database.js     # Database utilities
-│   │   ├── validators/        # Input validation schemas (Zod)
-│   │   │   ├── auth.validator.js
-│   │   │   ├── job.validator.js
-│   │   │   ├── application.validator.js
-│   │   │   └── payment.validator.js
-│   │   ├── config/           # Configuration files
-│   │   │   ├── database.js    # Database connection configuration
-│   │   │   ├── cloudinary.js  # Cloudinary configuration
-│   │   │   ├── stripe.js      # Stripe payment configuration
-│   │   │   └── redis.js       # Redis cache configuration
-│   │   ├── scripts/          # Database management scripts
-│   │   │   ├── seed.js        # Database seeding script
-│   │   │   ├── migrate.js     # Data migration script
-│   │   │   ├── cleanup.js     # Data cleanup script
-│   │   │   └── backup.js      # Database backup script
-│   │   ├── constants.js      # Application-wide constants
-│   │   ├── app.js            # Express application configuration
-│   │   └── index.js          # Server entry point
-│   ├── docs/                 # API documentation
-│   │   ├── system.md         # System architecture documentation
-│   │   ├── api.md            # API endpoint documentation
-│   │   ├── swagger.yaml      # OpenAPI specification
-│   │   └── postman.json      # Postman collection
-│   ├── tests/                # Test suites
-│   │   ├── unit/             # Unit tests
-│   │   ├── integration/      # Integration tests
-│   │   ├── fixtures/         # Test data fixtures
-│   │   └── helpers/          # Test helper utilities
-│   ├── .env.example          # Environment variables template
-│   ├── package.json          # Backend dependencies
-│   └── README.md             # Backend-specific documentation
-├── docs/                     # Project documentation
-│   ├── deployment/           # Deployment guides
-│   │   ├── docker.md         # Docker deployment
-│   │   ├── production.md     # Production deployment
-│   │   └── monitoring.md     # Monitoring setup
-│   ├── development/          # Development guides
-│   │   ├── setup.md          # Development setup
-│   │   ├── contributing.md   # Contribution guidelines
-│   │   └── troubleshooting.md # Common issues
-│   ├── user-guide/           # End-user documentation
-│   │   ├── applicant.md      # Applicant guide
-│   │   ├── admin.md          # Admin guide
-│   │   └── faq.md            # Frequently asked questions
-│   └── architecture/         # System architecture documentation
-│       ├── overview.md       # High-level architecture
-│       ├── database.md       # Database design
-│       └── security.md       # Security architecture
-├── scripts/                  # Build & deployment scripts
-│   ├── setup.sh             # Project initialization script
-│   ├── deploy.sh            # Deployment automation script
-│   ├── backup.sh            # Database backup script
-│   ├── migrate.sh            # Data migration script
-│   └── health-check.sh       # System health check script
-├── tests/                    # E2E and integration tests
-│   ├── e2e/                  # End-to-end tests
-│   ├── integration/          # Integration tests
-│   └── fixtures/             # Test data and fixtures
-├── infrastructure/           # Infrastructure as Code
-│   ├── docker/               # Docker configurations
-│   │   ├── Dockerfile.dev    # Development container
-│   │   ├── Dockerfile.prod   # Production container
-│   │   └── docker-compose.yml # Multi-service setup
-│   ├── kubernetes/           # Kubernetes manifests
-│   │   ├── namespace.yaml    # Namespace configuration
-│   │   ├── deployment.yaml   # Application deployment
-│   │   ├── service.yaml      # Service configuration
-│   │   └── ingress.yaml     # Ingress configuration
-│   └── terraform/           # Terraform configurations
-│       ├── main.tf          # Main configuration
-│       ├── variables.tf     # Input variables
-│       └── outputs.tf       # Output variables
-├── monitoring/               # Monitoring & observability
-│   ├── prometheus/           # Metrics collection
-│   │   ├── prometheus.yml   # Prometheus configuration
-│   │   └── rules.yml        # Alerting rules
-│   ├── grafana/              # Dashboards & visualization
-│   │   ├── dashboards/      # Grafana dashboards
-│   │   └── provisioning/    # Auto-provisioning
-│   └── elk-stack/            # Logging stack
-│       ├── elasticsearch/   # Elasticsearch configuration
-│       ├── logstash/        # Logstash configuration
-│       └── kibana/          # Kibana configuration
-├── .github/                  # GitHub configuration
-│   ├── workflows/           # CI/CD pipelines
-│   │   ├── ci.yml          # Continuous integration
-│   │   ├── deploy.yml       # Deployment pipeline
-│   │   └── security.yml     # Security scanning
-│   ├── ISSUE_TEMPLATE/      # Issue templates
-│   └── PULL_REQUEST_TEMPLATE.md
-├── .vscode/                  # VS Code configuration
-│   ├── settings.json        # Editor settings
-│   ├── extensions.json      # Recommended extensions
-│   ├── launch.json          # Debug configurations
-│   └── tasks.json           # Build tasks
-├── .gitignore                # Git ignore rules
-├── .env.example              # Environment variables template
-├── docker-compose.yml        # Development Docker setup
-├── docker-compose.prod.yml   # Production Docker setup
-├── package.json              # Root package configuration
-├── lerna.json                # Monorepo configuration
-└── README.md                 # This file
+├── package.json                        # Root: ESLint + Prettier config
+├── .eslintrc.json                      # Shared ESLint rules
+├── .prettierrc                         # Prettier formatting config
+├── DEPLOYMENT_GUIDE.md                 # Zero-cost deployment guide
+├── IMPLEMENTATION_STATUS_REPORT.md     # Feature completion tracker
+│
+├── client/                             # ══ FRONTEND (React + Vite) ══
+│   ├── package.json                    # Frontend dependencies
+│   ├── vite.config.js                  # Vite build configuration
+│   ├── postcss.config.js              # PostCSS with TailwindCSS
+│   ├── eslint.config.js               # Frontend ESLint config
+│   ├── vercel.json                    # Vercel deployment config
+│   ├── index.html                     # HTML entry point
+│   ├── .env.example                   # Environment template
+│   │
+│   ├── public/                        # Static assets
+│   │   ├── hero-bg.jpg               # Homepage hero background
+│   │   ├── jubliee.jpg               # Campus image
+│   │   └── logoforppt.png            # Logo variant
+│   │
+│   └── src/
+│       ├── main.jsx                   # App entry — providers, router
+│       ├── App.jsx                    # Route definitions
+│       ├── index.css                  # Global styles + Tailwind imports
+│       │
+│       ├── assets/                    # Bundled assets
+│       │   ├── nitlogo.png            # NIT Kurukshetra logo
+│       │   └── react.svg              # React logo
+│       │
+│       ├── constants/
+│       │   └── applicationConstants.js # Section type mappings, initial form data
+│       │
+│       ├── context/                   # React Context providers
+│       │   ├── AuthContext.jsx         # Authentication state (login, register, tokens)
+│       │   ├── ApplicationContext.jsx  # Application form state (formData, save, validate)
+│       │   └── ApplicationContextObj.js # Context object export
+│       │
+│       ├── hooks/
+│       │   └── useApplication.js      # Hook to consume ApplicationContext
+│       │
+│       ├── services/
+│       │   └── api.js                 # Axios instance with interceptors & token refresh
+│       │
+│       ├── layouts/
+│       │   ├── MainLayout.jsx         # Public layout (Navbar + Footer)
+│       │   └── AdminLayout.jsx        # Admin sidebar layout
+│       │
+│       ├── pages/                     # Page-level route components
+│       │   ├── Home.jsx               # Landing page
+│       │   ├── Jobs.jsx               # Job listings with filters
+│       │   ├── JobDetail.jsx          # Single job detail + apply
+│       │   ├── ApplicationForm.jsx    # Multi-step application form
+│       │   ├── Profile.jsx            # User dashboard + applications
+│       │   ├── Login.jsx              # Login page
+│       │   ├── Register.jsx           # Registration page
+│       │   ├── VerifyEmail.jsx        # Email OTP verification
+│       │   ├── ForgotPassword.jsx     # Password reset flow
+│       │   ├── Notices.jsx            # Public notices listing
+│       │   ├── Help.jsx               # Help / FAQ page
+│       │   ├── PaymentSuccess.jsx     # Payment success redirect
+│       │   ├── PaymentCancel.jsx      # Payment failure redirect
+│       │   ├── NotFound.jsx           # 404 page
+│       │   │
+│       │   └── admin/                 # Admin pages
+│       │       ├── AdminDashboard.jsx     # Stats overview
+│       │       ├── AdminJobs.jsx          # Job management
+│       │       ├── AdminJobForm.jsx       # Create/edit job
+│       │       ├── AdminApplications.jsx  # Application management
+│       │       ├── ApplicationReview.jsx  # Detailed application review
+│       │       ├── AdminUserManagement.jsx # User role management
+│       │       ├── AdminNotices.jsx       # Notice CRUD
+│       │       ├── AdminFeeExemption.jsx  # Fee exemption tool
+│       │       └── ReviewerQueue.jsx      # Reviewer's assigned queue
+│       │
+│       └── components/                # Reusable UI components
+│           ├── Navbar.jsx             # Top navigation bar
+│           ├── Footer.jsx             # Site footer
+│           ├── JobCard.jsx            # Job listing card
+│           ├── CategoryCard.jsx       # Category filter card
+│           ├── Stepper.jsx            # Step navigation sidebar
+│           ├── SectionLayout.jsx      # Section wrapper (title, next/back)
+│           ├── OtpInput.jsx           # 6-digit OTP input
+│           ├── ImageUpload.jsx        # Image upload with preview
+│           ├── PdfUpload.jsx          # PDF upload component
+│           ├── ProtectedRoute.jsx     # Auth guard wrapper
+│           ├── CookieConsent.jsx      # GDPR cookie banner
+│           │
+│           ├── admin/                 # Admin-specific components
+│           │   ├── AssignReviewersModal.jsx  # Reviewer assignment modal
+│           │   ├── JobStatsModal.jsx         # Job statistics popup
+│           │   └── ReviewScorecard.jsx       # Review score form
+│           │
+│           └── application-steps/     # Application form step components
+│               ├── PersonalDetails.jsx        # Personal info form
+│               ├── Education.jsx              # Education qualifications
+│               ├── Experience.jsx             # Work experience
+│               ├── Referees.jsx               # Two referees
+│               ├── Publications.jsx           # Journal publications
+│               ├── ConferencePublications.jsx # Conference papers
+│               ├── BooksPublications.jsx      # Books & chapters
+│               ├── Patents.jsx                # Patent details
+│               ├── Projects.jsx               # Sponsored projects
+│               ├── ConsultancyProjects.jsx    # Consultancy projects
+│               ├── PhdSupervision.jsx         # PhD scholars supervised
+│               ├── SubjectsTaught.jsx         # Subjects taught
+│               ├── OrganizedPrograms.jsx      # Organized events
+│               ├── CreditPoints.jsx           # Credit point calculation
+│               ├── OtherInfo.jsx              # Additional info
+│               ├── CustomFieldsSection.jsx    # Dynamic custom fields
+│               ├── DocumentUpload.jsx         # Photo, signature, PDF
+│               ├── Declaration.jsx            # Declaration checkboxes
+│               └── ReviewSubmit.jsx           # Final review + submit
+│
+└── server/                             # ══ BACKEND (Express 5 + Node.js) ══
+    ├── package.json                    # Backend dependencies
+    ├── .env.example                   # Environment template
+    │
+    └── src/
+        ├── index.js                   # Server entry — DB connect, listen
+        ├── app.js                     # Express app setup (middleware stack)
+        ├── constants.js               # Enums: roles, statuses, categories, etc.
+        │
+        ├── config/
+        │   ├── cloudinary.config.js   # Cloudinary SDK configuration
+        │   └── env.config.js          # dotenv loader
+        │
+        ├── db/
+        │   └── connectDB.js           # MongoDB connection with Mongoose
+        │
+        ├── models/                    # Mongoose schemas
+        │   ├── user.model.js          # User (profile, auth, roles)
+        │   ├── job.model.js           # Job posting (sections, fees, eligibility)
+        │   ├── application.model.js   # Application (sections Map, status)
+        │   ├── payment.model.js       # Payment transactions (Razorpay)
+        │   ├── review.model.js        # Review scorecards
+        │   ├── notice.model.js        # Announcements / notices
+        │   ├── department.model.js    # Academic departments
+        │   ├── auditLog.model.js      # Audit trail entries
+        │   └── verificationToken.model.js # Email verification OTPs
+        │
+        ├── controllers/
+        │   ├── auth.controller.js                # Register, login, refresh, verify
+        │   ├── application.controller.js         # CRUD for applications
+        │   ├── applicationSection.controller.js  # Save/validate sections, uploads
+        │   ├── applicationSubmission.controller.js # validate-all, submit, withdraw
+        │   ├── payment.controller.js             # Create order, verify, webhooks
+        │   ├── notice.controller.js              # Notice CRUD
+        │   ├── department.controller.js          # Department listing
+        │   ├── admin/                            # Admin-only controllers
+        │   │   ├── dashboard.controller.js       #   Dashboard statistics
+        │   │   ├── job.controller.js              #   Job CRUD + publish/close
+        │   │   ├── application.controller.js      #   Application management
+        │   │   ├── review.controller.js           #   Review assignment + scoring
+        │   │   └── user.controller.js             #   User management + promote
+        │   └── public/
+        │       └── job.controller.js              # Public job listing (no auth)
+        │
+        ├── routes/
+        │   ├── index.js               # Route aggregator (/api/v1/*)
+        │   ├── auth.routes.js         # /auth — register, login, verify, etc.
+        │   ├── application.routes.js  # /applications — sections, uploads, submit
+        │   ├── notice.routes.js       # /notices — public + admin CRUD
+        │   ├── department.routes.js   # /departments — listing
+        │   ├── admin/                 # /admin/* — protected admin routes
+        │   │   ├── job.routes.js      #   /admin/jobs
+        │   │   ├── application.routes.js #   /admin/applications
+        │   │   ├── review.routes.js   #   /admin/reviews
+        │   │   ├── dashboard.routes.js #  /admin/dashboard
+        │   │   └── user.routes.js     #   /admin/users
+        │   └── public/               # Unauthenticated public routes
+        │       ├── job.routes.js       #   /public/jobs
+        │       └── payment.routes.js   #   /payments
+        │
+        ├── middlewares/
+        │   ├── auth.middleware.js               # JWT verification (verifyJWT)
+        │   ├── rbac.middleware.js               # Role-based access control
+        │   ├── applicationOwnership.middleware.js # Ownership + editable guards
+        │   ├── validate.middleware.js           # Zod schema validation
+        │   ├── error.middleware.js              # Global error handler
+        │   ├── imageUpload.middleware.js        # Multer for images (photo/sig)
+        │   ├── pdfUpload.middleware.js          # Multer for PDFs
+        │   └── optionalAuth.middleware.js       # Optional JWT (public routes)
+        │
+        ├── services/
+        │   ├── email.service.js                 # SendGrid email sending
+        │   ├── upload.service.js                # Cloudinary upload/delete
+        │   ├── payment.service.js               # Payment business logic
+        │   ├── razorpay.service.js              # Razorpay SDK integration
+        │   ├── application.service.js           # Application helper logic
+        │   ├── sectionValidation.service.js     # Per-section Zod validation
+        │   ├── submissionValidation.service.js  # Full-app validation before submit
+        │   ├── creditPoints.service.js          # Auto credit point calculation
+        │   ├── pdfExport.service.js             # Application docket PDF generation
+        │   └── backgroundWorker.service.js      # Background job processor
+        │
+        ├── validators/                # Zod schemas for request validation
+        │   ├── auth.validator.js       # Register, login, password reset
+        │   ├── application.validator.js # Section save, section type params
+        │   ├── sections.validator.js   # Per-section data schemas (all 19)
+        │   ├── job.validator.js        # Job create/update schemas
+        │   ├── notice.validator.js     # Notice CRUD schemas
+        │   └── adminApplication.validator.js # Admin application actions
+        │
+        ├── utils/
+        │   ├── apiError.js             # Custom error class (status + message)
+        │   ├── apiResponse.js          # Standardized API response
+        │   ├── asyncHandler.js         # Async route error wrapper
+        │   ├── auditLogger.js          # Audit log creation utility
+        │   ├── applicationNumberGenerator.js # Unique app number generator
+        │   └── pdf.utils.js            # PDF formatting helpers
+        │
+        ├── scripts/
+        │   └── seed.js                 # Database seeder (super-admin, depts, jobs)
+        │
+        └── assets/                    # Server-side static assets
 ```
+
+---
 
 ## 🛠️ Installation
 
 ### Prerequisites
 
-#### System Requirements
-- **Node.js** ≥18.0.0 (LTS version recommended)
-- **npm** ≥8.0.0 or **yarn** ≥1.22.0
-- **MongoDB** ≥5.0 (Community or Atlas)
-- **Redis** ≥6.0 (for production caching)
-- **Git** ≥2.30.0
-- **Docker** ≥20.10.0 (optional, for containerized deployment)
+| Requirement | Version |
+|------------|---------|
+| **Node.js** | ≥ 18.0.0 (LTS recommended) |
+| **npm** | ≥ 8.0.0 |
+| **MongoDB** | ≥ 5.0 (local or [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)) |
+| **Git** | ≥ 2.30.0 |
 
-#### Development Environment
-- **IDE**: VS Code with recommended extensions
-- **Browser**: Chrome DevTools for debugging
-- **API Testing**: Postman or Insomnia
-- **Database GUI**: MongoDB Compass (optional)
+### Environment Variables
 
-### Setup Process
+#### Server (`server/.env`)
 
-#### 1. Clone Repository
-```bash
-git clone <repository-url>
-cd Careers-NITKKR
+```env
+# Server
+PORT=8000
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173
+
+# MongoDB
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net
+DB_NAME=careers-nitkkr
+
+# JWT
+ACCESS_TOKEN_SECRET=your-access-secret
+ACCESS_TOKEN_EXPIRY=15m
+REFRESH_TOKEN_SECRET=your-refresh-secret
+REFRESH_TOKEN_EXPIRY=7d
+
+# Cloudinary (https://console.cloudinary.com/)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# SendGrid (https://app.sendgrid.com/)
+SENDGRID_API_KEY=SG.xxxxxxxxxxxx
+EMAIL_FROM=your-verified-email@gmail.com
+
+# Razorpay (https://dashboard.razorpay.com/app/keys)
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxx
+RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+
+# File Upload
+MAX_FILE_SIZE=10485760
+UPLOAD_TMP_DIR=tmp/uploads
 ```
 
-#### 2. Install Dependencies
-```bash
-# Install root dependencies
-npm install
+#### Client (`client/.env`)
 
-# Install server dependencies
-cd server && npm install && cd ..
-
-# Install client dependencies
-cd client && npm install && cd ..
+```env
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_SUPPORT_EMAIL=careers@nitkkr.ac.in
+VITE_APP_NAME=NIT Kurukshetra Careers
+VITE_APP_VERSION=1.0.0
 ```
 
-#### 3. Environment Configuration
+---
+
+## ⚡ Development Commands
+
+### Root Level
 ```bash
-# Copy environment templates
-cp server/.env.example server/.env
-cp client/.env.example client/.env
-
-# Configure server environment
-# Edit server/.env with your configuration:
-# - MongoDB connection string
-# - JWT secrets
-# - Stripe keys
-# - Email configuration
-# - Cloudinary credentials
-
-# Configure client environment
-# Edit client/.env with:
-# - API URL
-# - Environment-specific settings
+npm run format           # Format all files with Prettier
+npm run lint             # Lint all files with ESLint
 ```
 
-#### 4. Database Setup
+### Server (`cd server`)
 ```bash
-# Start MongoDB service
-mongod
-
-# Initialize database with seed data
-cd server && npm run seed && cd ..
-```
-
-#### 5. Start Development Servers
-```bash
-# Start all services (recommended)
-npm run dev
-
-# Or start individually:
-# Terminal 1 - Backend
-cd server && npm run dev
-
-# Terminal 2 - Frontend
-cd client && npm run dev
-```
-
-#### 6. Verify Installation
-- **Frontend**: http://localhost:3000
-- **Backend**: http://localhost:8000
-- **Health Check**: http://localhost:8000/health
-- **API Documentation**: http://localhost:8000/api-docs
-
-
-## 🔧 Development
-
-### Development Commands
-
-#### Root Level Commands
-```bash
-npm run dev              # Start all development services
-npm run build            # Build for production
-npm run test             # Run test suite
-npm run test:coverage    # Run tests with coverage
-npm run lint             # Run ESLint
-npm run format           # Format code with Prettier
-npm run clean            # Clean build artifacts
-```
-
-#### Backend Commands
-```bash
-cd server
-npm run dev              # Start development server with nodemon
+npm run dev              # Start with nodemon (auto-restart on changes)
 npm start                # Start production server
-npm test                 # Run backend tests
-npm run test:watch       # Run tests in watch mode
 npm run seed             # Seed database with initial data
-npm run migrate          # Run database migrations
-npm run backup           # Backup database
 ```
 
-#### Frontend Commands
+### Client (`cd client`)
+```bash
+npm run dev              # Start Vite dev server (HMR)
+npm run build            # Production build → dist/
+npm run preview          # Preview production build locally
+npm run lint             # Run ESLint
+```
+
+---
+
+## 🌐 API Routes
+
+All routes are prefixed with `/api/v1`.
+
+### Public Routes (No Auth)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/public/jobs` | List published jobs |
+| `GET` | `/public/jobs/:id` | Get job details |
+| `POST` | `/auth/register` | Register new applicant |
+| `POST` | `/auth/login` | Login |
+| `POST` | `/auth/verify-email` | Verify email with OTP |
+| `POST` | `/auth/forgot-password` | Request password reset |
+| `POST` | `/auth/reset-password` | Reset password |
+| `POST` | `/auth/refresh-token` | Refresh access token |
+| `GET` | `/notices` | List published notices |
+
+### Applicant Routes (Auth Required)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/applications` | Create new application |
+| `GET` | `/applications` | List user's applications |
+| `GET` | `/applications/:id` | Get application details |
+| `DELETE` | `/applications/:id` | Delete draft application |
+| `PATCH` | `/applications/:id/sections/:type` | Save section data |
+| `POST` | `/applications/:id/sections/:type/validate` | Validate a section |
+| `POST` | `/applications/:id/sections/:type/pdf` | Upload section PDF |
+| `POST` | `/applications/:id/sections/:type/image` | Upload photo/signature |
+| `GET` | `/applications/:id/sections/credit_points/summary` | Get credit point summary |
+| `POST` | `/applications/:id/validate-all` | Pre-submission validation |
+| `POST` | `/applications/:id/submit` | Submit application |
+| `POST` | `/applications/:id/withdraw` | Withdraw application |
+| `GET` | `/applications/:id/docket` | Download PDF summary |
+| `POST` | `/payments/create-order` | Create Razorpay order |
+| `POST` | `/payments/verify-payment` | Verify payment signature |
+
+### Admin Routes (`/admin/*`, Admin/Super Admin Only)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/admin/dashboard/stats` | Dashboard statistics |
+| `POST` | `/admin/jobs` | Create job |
+| `PUT` | `/admin/jobs/:id` | Update job |
+| `PATCH` | `/admin/jobs/:id/publish` | Publish/close job |
+| `DELETE` | `/admin/jobs/:id` | Soft-delete job |
+| `GET` | `/admin/applications` | List all applications |
+| `PATCH` | `/admin/applications/:id/status` | Change application status |
+| `POST` | `/admin/applications/:id/assign` | Assign reviewers |
+| `POST` | `/admin/reviews/:id/submit` | Submit review scorecard |
+| `GET` | `/admin/users` | List users |
+| `PATCH` | `/admin/users/:id/role` | Promote user role |
+
+---
+
+## 🚢 Deployment
+
+The project is designed for **zero-cost deployment**:
+
+| Service | Provider | Tier |
+|---------|----------|------|
+| **Frontend** | [Vercel](https://vercel.com) | Free |
+| **Backend** | [Render](https://render.com) | Free |
+| **Database** | [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) | Free (512 MB) |
+| **File Storage** | [Cloudinary](https://cloudinary.com) | Free (25 GB) |
+| **Email** | [SendGrid](https://sendgrid.com) | Free (100/day) |
+| **Payments** | [Razorpay](https://razorpay.com) | Test mode (free) |
+
+> See **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** for step-by-step instructions.
+
+### Vercel (Frontend)
 ```bash
 cd client
-npm run dev              # Start Vite development server
-npm run build            # Build for production
-npm run preview          # Preview production build
-npm run test             # Run frontend tests
-npm run lint             # Run ESLint
-npm run type-check       # Run TypeScript type checking
+# vercel.json already configured for SPA routing
+vercel --prod
 ```
 
-### Code Quality
+### Render (Backend)
+- **Build Command**: `npm install`
+- **Start Command**: `npm start`
+- Set all environment variables from `server/.env.example`
 
-#### ESLint Configuration
-```bash
-# Check for linting errors
-npm run lint
+---
 
-# Fix linting errors automatically
-npm run lint:fix
+## 🗃️ Database Models
 
-# Check specific file
-npx eslint src/components/Button.jsx
+| Model | Description | Key Fields |
+|-------|-------------|------------|
+| **User** | Accounts & profiles | email, password, role, profile, refreshToken |
+| **Job** | Job postings | title, department, requiredSections, customFields, applicationFee, eligibility |
+| **Application** | Candidate applications | userId, jobId, sections (Map), status, applicationNumber, jobSnapshot |
+| **Payment** | Payment transactions | applicationId, razorpayOrderId, amount, status |
+| **Review** | Review scorecards | applicationId, reviewerId, scores, recommendation |
+| **Notice** | Announcements | title, content, isPublished, priority |
+| **Department** | Academic departments | name, code |
+| **AuditLog** | Activity tracking | action, userId, resourceType, metadata |
+| **VerificationToken** | OTP tokens | userId, otp, type, expiresAt |
+
+---
+
+## 🔒 Application Section Types
+
+Server-side section type constants (used in job configuration):
+
+```
+personal · education · experience · referees · publications_journal
+publications_conference · publications_books · patents
+sponsored_projects · consultancy_projects · phd_supervision
+subjects_taught · organized_programs · credit_points
+other_info · photo · signature · final_documents · declaration · custom
 ```
 
-#### Prettier Formatting
-```bash
-# Format all files
-npm run format
+---
 
-# Check formatting without changing files
-npm run format:check
+## 🧪 Seed Data
 
-# Format specific file
-npx prettier --write src/App.jsx
-```
+Running `npm run seed` creates:
 
+1. **Super Admin** — `superadmin@nitkkr.ac.in` / `Admin@123`
+2. **Departments** — Computer Science, Electrical, Mechanical, Civil, Electronics, Mathematics, Physics, Chemistry
+3. **Sample Jobs** — Pre-configured with all required sections, custom fields, and fee structures
+4. **Notices** — Sample announcements
 
-#### Performance Monitoring
-```bash
-# Check response times
-curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8000/api/v1/jobs
+---
 
-# Monitor memory usage
-docker stats careers-backend
+## 📝 Code Conventions
 
-# Check database performance
-mongostat --host localhost:27017
-```
+- **ES Modules** throughout (`"type": "module"` in both packages)
+- **Prettier** for formatting (single quotes, trailing commas, 100 char width)
+- **ESLint** with React hooks plugin
+- **Zod** for all server-side input validation
+- **asyncHandler** wrapper for all Express route handlers
+- **ApiError** / **ApiResponse** for consistent error/response format
+- **camelCase** keys in frontend, **snake_case** section types on backend
 
-
+---
 
 ## 📄 License
 
@@ -521,4 +619,8 @@ Proprietary to NIT Kurukshetra. All rights reserved.
 
 ---
 
-**Last Updated**: March 2026 • **Version**: 1.0.0 • **Maintained by**: NIT Kurukshetra Development Team
+<div align="center">
+
+**Last Updated**: March 2026 · **Version**: 1.0.0 · **Maintained by**: NIT Kurukshetra Development Team
+
+</div>

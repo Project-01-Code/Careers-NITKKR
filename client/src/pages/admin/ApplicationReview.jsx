@@ -121,14 +121,14 @@ const ApplicationReview = () => {
     setVerifyNotes(sectionData?.verificationNotes || '');
   }, [activeTab, app]);
 
-  const handleVerifySection = async (sectionType, isVerified, notes) => {
+  const handleVerifySection = async (sectionType, isVerified, notes, data = null) => {
     if (isReviewLocked) {
       toast.error('Cannot modify verification after review submission');
       return;
     }
     try {
       await api.patch(`/admin/applications/${id}/verify-section`, {
-        sectionType, isVerified, notes
+        sectionType, isVerified, notes, data
       });
       toast.success(`${sectionType} updated`);
       fetchApplication();
@@ -464,18 +464,36 @@ const ApplicationReview = () => {
                       <div className="space-y-6">
                         {activeTab === 'credit_points' ? (
                           <div className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Stats Overview */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div className="bg-gradient-to-br from-primary/5 to-primary/10 p-5 rounded-2xl border border-primary/10 shadow-sm relative overflow-hidden">
-                                <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-1">Claimed Credits</p>
+                                <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-1">Auto-Calculated</p>
                                 <div className="flex items-baseline gap-1">
-                                  <p className="text-3xl font-black text-primary">{Number(activeSection?.data?.totalCreditsClaimed || 0).toFixed(1)}</p>
+                                  <p className="text-3xl font-black text-primary">
+                                    {Number((activeSection?.data?.totalCreditsClaimed || 0) - (activeSection?.data?.manualActivities?.reduce((sum, a) => sum + (a.claimedPoints || 0), 0) || 0)).toFixed(1)}
+                                  </p>
                                   <span className="text-[10px] font-bold text-primary/60 uppercase">pts</span>
                                 </div>
+                                <p className="text-[9px] text-primary/40 font-bold uppercase mt-1">Verified by System</p>
                               </div>
+
                               <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
-                                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Allowed Credits</p>
+                                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Manual Claims</p>
                                 <div className="flex items-baseline gap-1">
-                                  <p className="text-3xl font-black text-secondary group-hover:text-primary transition-colors">{Number(activeSection?.data?.totalCreditsAllowed || 0).toFixed(1)}</p>
+                                  <p className="text-3xl font-black text-secondary group-hover:text-primary transition-colors">
+                                    {Number(activeSection?.data?.manualActivities?.reduce((sum, a) => sum + (a.claimedPoints || 0), 0) || 0).toFixed(1)}
+                                  </p>
+                                  <span className="text-[10px] font-bold text-gray-400 uppercase">pts</span>
+                                </div>
+                                <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">Pending Review</p>
+                              </div>
+
+                              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
+                                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Total Verified</p>
+                                <div className="flex items-baseline gap-1">
+                                  <p className="text-3xl font-black text-secondary group-hover:text-primary transition-colors">
+                                    {Number(activeSection?.data?.totalCreditsAllowed || 0).toFixed(1)}
+                                  </p>
                                   <span className="text-[10px] font-bold text-gray-400 uppercase">pts</span>
                                 </div>
                                 <div className="mt-3 pt-3 border-t border-gray-50 flex items-center gap-2">
@@ -486,7 +504,7 @@ const ApplicationReview = () => {
                                      />
                                   </div>
                                   <span className="text-[9px] font-black text-gray-400">
-                                    {Math.round((Number(activeSection?.data?.totalCreditsAllowed || 0) / (Number(activeSection?.data?.totalCreditsClaimed) || 1)) * 100)}% Verified
+                                    {activeSection?.isVerified ? '100% Verified' : `${Math.round((Number(activeSection?.data?.totalCreditsAllowed || 0) / (Number(activeSection?.data?.totalCreditsClaimed) || 1)) * 100)}% Checked`}
                                   </span>
                                 </div>
                               </div>
@@ -495,7 +513,7 @@ const ApplicationReview = () => {
                             {activeSection?.data?.manualActivities?.length > 0 && (
                               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                                 <div className="bg-gray-50/50 px-6 py-3 border-b border-gray-100 flex items-center justify-between">
-                                  <h4 className="text-[10px] font-black text-secondary uppercase tracking-widest">Manual Activities</h4>
+                                  <h4 className="text-[10px] font-black text-secondary uppercase tracking-widest">Manual Activities Checklist</h4>
                                   <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[9px] font-black uppercase">
                                     {activeSection.data.manualActivities.length} Items
                                   </span>
@@ -504,17 +522,58 @@ const ApplicationReview = () => {
                                   <table className="w-full text-xs">
                                     <thead>
                                       <tr className="border-b border-gray-50 bg-gray-50/30">
-                                        <th className="px-6 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">ID</th>
+                                        <th className="px-6 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest w-12">ID</th>
                                         <th className="px-6 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Description</th>
-                                        <th className="px-6 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Pts</th>
+                                        <th className="px-6 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest w-24">Claimed</th>
+                                        <th className="px-6 py-3 text-right text-[9px] font-black text-primary uppercase tracking-widest w-24">Allowed</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
                                       {activeSection.data.manualActivities.map((act, i) => (
                                         <tr key={i} className="hover:bg-gray-50/50 transition-colors group">
                                           <td className="px-6 py-3 font-black text-secondary">#{act.activityId}</td>
-                                          <td className="px-6 py-3 text-gray-500 font-medium line-clamp-2">{act.description}</td>
-                                          <td className="px-6 py-3 text-right font-black text-primary">{act.claimedPoints}</td>
+                                          <td className="px-6 py-3 text-gray-400 font-medium line-clamp-1">{act.description}</td>
+                                          <td className="px-6 py-3 text-right font-bold text-gray-300 italic">{Number(act.claimedPoints || 0).toFixed(1)}</td>
+                                          <td className="px-6 py-3 text-right">
+                                            <input 
+                                              type="number"
+                                              step="0.1"
+                                              min="0"
+                                              max={act.claimedPoints || 10}
+                                              value={act.allowedPoints ?? act.claimedPoints ?? 0}
+                                              disabled={isReviewLocked}
+                                              onChange={(e) => {
+                                                const newVal = Number(e.target.value);
+                                                const updatedActivities = [...activeSection.data.manualActivities];
+                                                updatedActivities[i] = { ...updatedActivities[i], allowedPoints: newVal };
+                                                
+                                                // Recalculate totalCreditsAllowed
+                                                // 1. Calculate manual claimed total to find the auto-total component
+                                                const manualClaimedTotal = activeSection.data.manualActivities.reduce((sum, a) => sum + (a.claimedPoints || 0), 0);
+                                                const autoTotal = (activeSection.data.totalCreditsClaimed || 0) - manualClaimedTotal;
+                                                
+                                                // 2. Sum new manual allowed points
+                                                const newManualAllowedTotal = updatedActivities.reduce((sum, a) => sum + (a.allowedPoints ?? a.claimedPoints ?? 0), 0);
+                                                
+                                                setApp(prev => {
+                                                  const newSections = new Map(prev.sections);
+                                                  const cp = newSections.get('credit_points');
+                                                  if (cp) {
+                                                    newSections.set('credit_points', {
+                                                      ...cp,
+                                                      data: {
+                                                        ...cp.data,
+                                                        manualActivities: updatedActivities,
+                                                        totalCreditsAllowed: newManualAllowedTotal + autoTotal
+                                                      }
+                                                    });
+                                                  }
+                                                  return { ...prev, sections: newSections };
+                                                });
+                                              }}
+                                              className="w-16 px-2 py-1 text-right bg-primary/5 border border-primary/20 rounded-lg font-black text-primary text-[11px] focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all disabled:opacity-50 disabled:bg-gray-50"
+                                            />
+                                          </td>
                                         </tr>
                                       ))}
                                     </tbody>
@@ -592,11 +651,11 @@ const ApplicationReview = () => {
                 />
               </div>
               <button
-                onClick={() => handleVerifySection(activeTab, app.sections[activeTab]?.isVerified || false, verifyNotes)}
-                disabled={!verifyNotes.trim() || isReviewLocked}
+                onClick={() => handleVerifySection(activeTab, app.sections[activeTab]?.isVerified || false, verifyNotes, activeTab === 'credit_points' ? activeSection.data : null)}
+                disabled={isReviewLocked}
                 className="w-full py-2.5 bg-secondary text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 shadow-md hover:bg-black"
               >
-                Save Notes
+                Save Notes & Assessment
               </button>
             </div>
 
@@ -628,39 +687,41 @@ const ApplicationReview = () => {
               </div>
             )}
 
-            {/* Application Journey - Timeline */}
-            <div className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm space-y-5">
-              <div className="flex items-center justify-between border-b border-gray-50 pb-3">
-                <h3 className="font-black text-secondary text-xs uppercase tracking-widest">Application Journey</h3>
-                <span className="material-symbols-outlined text-gray-300 text-lg">route</span>
-              </div>
-              
-              <div className="space-y-0 relative before:absolute before:inset-y-0 before:left-[11px] before:w-0.5 before:bg-gradient-to-b before:from-primary/30 before:to-gray-100">
-                {app.statusHistory?.slice(0, 5).map((h, i) => (
-                  <div key={i} className="relative pl-8 pb-8 last:pb-0 group">
-                    <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-white border-[3px] border-gray-50 flex items-center justify-center z-10 shadow-sm transition-all duration-300 group-hover:border-primary/20">
-                      <div className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-primary ring-4 ring-primary/10' : 'bg-gray-300'}`} />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <div className="flex flex-col">
-                        <span className={`text-[9px] font-black uppercase tracking-tighter ${
-                          i === 0 ? 'text-primary' : 'text-gray-400'
-                        }`}>
-                          {h.status.replace(/_/g, ' ')}
-                        </span>
-                        <p className="text-[8px] font-bold text-gray-300">
-                          {new Date(h.changedAt).toLocaleDateString()} • {new Date(h.changedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {/* Application Journey - Timeline (Hidden for reviewers) */}
+            {!isReviewerOnly && (
+              <div className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm space-y-5">
+                <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                  <h3 className="font-black text-secondary text-xs uppercase tracking-widest">Application Journey</h3>
+                  <span className="material-symbols-outlined text-gray-300 text-lg">route</span>
+                </div>
+                
+                <div className="space-y-0 relative before:absolute before:inset-y-0 before:left-[11px] before:w-0.5 before:bg-gradient-to-b before:from-primary/30 before:to-gray-100">
+                  {app.statusHistory?.slice(0, 5).map((h, i) => (
+                    <div key={i} className="relative pl-8 pb-8 last:pb-0 group">
+                      <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-white border-[3px] border-gray-50 flex items-center justify-center z-10 shadow-sm transition-all duration-300 group-hover:border-primary/20">
+                        <div className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-primary ring-4 ring-primary/10' : 'bg-gray-300'}`} />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex flex-col">
+                          <span className={`text-[9px] font-black uppercase tracking-tighter ${
+                            i === 0 ? 'text-primary' : 'text-gray-400'
+                          }`}>
+                            {h.status.replace(/_/g, ' ')}
+                          </span>
+                          <p className="text-[8px] font-bold text-gray-300">
+                            {new Date(h.changedAt).toLocaleDateString()} • {new Date(h.changedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <p className={`text-[11px] font-medium leading-tight ${i === 0 ? 'text-secondary' : 'text-gray-500'}`}>
+                          {h.remarks}
                         </p>
                       </div>
-                      <p className={`text-[11px] font-medium leading-tight ${i === 0 ? 'text-secondary' : 'text-gray-500'}`}>
-                        {h.remarks}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Status updates moved to header */}
           </div>
