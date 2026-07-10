@@ -50,7 +50,13 @@ if (process.env.NODE_ENV !== NODE_ENV.PRODUCTION) {
 }
 
 
-app.use(express.json({ limit: REQUEST_LIMITS.JSON_LIMIT }));
+// Skip JSON parsing for Stripe webhook route — it needs the raw body for signature verification
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/v1/payments/webhook') {
+    return next();
+  }
+  express.json({ limit: REQUEST_LIMITS.JSON_LIMIT })(req, res, next);
+});
 
 app.use(
   express.urlencoded({

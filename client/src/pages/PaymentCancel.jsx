@@ -3,11 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 
 /**
- * PaymentCancel — shown when a user navigates to /applications/:id/payment-cancel directly.
+ * PaymentCancel — shown when the user cancels the Stripe Checkout session and is redirected back.
  *
- * With the Razorpay modal flow there is no redirect to this page on cancellation — the modal
- * simply closes and the user stays on the Review & Submit step. This page is kept for
- * completeness (e.g. browser back-button, bookmarks, deep links).
+ * With the Stripe Checkout flow, cancellation redirects here via the cancel_url.
+ * No payment was processed — the user can safely retry from their application.
  */
 const PaymentCancel = () => {
   const navigate = useNavigate();

@@ -6,11 +6,11 @@ import toast from 'react-hot-toast';
 import MainLayout from '../layouts/MainLayout';
 
 /**
- * PaymentSuccess — shown after the Razorpay modal closes and backend verification succeeds.
+ * PaymentSuccess — shown after the Stripe Checkout session completes and the user is redirected back.
  *
- * With the modal flow, verification is done inline in ReviewSubmit.jsx before navigating here.
- * This page acts as a lightweight confirmation screen that also handles the edge case where
- * the user lands here via a direct URL (e.g., back-button, bookmark).
+ * With the Stripe Checkout flow, the webhook handles marking the payment as complete server-side.
+ * This page acts as a confirmation screen that polls the payment status and handles edge cases
+ * (e.g. webhook hasn't processed yet, user lands here via back-button, bookmarks).
  */
 const PaymentSuccess = () => {
   const { id: applicationId } = useParams();

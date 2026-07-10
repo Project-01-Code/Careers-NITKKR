@@ -50,58 +50,6 @@ const SECTION_ICONS = {
 };
 
 // ---------------------------------------------------------------------------
-// Razorpay helpers
-// ---------------------------------------------------------------------------
-
-function loadRazorpayScript() {
-  return new Promise((resolve) => {
-    if (window.Razorpay) {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
-
-function openRazorpayModal({ keyId, orderId, amountInPaise, currency, applicationId, userName, userEmail }) {
-  return new Promise((resolve, reject) => {
-    const options = {
-      key: keyId,
-      amount: amountInPaise,
-      currency: currency?.toUpperCase() ?? 'INR',
-      name: 'NIT Kurukshetra',
-      description: 'Application Fee',
-      order_id: orderId,
-      prefill: {
-        name: userName || '',
-        email: userEmail || '',
-      },
-      notes: { applicationId },
-      theme: { color: '#1e40af' },
-      handler: (response) => {
-        resolve({
-          razorpayOrderId:   response.razorpay_order_id,
-          razorpayPaymentId: response.razorpay_payment_id,
-          razorpaySignature: response.razorpay_signature,
-        });
-      },
-    };
-
-    const rzp = new window.Razorpay(options);
-
-    rzp.on('payment.failed', (response) => {
-      reject(new Error(response.error?.description || 'Payment failed'));
-    });
-
-    rzp.open();
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -198,7 +146,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
   };
 
   // ---------------------------------------------------------------------------
-  // Main submit / payment handler
+  // Main submit / payment handler — Stripe Checkout redirect
   // ---------------------------------------------------------------------------
   const handleFinalSubmit = async () => {
     if (isReadOnly) return;
@@ -228,12 +176,12 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
         return;
       }
 
-      // ── Step 2: If fee required and not yet paid, initiate Razorpay modal ──
+      // ── Step 2: If fee required, redirect to Stripe Checkout ──────────────
       if (feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted') {
 
-        // 2a. Create/retrieve order from backend
-        const orderRes = await api.post('/payments/create-order', { applicationId });
-        const paymentData = orderRes.data.data;
+        // 2a. Create Stripe Checkout Session from backend
+        const sessionRes = await api.post('/payments/create-checkout-session', { applicationId });
+        const paymentData = sessionRes.data.data;
 
         // Handle instant exemption (fee resolved to 0)
         if (paymentData?.exempted || paymentData?.alreadyPaid) {
@@ -246,42 +194,16 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           return;
         }
 
-        // 2b. Load Razorpay script
-        const scriptLoaded = await loadRazorpayScript();
-        if (!scriptLoaded) {
-          toast.error('Failed to load payment gateway. Check your internet connection and retry.');
-          setSubmitting(false);
+        // 2b. Redirect to Stripe-hosted checkout page
+        // After payment, Stripe redirects back to our success/cancel URLs.
+        // The webhook handles marking the application as submitted server-side.
+        if (paymentData?.url) {
+          window.location.href = paymentData.url;
           return;
         }
 
-        // 2c. Open modal
-        let paymentResponse;
-        try {
-          paymentResponse = await openRazorpayModal({
-            keyId:         paymentData.keyId,
-            orderId:       paymentData.orderId,
-            amountInPaise: paymentData.amountInPaise,
-            currency:      paymentData.currency,
-            applicationId,
-          });
-        } catch (modalError) {
-          toast.error(modalError.message || 'Payment was not completed. You can retry anytime.');
-          setSubmitting(false);
-          return;
-        }
-
-        // 2d. Verify payment signature on the backend
-        // eslint-disable-next-line no-unused-vars
-        const verifyRes = await api.post('/payments/verify-payment', {
-          razorpayOrderId:   paymentResponse.razorpayOrderId,
-          razorpayPaymentId: paymentResponse.razorpayPaymentId,
-          razorpaySignature: paymentResponse.razorpaySignature,
-        });
-
-        // ✅ FIX 2: Payment verified — backend already submitted the application.
-        // Navigate directly to profile. Do NOT call /submit again.
-        toast.success('Payment successful! Application submitted.');
-        navigate('/profile', { state: { refresh: true } });
+        toast.error('Failed to create payment session. Please try again.');
+        setSubmitting(false);
         return;
       }
 
@@ -888,7 +810,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
             <div className="flex-1">
               <h3 className="font-bold text-indigo-900 text-lg">Application Fee</h3>
               <p className="text-sm text-indigo-700 mt-1">
-                This position requires an application fee. Payment is processed securely via Razorpay.
+                This position requires an application fee. Payment is processed securely via Stripe.
               </p>
               <div className="flex items-center gap-4 mt-4">
                 <div className={`px-6 py-2 bg-white rounded-xl border shadow-sm ${isReadOnly ? 'border-gray-100' : 'border-indigo-200'}`}>
@@ -913,7 +835,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           </div>
           <div className="mt-4 flex items-center gap-2 text-xs text-indigo-600">
             <span className="material-symbols-outlined text-[14px]">lock</span>
-            Secured by Razorpay. Your payment details are never stored on our servers.
+            Secured by Stripe. Your payment details are never stored on our servers.
           </div>
         </div>
       )}
@@ -928,7 +850,7 @@ const ReviewSubmit = ({ onBack, onGoToSection, isReadOnly }) => {
           {feeRequired && paymentStatus !== 'paid' && paymentStatus !== 'exempted' && (
             <p className="text-amber-300 mb-6 text-sm font-medium flex items-center gap-1 justify-center">
               <span className="material-symbols-outlined text-[16px]">info</span>
-              You will be redirected to Razorpay to complete payment.
+              You will be redirected to Stripe Checkout to complete payment.
             </p>
           )}
 

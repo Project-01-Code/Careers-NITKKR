@@ -3,18 +3,25 @@ import { PAYMENT_STATUS } from '../constants.js';
 
 const paymentSchema = new Schema(
   {
-    // Razorpay order ID (e.g. order_xxxx) — created before the user pays
-    orderId: {
+    // Stripe Checkout Session ID (e.g. cs_xxxx) — created before the user pays
+    sessionId: {
       type: String,
       required: true,
       unique: true,
       index: true,
     },
-    // Razorpay payment ID (e.g. pay_xxxx) — available only after successful payment
-    razorpayPaymentId: {
+    // Stripe Payment Intent ID (e.g. pi_xxxx) — available only after successful payment
+    stripePaymentIntentId: {
       type: String,
       index: true,
       sparse: true,
+    },
+    // Stripe Event ID used for deduplication — prevents processing the same webhook twice
+    stripeEventId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
     },
     // Amount in INR whole rupees (NOT paise)
     amount: {
@@ -48,10 +55,8 @@ const paymentSchema = new Schema(
     paymentMethod: {
       type: String,
     },
-    // Raw Razorpay payload stored for audit / dispute resolution
-    // ⚠️ ASSUMPTION: This stores the verified { orderId, paymentId, signature } object.
-    // Future webhook handlers can also populate this field.
-    rawVerificationData: {
+    // Raw Stripe event data stored for audit / dispute resolution
+    rawWebhookData: {
       type: Schema.Types.Mixed,
     },
   },
