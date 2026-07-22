@@ -345,7 +345,7 @@ export const ApplicationProvider = ({ children }) => {
   }, [applicationId]);
 
   /**
-   * Create payment order (Stripe Checkout)
+   * Create payment order (Razorpay Checkout)
    */
   const createPaymentOrder = useCallback(async () => {
     if (!applicationId) {

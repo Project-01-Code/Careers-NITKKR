@@ -35,9 +35,3 @@ yarn-debug.log*
 yarn-error.log*
 
 server/docs/BACKEND_PRESENTATION_GUIDE.md
-# AI Agent Skills & Context
-.agents/
-*/.agents/
-*.md
-!README.md
-!readme.md

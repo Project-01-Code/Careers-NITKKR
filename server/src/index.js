@@ -89,10 +89,9 @@ const startServer = async () => {
       // Email (via SendGrid - https://sendgrid.com)
       'SENDGRID_API_KEY',
       'EMAIL_FROM',
-      // Stripe
-      'STRIPE_SECRET_KEY',
-      'STRIPE_PUBLISHABLE_KEY',
-      'STRIPE_WEBHOOK_SECRET',
+      // Razorpay
+      'RAZORPAY_KEY_ID',
+      'RAZORPAY_KEY_SECRET',
       'CORS_ORIGIN',
     ];
 

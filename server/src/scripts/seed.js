@@ -70,11 +70,6 @@ const minimalSections = [
   { sectionType: JOB_SECTION_TYPE.DECLARATION, isMandatory: true },
 ];
 
-const testSections = [
-  { sectionType: JOB_SECTION_TYPE.PERSONAL, isMandatory: true },
-  { sectionType: JOB_SECTION_TYPE.DECLARATION, isMandatory: true },
-];
-
 /**
  * Build a clean plain-object array for jobSnapshot.requiredSections.
  * This avoids passing Mongoose subdocuments which can break serialization.
@@ -367,28 +362,6 @@ const megaSeed = async () => {
         applicationEndDate:   new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
         createdBy:         admin._id,
       },
-      // Job 4: Test Payment Job
-      {
-        title:             'Test Position (Fast Payment Flow)',
-        advertisementNo:   'TEST/PAY/2026',
-        department:        csDept._id,
-        designation:       JOB_DESIGNATION.ASSISTANT_PROFESSOR_GRADE_II,
-        payLevel:          JOB_PAY_LEVEL.LEVEL_10,
-        vacancies:         { UR: 10, total: 10 },
-        recruitmentType:   JOB_RECRUITMENT_TYPE.EXTERNAL,
-        categories:        [JOB_CATEGORY.GEN],
-        applicationFee:    { general: 100, sc_st: 100, obc: 100, ews: 100, pwd: 100, isRequired: true },
-        description:       'This job only requires Personal Info and Declaration to reach the payment step quickly.',
-        eligibilityCriteria: {
-          minAge: 18, maxAge: 65, nationality: ['Indian'], minExperience: 0,
-          requiredDegrees: [],
-        },
-        requiredSections:  testSections,
-        status:            JOB_STATUS.PUBLISHED,
-        applicationStartDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-        applicationEndDate:   new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-        createdBy:         admin._id,
-      },
     ]);
 
     // ──────────────────────────── APPLICATIONS ───────────────────────────────
@@ -396,40 +369,6 @@ const megaSeed = async () => {
 
     const plainFaculty  = toPlainSections(facultySections);
     const plainMinimal  = toPlainSections(minimalSections);
-    const plainTest     = toPlainSections(testSections);
-
-    // App 0: Vikram → Test Job — DRAFT (fast payment test)
-    await Application.create({
-      applicationNumber: 'APP-TEST-9999',
-      userId:            vikram._id,
-      jobId:             jobs[4]._id,
-      jobSnapshot: {
-        title:            jobs[4].title,
-        jobCode:          jobs[4].advertisementNo,
-        department:       csDept.name,
-        applicationFee:   jobs[4].applicationFee,
-        requiredSections: plainTest,
-      },
-      status:        APPLICATION_STATUS.DRAFT,
-      paymentStatus: PAYMENT_STATUS.PENDING,
-      sections: {
-        personal: {
-          data: {
-            name: 'Vikram Aditya', dob: '1990-05-15', gender: 'Male',
-            category: 'GEN', mobile: '9876543210', nationality: 'Indian',
-            corrAddress: 'Test Address',
-          },
-          isComplete: true,
-        },
-        declaration: {
-          data: { declareInfoTrue: true, agreeToTerms: true, photoUploaded: true, detailsVerified: true },
-          isComplete: true,
-        },
-      },
-    });
-
-
-
 
     // App 1: Vikram → CS Job — SUBMITTED (fully filled, paid)
     const appVikram = await Application.create({
@@ -741,9 +680,8 @@ const megaSeed = async () => {
         amount:           1500,
         currency:         'INR',
         status:           PAYMENT_STATUS.PAID,
-        sessionId:        'cs_test_vikram_001',
-        stripePaymentIntentId: 'pi_test_vikram_001',
-        stripeEventId:    'evt_test_vikram_001',
+        orderId:          'order_test_vikram_001',
+        razorpayPaymentId: 'pay_test_vikram_001',
         createdAt:        new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
       },
       {
@@ -752,7 +690,7 @@ const megaSeed = async () => {
         amount:           0,
         currency:         'INR',
         status:           PAYMENT_STATUS.EXEMPTED,
-        sessionId:        'cs_exempt_priya_001',
+        orderId:          'order_exempt_priya_001',
       },
     ]);
 

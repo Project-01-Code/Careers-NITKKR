@@ -1,31 +1,24 @@
 import { Router } from 'express';
-import express from 'express';
 import {
-  createCheckoutSession,
-  handleStripeWebhook,
+  createPaymentOrder,
+  verifyPayment,
   getPaymentStatus,
 } from '../../controllers/payment.controller.js';
 import { verifyJWT } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// ── Authenticated routes ────────────────────────────────────────────────────
+// All payment routes require authentication
+router.post('/create-order', verifyJWT, createPaymentOrder);
 
-// Create a Stripe Checkout Session — returns { sessionId, url } for redirect
-router.post('/create-checkout-session', verifyJWT, createCheckoutSession);
+// Called by frontend after Razorpay modal succeeds — verifies HMAC signature
+router.post('/verify-payment', verifyJWT, verifyPayment);
 
 // Poll for payment/application status
 router.get('/status/:applicationId', verifyJWT, getPaymentStatus);
 
-// ── Stripe Webhook ──────────────────────────────────────────────────────────
-// IMPORTANT: Stripe webhooks require the RAW request body (not parsed JSON)
-// for signature verification. The express.raw() middleware is applied here
-// specifically, BEFORE the global express.json() parser runs.
-// This route does NOT require verifyJWT — Stripe authenticates via HMAC signature.
-router.post(
-  '/webhook',
-  express.raw({ type: 'application/json' }),
-  handleStripeWebhook
-);
+// ⚠️ ASSUMPTION: No webhook route is required for the current modal-based flow.
+// If Razorpay webhook support is needed in the future (e.g., for server-to-server
+// confirmation), add a route here WITHOUT verifyJWT and validate using razorpayService.verifySignature.
 
 export default router;
